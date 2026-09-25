@@ -1,0 +1,69 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <CornerRadius x:Key="RadiusPrimary">8</CornerRadius>
+    <CornerRadius x:Key="RadiusSmall">4</CornerRadius>
+    <CornerRadius x:Key="RadiusLarge">12</CornerRadius>
+    <CornerRadius x:Key="RadiusPill">999</CornerRadius>
+
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Dark">
+            <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#111317" />
+            <SolidColorBrush x:Key="SurfaceBrush" Color="#191C23" />
+            <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#222630" />
+            <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="#20232C" />
+            <SolidColorBrush x:Key="BorderSubtleBrush" Color="#2D323E" />
+            <SolidColorBrush x:Key="BorderStrongBrush" Color="#3E4554" />
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#F3F4F6" />
+            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#9CA3AF" />
+            <SolidColorBrush x:Key="TextTertiaryBrush" Color="#6B7280" />
+            <SolidColorBrush x:Key="TextMutedBrush" Color="#4B5563" />
+
+            <SolidColorBrush x:Key="AccentPrimaryBrush" Color="#6366F1" />
+            <SolidColorBrush x:Key="AccentHoverBrush" Color="#4F46E5" />
+            <SolidColorBrush x:Key="AccentPressedBrush" Color="#4338CA" />
+            <SolidColorBrush x:Key="AccentSubtleBrush" Color="#1E1F3B" />
+            <SolidColorBrush x:Key="AccentBorderBrush" Color="#818CF8" />
+            <SolidColorBrush x:Key="AccentTextBrush" Color="#818CF8" />
+
+            <SolidColorBrush x:Key="SuccessBadgeBgBrush" Color="#064E3B" />
+            <SolidColorBrush x:Key="SuccessBadgeFgBrush" Color="#34D399" />
+            <SolidColorBrush x:Key="WarningBadgeBgBrush" Color="#78350F" />
+            <SolidColorBrush x:Key="WarningBadgeFgBrush" Color="#FBBF24" />
+            <SolidColorBrush x:Key="InfoBadgeBgBrush" Color="#1E1B4B" />
+            <SolidColorBrush x:Key="InfoBadgeFgBrush" Color="#818CF8" />
+            <SolidColorBrush x:Key="NeutralBadgeBgBrush" Color="#27272A" />
+            <SolidColorBrush x:Key="NeutralBadgeFgBrush" Color="#A1A1AA" />
+            <SolidColorBrush x:Key="ConsoleBackgroundBrush" Color="#0B0C0E" />
+        </ResourceDictionary>
+
+        <ResourceDictionary x:Key="Light">
+            <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#F7F8FA" />
+            <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#F1F3F5" />
+            <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="BorderSubtleBrush" Color="#E5E7EB" />
+            <SolidColorBrush x:Key="BorderStrongBrush" Color="#D1D5DB" />
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#111827" />
+            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#4B5563" />
+            <SolidColorBrush x:Key="TextTertiaryBrush" Color="#6B7280" />
+            <SolidColorBrush x:Key="TextMutedBrush" Color="#9CA3AF" />
+
+            <SolidColorBrush x:Key="AccentPrimaryBrush" Color="#6366F1" />
+            <SolidColorBrush x:Key="AccentHoverBrush" Color="#4F46E5" />
+            <SolidColorBrush x:Key="AccentPressedBrush" Color="#4338CA" />
+            <SolidColorBrush x:Key="AccentSubtleBrush" Color="#EEF2FF" />
+            <SolidColorBrush x:Key="AccentBorderBrush" Color="#818CF8" />
+            <SolidColorBrush x:Key="AccentTextBrush" Color="#4F46E5" />
+
+            <SolidColorBrush x:Key="SuccessBadgeBgBrush" Color="#ECFDF5" />
+            <SolidColorBrush x:Key="SuccessBadgeFgBrush" Color="#059669" />
+            <SolidColorBrush x:Key="WarningBadgeBgBrush" Color="#FFFBEB" />
+            <SolidColorBrush x:Key="WarningBadgeFgBrush" Color="#D97706" />
+            <SolidColorBrush x:Key="InfoBadgeBgBrush" Color="#EEF2FF" />
+            <SolidColorBrush x:Key="InfoBadgeFgBrush" Color="#4F46E5" />
+            <SolidColorBrush x:Key="NeutralBadgeBgBrush" Color="#F3F4F6" />
+            <SolidColorBrush x:Key="NeutralBadgeFgBrush" Color="#4B5563" />
+            <SolidColorBrush x:Key="ConsoleBackgroundBrush" Color="#F0F2F5" />
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+</ResourceDictionary>

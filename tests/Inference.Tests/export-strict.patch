@@ -1,0 +1,31 @@
+diff --git a/laya-ts/scripts/export_onnx.py b/laya-ts/scripts/export_onnx.py
+--- a/laya-ts/scripts/export_onnx.py
++++ b/laya-ts/scripts/export_onnx.py
+@@ -144,4 +144,4 @@ def main(argv=None):
+     from safetensors.torch import load_file as _load_safetensors
+ 
+-    model.load_state_dict(_load_safetensors(weights_path), strict=False)
++    model.load_state_dict(_load_safetensors(weights_path), strict=True)
+     model.eval().float()
+@@ -163,3 +163,7 @@ def main(argv=None):
+     ref_hidden, ref_logits, ref_act, marker_pos, marker_mask, qtype, ref_att = _run_ref(model, _HeadOnly(model).eval(), seq, batch=2)
++    ref_hidden = ref_hidden.clone()  # Export capture needs normal tensors, not inference tensors.
++    marker_pos = marker_pos.clone()
++    marker_mask = marker_mask.clone()
++    qtype = qtype.clone()
+ 
+     os.makedirs(args.out_dir, exist_ok=True)
+@@ -174,5 +178,5 @@ def main(argv=None):
+         output_names=["last_hidden_state"],
+-        dynamic_axes={"input_ids": {0: "batch", 1: "seq"}, "attention_mask": {0: "batch", 1: "seq"}, "last_hidden_state": {0: "batch", 1: "seq"}},
+         dynamic_shapes=enc_shapes,
++        dynamo=True,
+         opset_version=args.opset,
+     )
+@@ -184,5 +188,5 @@ def main(argv=None):
+         output_names=["logits", "act_logits"],
+-        dynamic_axes={"hidden_states": {0: "batch", 1: "seq"}, "marker_pos": {0: "batch", 1: "markers"}, "marker_mask": {0: "batch", 1: "markers"}, "qtype": {0: "batch"}},
+         dynamic_shapes=head_shapes,
++        dynamo=True,
+         opset_version=args.opset,
+     )

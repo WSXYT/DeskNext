@@ -4,12 +4,12 @@
 
 ## 1. 本轮源码发现
 
-- Laya `laya-ts/scripts/export_onnx.py` 本轮 blob 为 `d82f7f28c70cd884ea0c48e0dddf4648612bc3cf`。当前脚本已检查 `model.safetensors` 存在，但仍 `load_state_dict(..., strict=False)`；要记录并检查 missing/unexpected keys，而不是笼统声称上游完全没有检查。
+- Laya `laya-ts/scripts/export_onnx.py` 本轮 blob 为 `d82f7f28c70cd884ea0c48e0dddf4648612bc3cf`。开发期补丁 [`export-strict.patch`](../../tests/Inference.Tests/export-strict.patch) 为 PyTorch 2.7 的 `dynamic_shapes` 启用 `dynamo=True`、要求 safetensors 严格加载，并在导出捕获前克隆普通临时张量；补丁 hash 与最终图/external-data hash 由 `package_probe.py` 记录。不能把这些保护措施归因于未修改的上游脚本。
 - `_run_ref` 使用全 1 token、全 1 attention mask、固定两个 marker，覆盖部分 batch/长度；其 head 参考还是导出脚本内的 `_HeadOnly`。这种自我对照无法检出双方共享的实现错误，也不覆盖真实文本、padding、完整分词和校准。
 - 实际 head 输入包括 `attention_mask`，尽管脚本文档开头只列四个参数。不能按注释写 ABI，必须检查导出图的名称、dtype、rank、shape。
 - `laya-ts/src/common.ts`（blob `323bad34496524c09126009078d0ca9fdb34b0c1`）显式模拟 Python JSON 分隔符；拼接顺序、mask token 替换、选项截断与状态截断影响 token ID。`confidenceFromProbs` 是熵指标，而 `answerConfidence` 是 max(p)，二者不同。
 - `laya/onnx_agent.py`（blob `523264042c08cf217027aeab4cd312b14757661e`）有按问题类型/候选数的温度桶、温度裁剪、四位小数响应，且其单图 ONNX 接口不是本项目 split encoder/head worker 的直接替代品。
-- 三个 blob 来自逐文件读取，不冒充同一已固定 commit。P0 固定同一 Laya commit 与模型 revision 后重新读取/对照，生成清单，不拼装不同版本的实现。
+- 三个 blob 来自逐文件读取，不冒充同一已固定 commit。P0 已固定同一 Laya commit 与模型 revision；P1(c) 使用该固定输入完成 A–D 三路径对照，并把证据写入 [`p1-report.md`](p1-report.md)。这仍是小规模等价性探针，不是 500+ 样本分类质量门槛或文件移动闭环。Python/PyTorch 仍不进入用户端包。
 
 ## 2. 冻结可复现的输入与制品
 

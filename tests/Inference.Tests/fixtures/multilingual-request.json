@@ -1,0 +1,14 @@
+{
+  "request": {
+    "requestId": "p1-multilingual-001",
+    "revision": 1,
+    "state": "文件名：设计稿🐱.pdf；说明：واجهة عربية 中文 English",
+    "instructions": "Choose the best desk space for this file.",
+    "candidates": [
+      { "id": "design", "description": "视觉设计、插画与版式" },
+      { "id": "office", "description": "Reports and invoices" },
+      { "id": "filename-ambiguous", "description": "Filename does not reveal the content" },
+      { "id": "categories-insufficient", "description": "No listed category fits" }
+    ]
+  }
+}

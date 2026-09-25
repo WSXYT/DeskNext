@@ -1,0 +1,45 @@
+name: P1 native and Avalonia probes
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            rid: win-x64
+          - os: ubuntu-24.04
+            rid: linux-x64
+          - os: macos-15
+            rid: osx-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Run headless Core and inference unit tests
+        run: dotnet test DeskNest.sln -c Release -m:1 -p:UseSharedCompilation=false
+      - name: Build native bridge (Debug, serial)
+        run: cmake -S native/pogget-bridge -B artifacts/native-ci -DCMAKE_BUILD_TYPE=Debug
+      - name: Compile native bridge and tests
+        run: cmake --build artifacts/native-ci --config Debug --parallel 1
+      - name: Exercise native ABI and Flow
+        run: ctest --test-dir artifacts/native-ci --config Debug --output-on-failure --repeat until-fail:5
+      - name: Publish self-contained UI
+        run: dotnet publish src/DeskNest.App/DeskNest.App.csproj -c Release -r ${{ matrix.rid }} --self-contained true -m:1 -p:UseSharedCompilation=false -o artifacts/publish-ui
+      - name: Run UI + native load (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: '& "./artifacts/publish-ui/DeskNest.App.exe" --headless-smoke --native-library "./artifacts/native-ci/Debug/desknest_pogget.dll"'
+      - name: Run UI + native load (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: ./artifacts/publish-ui/DeskNest.App --headless-smoke --native-library ./artifacts/native-ci/libdesknest_pogget.so
+      - name: Run UI + native load (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: ./artifacts/publish-ui/DeskNest.App --headless-smoke --native-library ./artifacts/native-ci/libdesknest_pogget.dylib

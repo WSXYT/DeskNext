@@ -7,6 +7,8 @@
 TestResults/
 artifacts/
 *.log
+**/__pycache__/
+*.pyc
 # Model bundles must never be checked into source control.
 models/
 *.onnx
