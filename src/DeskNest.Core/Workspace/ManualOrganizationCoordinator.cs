@@ -28,6 +28,34 @@ public sealed class ManualOrganizationCoordinator
         _transaction = transaction ?? throw new ArgumentNullException(nameof(transaction));
     }
 
+    public async Task RecoverPendingAsync(CancellationToken cancellationToken = default)
+    {
+        if (_transaction.HasRecoveryJournal)
+        {
+            try
+            {
+                await _transaction.RecoverAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is IOException or InvalidDataException)
+            {
+                throw new InvalidDataException(
+                    "Organization recovery could not be completed; manual recovery is required.", ex);
+            }
+        }
+
+        var snapshot = _store.Snapshot;
+        if (!snapshot.Operations.Any(operation => operation.Status == ProposedOperationStatus.PendingUser))
+            return;
+
+        await _store.UpdateAsync(state => state with
+        {
+            Operations = state.Operations.Select(operation =>
+                operation.Status == ProposedOperationStatus.PendingUser
+                    ? operation with { Status = ProposedOperationStatus.RecoveryRequired }
+                    : operation).ToList()
+        }, cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task<ManualOrganizationResult> MoveFileAsync(
         Guid fileId,
         Guid targetSpaceId,

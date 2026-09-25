@@ -162,6 +162,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             _manualCoordinator = new ManualOrganizationCoordinator(
                 _store, new DesktopOrganizationTransaction(
                     Path.Combine(_store.DataDirectory, "organization-recovery.json")));
+            await _manualCoordinator.RecoverPendingAsync().ConfigureAwait(false);
             StartupState = StartupState.Ready;
             StartupErrorMessage = string.Empty;
             ApplySnapshot(_store.Snapshot);

@@ -101,6 +101,8 @@ public sealed class DesktopOrganizationTransaction
         _moveGuard = moveGuard;
     }
 
+    public bool HasRecoveryJournal => File.Exists(_journalPath);
+
     public async Task<OrganizationTransactionResult> ExecuteAsync(
         IReadOnlyList<OrganizationMove> requestedMoves,
         CancellationToken cancellationToken = default)
