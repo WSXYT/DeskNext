@@ -11,7 +11,11 @@ public sealed record WorkspaceFile(Guid Id, Guid SpaceId, string Name, string Pa
 public sealed record PendingFile(Guid Id, string Name, string Path, TriageReason Reason,
     Guid? SuggestedSpaceId, DateTimeOffset SeenAt);
 public sealed record ProposedOperation(Guid Id, Guid FileId, Guid? TargetSpaceId,
-    ProposedOperationStatus Status, DateTimeOffset CreatedAt);
+    ProposedOperationStatus Status, DateTimeOffset CreatedAt)
+{
+    public string? SourcePath { get; init; }
+    public string? DestinationPath { get; init; }
+}
 
 public sealed record WorkspaceSettings
 {

@@ -54,7 +54,11 @@ public sealed class ManualOrganizationCoordinator
         await _store.UpdateAsync(state => state with
         {
             Operations = [.. state.Operations, new ProposedOperation(
-                operationId, fileId, targetSpaceId, ProposedOperationStatus.PendingUser, DateTimeOffset.UtcNow)]
+                operationId, fileId, targetSpaceId, ProposedOperationStatus.PendingUser, DateTimeOffset.UtcNow)
+            {
+                SourcePath = source,
+                DestinationPath = destination
+            }]
         }, cancellationToken).ConfigureAwait(false);
 
         try

@@ -150,9 +150,12 @@ public sealed class WorkspaceStore : IAsyncDisposable
         var operations = new HashSet<Guid>();
         foreach (var operation in state.Operations)
         {
+            bool invalidPaths = operation.SourcePath is { } sourcePath && !Path.IsPathFullyQualified(sourcePath) ||
+                operation.DestinationPath is { } destinationPath && !Path.IsPathFullyQualified(destinationPath);
             if (operation.Id == Guid.Empty || !operations.Add(operation.Id) || !files.Contains(operation.FileId) ||
                 !Enum.IsDefined(operation.Status) ||
-                operation.TargetSpaceId is { } target && !spaces.Contains(target))
+                operation.TargetSpaceId is { } operationTarget && !spaces.Contains(operationTarget) ||
+                invalidPaths)
                 throw new InvalidDataException("Invalid proposed operation");
         }
     }
