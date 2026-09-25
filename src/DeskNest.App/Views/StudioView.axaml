@@ -239,9 +239,63 @@
                                        FontSize="11" Foreground="{DynamicResource AccentTextBrush}"/>
                         </StackPanel>
 
-                        <!-- Section Title -->
-                        <TextBlock Grid.Row="3" Text="{Binding Localizer[Spaces.FilesTitle]}"
-                                   FontWeight="SemiBold" FontSize="13" Margin="0,4,0,8"/>
+                        <!-- Section Title & File Row Action Bar -->
+                        <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto" Margin="0,4,0,8">
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Localizer[Spaces.FilesTitle]}"
+                                           FontWeight="SemiBold" FontSize="13"/>
+                                <TextBlock Text="{Binding FileActionNotice}"
+                                           IsVisible="{Binding HasFileActionNotice}"
+                                           FontSize="11" Foreground="{DynamicResource AccentTextBrush}"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+
+                            <!-- Callback-only action bar with truthful capability gates -->
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                <Button Content="{Binding Localizer[Files.ActionOpen]}"
+                                        Command="{Binding ExecuteOpenFileCommand}"
+                                        CommandParameter="{Binding SelectedFile}"
+                                        IsEnabled="{Binding CanOpenFile}"
+                                        ToolTip.Tip="{Binding OpenFileStatusNotice}"
+                                        CornerRadius="{DynamicResource RadiusSmall}" Padding="8,3" FontSize="11"/>
+                                <Button Content="{Binding Localizer[Files.ActionPreview]}"
+                                        Command="{Binding ExecutePreviewFileCommand}"
+                                        CommandParameter="{Binding SelectedFile}"
+                                        IsEnabled="{Binding CanPreviewFile}"
+                                        ToolTip.Tip="{Binding PreviewFileStatusNotice}"
+                                        CornerRadius="{DynamicResource RadiusSmall}" Padding="8,3" FontSize="11"/>
+                                <Button Content="{Binding Localizer[Files.ActionCut]}"
+                                        Command="{Binding ExecuteCutFileCommand}"
+                                        CommandParameter="{Binding SelectedFile}"
+                                        IsEnabled="{Binding CanCutFile}"
+                                        ToolTip.Tip="{Binding CutFileStatusNotice}"
+                                        CornerRadius="{DynamicResource RadiusSmall}" Padding="8,3" FontSize="11"/>
+                                <Button Content="{Binding Localizer[Files.ActionCopy]}"
+                                        Command="{Binding ExecuteCopyFileCommand}"
+                                        CommandParameter="{Binding SelectedFile}"
+                                        IsEnabled="{Binding CanCopyFile}"
+                                        ToolTip.Tip="{Binding CopyFileStatusNotice}"
+                                        CornerRadius="{DynamicResource RadiusSmall}" Padding="8,3" FontSize="11"/>
+                                <Button Content="{Binding Localizer[Files.ActionPaste]}"
+                                        Command="{Binding ExecutePasteFileCommand}"
+                                        CommandParameter="{Binding SelectedSpace}"
+                                        IsEnabled="{Binding CanPasteFile}"
+                                        ToolTip.Tip="{Binding PasteFileStatusNotice}"
+                                        CornerRadius="{DynamicResource RadiusSmall}" Padding="8,3" FontSize="11"/>
+                                <Button Content="{Binding Localizer[Files.ActionRename]}"
+                                        Command="{Binding OpenRenameDialogCommand}"
+                                        CommandParameter="{Binding SelectedFile}"
+                                        IsEnabled="{Binding CanRenameFile}"
+                                        ToolTip.Tip="{Binding RenameFileStatusNotice}"
+                                        CornerRadius="{DynamicResource RadiusSmall}" Padding="8,3" FontSize="11"/>
+                                <Button Content="{Binding SelectedFileDeleteActionText}"
+                                        Command="{Binding ExecuteDeleteFileCommand}"
+                                        CommandParameter="{Binding SelectedFile}"
+                                        IsEnabled="{Binding CanDeleteFile}"
+                                        ToolTip.Tip="{Binding DeleteFileStatusNotice}"
+                                        CornerRadius="{DynamicResource RadiusSmall}" Padding="8,3" FontSize="11"/>
+                            </StackPanel>
+                        </Grid>
 
                         <!-- Virtualized File List or Empty State (Mutually Exclusive) -->
                         <Grid Grid.Row="4">
@@ -268,6 +322,7 @@
                             <!-- Virtualizing ListBox for File Metadata: Visible only when space has files -->
                             <ListBox x:Name="FilesListBox"
                                      ItemsSource="{Binding SelectedSpace.Files}"
+                                     SelectedItem="{Binding SelectedFile}"
                                      IsVisible="{Binding SelectedSpace.HasFiles}"
                                      Background="Transparent"
                                      BorderThickness="0"
@@ -281,7 +336,41 @@
                                                 BorderThickness="1"
                                                 CornerRadius="{DynamicResource RadiusSmall}"
                                                 Padding="10,8">
-                                            <Grid ColumnDefinitions="Auto,Auto,*">
+                                            <Border.ContextMenu>
+                                                <ContextMenu>
+                                                    <MenuItem Header="{Binding Localizer[Files.ActionOpen]}"
+                                                              Command="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).ExecuteOpenFileCommand}"
+                                                              CommandParameter="{Binding}"
+                                                              IsEnabled="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).CanOpenFile}"/>
+                                                    <MenuItem Header="{Binding Localizer[Files.ActionPreview]}"
+                                                              Command="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).ExecutePreviewFileCommand}"
+                                                              CommandParameter="{Binding}"
+                                                              IsEnabled="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).CanPreviewFile}"/>
+                                                    <Separator/>
+                                                    <MenuItem Header="{Binding Localizer[Files.ActionCut]}"
+                                                              Command="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).ExecuteCutFileCommand}"
+                                                              CommandParameter="{Binding}"
+                                                              IsEnabled="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).CanCutFile}"/>
+                                                    <MenuItem Header="{Binding Localizer[Files.ActionCopy]}"
+                                                              Command="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).ExecuteCopyFileCommand}"
+                                                              CommandParameter="{Binding}"
+                                                              IsEnabled="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).CanCopyFile}"/>
+                                                    <MenuItem Header="{Binding Localizer[Files.ActionPaste]}"
+                                                              Command="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).ExecutePasteFileCommand}"
+                                                              CommandParameter="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).SelectedSpace}"
+                                                              IsEnabled="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).CanPasteFile}"/>
+                                                    <Separator/>
+                                                    <MenuItem Header="{Binding Localizer[Files.ActionRename]}"
+                                                              Command="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).OpenRenameDialogCommand}"
+                                                              CommandParameter="{Binding}"
+                                                              IsEnabled="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).CanRenameFile}"/>
+                                                    <MenuItem Header="{Binding DeleteActionText}"
+                                                              Command="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).ExecuteDeleteFileCommand}"
+                                                              CommandParameter="{Binding}"
+                                                              IsEnabled="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).CanDeleteFile}"/>
+                                                </ContextMenu>
+                                            </Border.ContextMenu>
+                                            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto">
                                                 <!-- Geometric monochrome PathIcon for file/folder -->
                                                 <Panel Grid.Column="0" Width="16" Height="16" Margin="0,0,10,0" VerticalAlignment="Center">
                                                     <PathIcon Data="{StaticResource IconFolder}"
@@ -299,11 +388,31 @@
                                                            TextTrimming="CharacterEllipsis"
                                                            Margin="0,0,14,0"
                                                            VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="2" Text="{Binding Path}"
+                                                <!-- Managed vs Mapped capability presentation badge -->
+                                                <Border Grid.Column="2"
+                                                        CornerRadius="3"
+                                                        Background="{DynamicResource SurfaceBrush}"
+                                                        BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                                        BorderThickness="1"
+                                                        Padding="5,1"
+                                                        Margin="0,0,12,0"
+                                                        ToolTip.Tip="{Binding CapabilityDescription}"
+                                                        VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding CapabilityBadgeText}"
+                                                               FontSize="9" FontWeight="Medium"
+                                                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                </Border>
+                                                <TextBlock Grid.Column="3" Text="{Binding Path}"
                                                            FontFamily="Consolas,Menlo,Monospace" FontSize="10"
                                                            FlowDirection="LeftToRight"
                                                            TextTrimming="CharacterEllipsis"
                                                            Foreground="{DynamicResource TextTertiaryBrush}"
+                                                           VerticalAlignment="Center"/>
+                                                <!-- Context action hint / delete action indicator -->
+                                                <TextBlock Grid.Column="4" Text="{Binding DeleteActionText}"
+                                                           FontSize="10"
+                                                           Foreground="{DynamicResource TextTertiaryBrush}"
+                                                           Margin="8,0,0,0"
                                                            VerticalAlignment="Center"/>
                                             </Grid>
                                         </Border>
@@ -1040,6 +1149,45 @@
                                 HotKey="Enter"
                                 Background="{DynamicResource AccentPrimaryBrush}" Foreground="White"
                                 FontWeight="Bold" CornerRadius="{DynamicResource RadiusSmall}" Padding="14,6"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Border>
+        <!-- RENAME FILE MODAL -->
+        <Border Grid.Row="0" Grid.RowSpan="2"
+                IsVisible="{Binding IsRenameDialogOpen}"
+                Background="#80000000">
+            <Border Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource BorderStrongBrush}"
+                    BorderThickness="1"
+                    CornerRadius="{DynamicResource RadiusLarge}"
+                    Padding="24"
+                    Width="460"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                <StackPanel Spacing="16">
+                    <TextBlock Text="{Binding Localizer[Files.RenameModalTitle]}" FontSize="18" FontWeight="Bold"/>
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="{Binding Localizer[Files.RenameModalPrompt]}" FontWeight="SemiBold" FontSize="12"/>
+                        <TextBox Text="{Binding RenameItemName}" CornerRadius="{DynamicResource RadiusSmall}"/>
+                    </StackPanel>
+
+                    <TextBlock Text="{Binding RenameDialogError}" Foreground="{DynamicResource WarningBadgeFgBrush}" FontSize="12"
+                               IsVisible="{Binding RenameDialogError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,10,0,0">
+                        <Button Content="{Binding Localizer[Action.Cancel]}"
+                                Command="{Binding CloseRenameDialogCommand}"
+                                HotKey="Escape"
+                                CornerRadius="{DynamicResource RadiusSmall}" Padding="14,8"/>
+                        <Button Content="{Binding Localizer[Files.ActionRename]}"
+                                Command="{Binding ConfirmRenameCommand}"
+                                HotKey="Enter"
+                                Background="{DynamicResource AccentPrimaryBrush}"
+                                Foreground="White"
+                                FontWeight="Bold"
+                                CornerRadius="{DynamicResource RadiusSmall}" Padding="16,8"/>
                     </StackPanel>
                 </StackPanel>
             </Border>

@@ -161,6 +161,164 @@ public sealed partial class StudioViewModel : ViewModelBase
     }
 
     // ==========================================
+    // WORKSPACE FILE ACTIONS & CAPABILITY GATES (P3 UI)
+    // ==========================================
+    [ObservableProperty]
+    private WorkspaceFileItemViewModel? _selectedFile;
+
+    public bool HasSelectedFile => SelectedFile != null;
+    public string SelectedFileDeleteActionText => SelectedFile?.DeleteActionText ?? Localizer["Files.ActionDelete"];
+    public string SelectedFileCapabilitySummary => SelectedFile?.CapabilityDescription ?? string.Empty;
+
+    partial void OnSelectedFileChanged(WorkspaceFileItemViewModel? value)
+    {
+        if (SelectedSpace != null)
+        {
+            foreach (var f in SelectedSpace.Files)
+            {
+                f.IsSelected = (f == value);
+            }
+        }
+        OnPropertyChanged(nameof(HasSelectedFile));
+        OnPropertyChanged(nameof(SelectedFileDeleteActionText));
+        OnPropertyChanged(nameof(SelectedFileCapabilitySummary));
+        NotifyFileActionGates();
+    }
+
+    [RelayCommand]
+    public void SelectFile(WorkspaceFileItemViewModel? file)
+    {
+        SelectedFile = file;
+    }
+
+    public Func<WorkspaceFileItemViewModel, Task>? OnOpenFile { get; set; }
+    public bool CanOpenFile => OnOpenFile != null && SelectedFile != null;
+    public string OpenFileStatusNotice => CanOpenFile
+        ? Localizer["Files.OpenReadyNotice"]
+        : Localizer["Files.OpenGatedNotice"];
+
+    public Func<WorkspaceFileItemViewModel, Task>? OnPreviewFile { get; set; }
+    public bool CanPreviewFile => OnPreviewFile != null && SelectedFile != null;
+    public string PreviewFileStatusNotice => CanPreviewFile
+        ? Localizer["Files.PreviewReadyNotice"]
+        : Localizer["Files.PreviewGatedNotice"];
+
+    public Func<WorkspaceFileItemViewModel, Task>? OnCopyFile { get; set; }
+    public bool CanCopyFile => OnCopyFile != null && SelectedFile != null;
+    public string CopyFileStatusNotice => CanCopyFile
+        ? Localizer["Files.CopyReadyNotice"]
+        : Localizer["Files.CopyGatedNotice"];
+
+    public Func<WorkspaceFileItemViewModel, Task>? OnCutFile { get; set; }
+    public bool CanCutFile => OnCutFile != null && SelectedFile != null;
+    public string CutFileStatusNotice => CanCutFile
+        ? Localizer["Files.CutReadyNotice"]
+        : Localizer["Files.CutGatedNotice"];
+
+    public Func<SpaceItemViewModel, Task>? OnPasteFile { get; set; }
+    public bool CanPasteFile => OnPasteFile != null && SelectedSpace != null;
+    public string PasteFileStatusNotice => CanPasteFile
+        ? Localizer["Files.PasteReadyNotice"]
+        : Localizer["Files.PasteGatedNotice"];
+
+    public Func<WorkspaceFileItemViewModel, string, Task>? OnRenameFile { get; set; }
+    public bool CanRenameFile => OnRenameFile != null && SelectedFile?.IsManaged == true;
+    public string RenameFileStatusNotice => CanRenameFile
+        ? Localizer["Files.RenameReadyNotice"]
+        : Localizer["Files.RenameGatedNotice"];
+
+    public Func<WorkspaceFileItemViewModel, Task>? OnDeleteFile { get; set; }
+    public bool CanDeleteFile => OnDeleteFile != null && SelectedFile?.IsMapped == true;
+    public string DeleteFileStatusNotice => CanDeleteFile
+        ? Localizer["Files.DeleteReadyNotice"]
+        : Localizer["Files.DeleteGatedNotice"];
+
+    [ObservableProperty]
+    private string? _fileActionNotice;
+
+    public bool HasFileActionNotice => !string.IsNullOrWhiteSpace(FileActionNotice);
+
+    partial void OnFileActionNoticeChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HasFileActionNotice));
+    }
+
+    public void AttachOpenFileExecutor(Func<WorkspaceFileItemViewModel, Task> executor)
+    {
+        OnOpenFile = executor ?? throw new ArgumentNullException(nameof(executor));
+        NotifyFileActionGates();
+    }
+
+    public void AttachPreviewFileExecutor(Func<WorkspaceFileItemViewModel, Task> executor)
+    {
+        OnPreviewFile = executor ?? throw new ArgumentNullException(nameof(executor));
+        NotifyFileActionGates();
+    }
+
+    public void AttachCopyFileExecutor(Func<WorkspaceFileItemViewModel, Task> executor)
+    {
+        OnCopyFile = executor ?? throw new ArgumentNullException(nameof(executor));
+        NotifyFileActionGates();
+    }
+
+    public void AttachCutFileExecutor(Func<WorkspaceFileItemViewModel, Task> executor)
+    {
+        OnCutFile = executor ?? throw new ArgumentNullException(nameof(executor));
+        NotifyFileActionGates();
+    }
+
+    public void AttachPasteFileExecutor(Func<SpaceItemViewModel, Task> executor)
+    {
+        OnPasteFile = executor ?? throw new ArgumentNullException(nameof(executor));
+        NotifyFileActionGates();
+    }
+
+    public void AttachRenameFileExecutor(Func<WorkspaceFileItemViewModel, string, Task> executor)
+    {
+        OnRenameFile = executor ?? throw new ArgumentNullException(nameof(executor));
+        NotifyFileActionGates();
+    }
+
+    public void AttachDeleteFileExecutor(Func<WorkspaceFileItemViewModel, Task> executor)
+    {
+        OnDeleteFile = executor ?? throw new ArgumentNullException(nameof(executor));
+        NotifyFileActionGates();
+    }
+
+    public void NotifyFileActionGates()
+    {
+        OnPropertyChanged(nameof(CanOpenFile));
+        OnPropertyChanged(nameof(OpenFileStatusNotice));
+        OnPropertyChanged(nameof(CanPreviewFile));
+        OnPropertyChanged(nameof(PreviewFileStatusNotice));
+        OnPropertyChanged(nameof(CanCopyFile));
+        OnPropertyChanged(nameof(CopyFileStatusNotice));
+        OnPropertyChanged(nameof(CanCutFile));
+        OnPropertyChanged(nameof(CutFileStatusNotice));
+        OnPropertyChanged(nameof(CanPasteFile));
+        OnPropertyChanged(nameof(PasteFileStatusNotice));
+        OnPropertyChanged(nameof(CanRenameFile));
+        OnPropertyChanged(nameof(RenameFileStatusNotice));
+        OnPropertyChanged(nameof(CanDeleteFile));
+        OnPropertyChanged(nameof(DeleteFileStatusNotice));
+        OnPropertyChanged(nameof(SelectedFileDeleteActionText));
+        OnPropertyChanged(nameof(SelectedFileCapabilitySummary));
+    }
+
+    // Rename Dialog Fields
+    [ObservableProperty]
+    private bool _isRenameDialogOpen;
+
+    [ObservableProperty]
+    private string _renameItemName = string.Empty;
+
+    [ObservableProperty]
+    private WorkspaceFileItemViewModel? _renamingFile;
+
+    [ObservableProperty]
+    private string? _renameDialogError;
+
+    // ==========================================
     // DROP CAPSULE ENTRYPOINT
     // ==========================================
     [ObservableProperty]
@@ -255,6 +413,7 @@ public sealed partial class StudioViewModel : ViewModelBase
         {
             OnPropertyChanged(nameof(ManualMoveStatusNotice));
             OnPropertyChanged(nameof(ManualUndoStatusNotice));
+            NotifyFileActionGates();
         };
 
         // Load spaces and files
@@ -335,6 +494,7 @@ public sealed partial class StudioViewModel : ViewModelBase
     {
         var prevSpaceId = SelectedSpace?.Id;
         var prevPendingId = SelectedPendingItem?.Id;
+        var prevFileId = SelectedFile?.Id;
 
         AllSpaces.Clear();
         var spacesDict = new Dictionary<Guid, SpaceItemViewModel>();
@@ -345,7 +505,7 @@ public sealed partial class StudioViewModel : ViewModelBase
             var spaceVm = new SpaceItemViewModel(s, filesInSpace.Count);
             foreach (var f in filesInSpace)
             {
-                spaceVm.Files.Add(new WorkspaceFileItemViewModel(f.Id, f.SpaceId, f.Name, f.Path, f.IsDirectory));
+                spaceVm.Files.Add(new WorkspaceFileItemViewModel(f.Id, f.SpaceId, f.Name, f.Path, f.IsDirectory, s.Mode));
             }
             spaceVm.NotifyFilesChanged();
             AllSpaces.Add(spaceVm);
@@ -366,6 +526,15 @@ public sealed partial class StudioViewModel : ViewModelBase
         var matchedSpace = (prevSpaceId.HasValue ? FilteredSpaces.FirstOrDefault(s => s.Id == prevSpaceId.Value) : null)
             ?? FilteredSpaces.FirstOrDefault();
         SelectSpace(matchedSpace);
+
+        if (prevFileId.HasValue && SelectedSpace != null)
+        {
+            var matchedFile = SelectedSpace.Files.FirstOrDefault(f => f.Id == prevFileId.Value);
+            if (matchedFile != null)
+            {
+                SelectFile(matchedFile);
+            }
+        }
 
         // Load Pending Triage
         PendingItems.Clear();
@@ -451,6 +620,11 @@ public sealed partial class StudioViewModel : ViewModelBase
             s.IsSelected = (s == space);
         }
         SelectedSpace = space;
+
+        var prevFileId = SelectedFile?.Id;
+        var matchedFile = (prevFileId.HasValue ? SelectedSpace?.Files.FirstOrDefault(f => f.Id == prevFileId.Value) : null)
+            ?? SelectedSpace?.Files.FirstOrDefault();
+        SelectFile(matchedFile);
     }
 
     [RelayCommand]
@@ -887,6 +1061,228 @@ public sealed partial class StudioViewModel : ViewModelBase
         {
             await OnUndoManualMove(operationId);
         }
+    }
+
+    // ==========================================
+    // WORKSPACE FILE ACTIONS EXECUTION (P3 UI)
+    // ==========================================
+    [RelayCommand]
+    public async Task ExecuteOpenFileAsync(object? parameter)
+    {
+        var target = ResolveFileParameter(parameter) ?? SelectedFile;
+        if (target == null)
+        {
+            FileActionNotice = Localizer["Files.NoFileSelectedNotice"];
+            return;
+        }
+
+        if (OnOpenFile == null)
+        {
+            FileActionNotice = OpenFileStatusNotice;
+            return;
+        }
+
+        await OnOpenFile(target);
+        FileActionNotice = OpenFileStatusNotice;
+    }
+
+    [RelayCommand]
+    public async Task ExecutePreviewFileAsync(object? parameter)
+    {
+        var target = ResolveFileParameter(parameter) ?? SelectedFile;
+        if (target == null)
+        {
+            FileActionNotice = Localizer["Files.NoFileSelectedNotice"];
+            return;
+        }
+
+        if (OnPreviewFile == null)
+        {
+            FileActionNotice = PreviewFileStatusNotice;
+            return;
+        }
+
+        await OnPreviewFile(target);
+        FileActionNotice = PreviewFileStatusNotice;
+    }
+
+    [RelayCommand]
+    public async Task ExecuteCopyFileAsync(object? parameter)
+    {
+        var target = ResolveFileParameter(parameter) ?? SelectedFile;
+        if (target == null)
+        {
+            FileActionNotice = Localizer["Files.NoFileSelectedNotice"];
+            return;
+        }
+
+        if (OnCopyFile == null)
+        {
+            FileActionNotice = CopyFileStatusNotice;
+            return;
+        }
+
+        await OnCopyFile(target);
+        FileActionNotice = CopyFileStatusNotice;
+    }
+
+    [RelayCommand]
+    public async Task ExecuteCutFileAsync(object? parameter)
+    {
+        var target = ResolveFileParameter(parameter) ?? SelectedFile;
+        if (target == null)
+        {
+            FileActionNotice = Localizer["Files.NoFileSelectedNotice"];
+            return;
+        }
+
+        if (OnCutFile == null)
+        {
+            FileActionNotice = CutFileStatusNotice;
+            return;
+        }
+
+        await OnCutFile(target);
+        FileActionNotice = CutFileStatusNotice;
+    }
+
+    [RelayCommand]
+    public async Task ExecutePasteFileAsync(object? parameter)
+    {
+        var targetSpace = parameter as SpaceItemViewModel ?? SelectedSpace;
+        if (targetSpace == null)
+        {
+            FileActionNotice = Localizer["Files.NoSpaceSelectedNotice"];
+            return;
+        }
+
+        if (OnPasteFile == null)
+        {
+            FileActionNotice = PasteFileStatusNotice;
+            return;
+        }
+
+        await OnPasteFile(targetSpace);
+        FileActionNotice = PasteFileStatusNotice;
+    }
+
+    [RelayCommand]
+    public async Task ExecuteRenameFileAsync(object? parameter)
+    {
+        WorkspaceFileItemViewModel? target = null;
+        string? newName = null;
+
+        if (parameter is ValueTuple<WorkspaceFileItemViewModel, string> pair)
+        {
+            target = pair.Item1;
+            newName = pair.Item2;
+        }
+        else if (parameter is (WorkspaceFileItemViewModel f, string n))
+        {
+            target = f;
+            newName = n;
+        }
+        else if (parameter is WorkspaceFileItemViewModel file)
+        {
+            OpenRenameDialog(file);
+            return;
+        }
+        else if (parameter == null && SelectedFile != null)
+        {
+            OpenRenameDialog(SelectedFile);
+            return;
+        }
+
+        if (target == null)
+        {
+            FileActionNotice = Localizer["Files.NoFileSelectedNotice"];
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(newName))
+            return;
+
+        if (OnRenameFile == null)
+        {
+            FileActionNotice = RenameFileStatusNotice;
+            return;
+        }
+
+        await OnRenameFile(target, newName);
+        FileActionNotice = RenameFileStatusNotice;
+    }
+
+    [RelayCommand]
+    public async Task ExecuteDeleteFileAsync(object? parameter)
+    {
+        var target = ResolveFileParameter(parameter) ?? SelectedFile;
+        if (target == null)
+        {
+            FileActionNotice = Localizer["Files.NoFileSelectedNotice"];
+            return;
+        }
+
+        if (OnDeleteFile == null)
+        {
+            FileActionNotice = DeleteFileStatusNotice;
+            return;
+        }
+
+        await OnDeleteFile(target);
+        FileActionNotice = DeleteFileStatusNotice;
+    }
+
+    [RelayCommand]
+    public void OpenRenameDialog(object? parameter)
+    {
+        var target = ResolveFileParameter(parameter) ?? SelectedFile;
+        if (target == null)
+        {
+            FileActionNotice = Localizer["Files.NoFileSelectedNotice"];
+            return;
+        }
+
+        RenamingFile = target;
+        RenameItemName = target.Name;
+        RenameDialogError = null;
+        IsRenameDialogOpen = true;
+    }
+
+    [RelayCommand]
+    public void CloseRenameDialog()
+    {
+        IsRenameDialogOpen = false;
+        RenamingFile = null;
+        RenameDialogError = null;
+    }
+
+    [RelayCommand]
+    public async Task ConfirmRenameAsync()
+    {
+        if (RenamingFile == null)
+        {
+            IsRenameDialogOpen = false;
+            return;
+        }
+
+        var trimmed = RenameItemName?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(trimmed) || trimmed.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || trimmed.Contains('/') || trimmed.Contains('\\'))
+        {
+            RenameDialogError = Localizer["Validation.InvalidSpaceName"];
+            return;
+        }
+
+        var file = RenamingFile;
+        IsRenameDialogOpen = false;
+        RenamingFile = null;
+        await ExecuteRenameFileAsync((file, trimmed));
+    }
+
+    private WorkspaceFileItemViewModel? ResolveFileParameter(object? parameter)
+    {
+        if (parameter is WorkspaceFileItemViewModel f) return f;
+        if (parameter is Guid id) return SelectedSpace?.Files.FirstOrDefault(x => x.Id == id);
+        return null;
     }
 
     [RelayCommand]

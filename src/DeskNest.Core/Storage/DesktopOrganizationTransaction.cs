@@ -79,9 +79,8 @@ public sealed record OrganizationTransactionResult(
 
 /// <summary>
 /// Fail-closed, journaled moves for the P3 manual-organization boundary.
-/// This first implementation intentionally accepts regular files only; it never
-/// follows reparse points, overwrites destinations, or treats a changed file as
-/// an authorized undo target.
+/// Regular files and same-volume directories are supported; directory moves carry
+/// a complete file manifest and never follow reparse points or overwrite destinations.
 /// </summary>
 public sealed class DesktopOrganizationTransaction
 {
@@ -94,10 +93,12 @@ public sealed class DesktopOrganizationTransaction
     private readonly SemaphoreSlim _operationGate = new(1, 1);
     private readonly string _journalPath;
     private readonly Func<OrganizationMoveReceipt, bool>? _moveGuard;
+    private readonly Func<OrganizationDirectoryMoveReceipt, bool>? _directoryMoveGuard;
 
     public DesktopOrganizationTransaction(
         string journalPath,
-        Func<OrganizationMoveReceipt, bool>? moveGuard = null)
+        Func<OrganizationMoveReceipt, bool>? moveGuard = null,
+        Func<OrganizationDirectoryMoveReceipt, bool>? directoryMoveGuard = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(journalPath);
         if (!Path.IsPathFullyQualified(journalPath))
@@ -105,6 +106,7 @@ public sealed class DesktopOrganizationTransaction
 
         _journalPath = journalPath;
         _moveGuard = moveGuard;
+        _directoryMoveGuard = directoryMoveGuard;
     }
 
     public bool HasRecoveryJournal => File.Exists(_journalPath);
@@ -336,7 +338,7 @@ public sealed class DesktopOrganizationTransaction
         return result;
     }
 
-    private static IReadOnlyList<DirectoryFileReceipt> CaptureDirectoryManifest(string root)
+    public static IReadOnlyList<DirectoryFileReceipt> CaptureDirectoryManifest(string root)
     {
         var rootInfo = new DirectoryInfo(root);
         if ((rootInfo.Attributes & FileAttributes.ReparsePoint) != 0)
@@ -356,11 +358,13 @@ public sealed class DesktopOrganizationTransaction
                 throw new IOException($"Reparse-point directory member is not eligible: {path}");
             files.Add(new DirectoryFileReceipt(Path.GetRelativePath(root, path), FileIdentity.Capture(path)));
         }
-        return files;
+        return files.OrderBy(item => item.RelativePath, StringComparer.Ordinal).ToArray();
     }
 
-    private static void MoveDirectoryOne(OrganizationDirectoryMoveReceipt move)
+    private void MoveDirectoryOne(OrganizationDirectoryMoveReceipt move)
     {
+        if (_directoryMoveGuard is not null && !_directoryMoveGuard(move))
+            throw new IOException($"Fault injection refused directory move: {move.SourcePath}");
         if (Directory.Exists(move.DestinationPath) || File.Exists(move.DestinationPath))
             throw new IOException($"Destination appeared during directory move: {move.DestinationPath}");
         var current = CaptureDirectoryManifest(move.SourcePath);

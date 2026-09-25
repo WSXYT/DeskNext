@@ -63,6 +63,10 @@ public sealed class SmokeTestResult
     public bool ManualMoveGatedCallbackBoundaryVerified { get; set; }
     public bool ManualUndoGatedCallbackBoundaryVerified { get; set; }
     public bool OperationUndoneStatusVerified { get; set; }
+    public bool WorkspaceFileCapabilityGatesTruthful { get; set; }
+    public bool WorkspaceFileCallbacksInvoked { get; set; }
+    public bool WorkspaceFileManagedVsMappedVerified { get; set; }
+    public bool WorkspaceFileSelectionRetentionVerified { get; set; }
     public string VirtualDpiStatus { get; set; } = "Unverified (Avalonia.Headless does not expose configurable per-window RenderScaling API; physical 100%/150%/200% DPI matrix remains open for physical display verification)";
     public double HeadlessScale { get; set; } = 1.0;
     public bool HeadlessOffscreenRenderRequested { get; set; }
@@ -1254,6 +1258,162 @@ public static class HeadlessSmokeRunner
                     throw new InvalidOperationException("OperationItemViewModel UndoCommand did not route through callback boundary.");
 
                 result.OperationUndoneStatusVerified = true;
+
+                // Regression Assertion 11: Truthful WorkspaceFile Capability Gates, Callback Invocations, Managed-vs-Mapped Presentation & Selection Retention (P3 UI Slice)
+                // 1. Verify truthful gated status when unattached
+                var unattachedStudio = new StudioViewModel(new WorkspaceState(), _ => Task.FromResult(new WorkspaceState()));
+                if (unattachedStudio.CanOpenFile || unattachedStudio.CanPreviewFile ||
+                    unattachedStudio.CanCopyFile || unattachedStudio.CanCutFile ||
+                    unattachedStudio.CanPasteFile || unattachedStudio.CanRenameFile ||
+                    unattachedStudio.CanDeleteFile)
+                {
+                    throw new InvalidOperationException("Unattached StudioViewModel must gate all WorkspaceFile actions.");
+                }
+
+                if (unattachedStudio.OpenFileStatusNotice != localizer["Files.OpenGatedNotice"] ||
+                    unattachedStudio.PreviewFileStatusNotice != localizer["Files.PreviewGatedNotice"] ||
+                    unattachedStudio.CopyFileStatusNotice != localizer["Files.CopyGatedNotice"] ||
+                    unattachedStudio.CutFileStatusNotice != localizer["Files.CutGatedNotice"] ||
+                    unattachedStudio.PasteFileStatusNotice != localizer["Files.PasteGatedNotice"] ||
+                    unattachedStudio.RenameFileStatusNotice != localizer["Files.RenameGatedNotice"] ||
+                    unattachedStudio.DeleteFileStatusNotice != localizer["Files.DeleteGatedNotice"])
+                {
+                    throw new InvalidOperationException("Unattached StudioViewModel did not report expected localized gated notices.");
+                }
+
+                var dummyManagedSpace = new WorkspaceSpace(Guid.NewGuid(), "Managed Test", "Desc", SpaceStorageMode.Managed, Path.Combine(oobeDir.Path, "Managed"));
+                var dummyMappedSpace = new WorkspaceSpace(Guid.NewGuid(), "Mapped Test", "Desc", SpaceStorageMode.Mapped, Path.Combine(oobeDir.Path, "Mapped"));
+                var dummyManagedFile = new WorkspaceFile(Guid.NewGuid(), dummyManagedSpace.Id, "doc.txt", Path.Combine(dummyManagedSpace.Folder, "doc.txt"), false);
+                var dummyMappedFile = new WorkspaceFile(Guid.NewGuid(), dummyMappedSpace.Id, "ref.txt", Path.Combine(dummyMappedSpace.Folder, "ref.txt"), false);
+
+                var p3State = new WorkspaceState
+                {
+                    Spaces = [dummyManagedSpace, dummyMappedSpace],
+                    Files = [dummyManagedFile, dummyMappedFile]
+                };
+
+                unattachedStudio.RefreshFromState(p3State);
+                unattachedStudio.SelectSpace(unattachedStudio.AllSpaces.First(s => s.Id == dummyManagedSpace.Id));
+                unattachedStudio.SelectFile(unattachedStudio.SelectedSpace?.Files.First());
+
+                // Executing unattached must set the gated notice and perform zero direct filesystem mutation
+                Task.Run(async () => await unattachedStudio.ExecuteOpenFileAsync(unattachedStudio.SelectedFile)).GetAwaiter().GetResult();
+                if (unattachedStudio.FileActionNotice != localizer["Files.OpenGatedNotice"])
+                    throw new InvalidOperationException("Executing unattached open did not set OpenGatedNotice.");
+
+                Task.Run(async () => await unattachedStudio.ExecuteCopyFileAsync(unattachedStudio.SelectedFile)).GetAwaiter().GetResult();
+                if (unattachedStudio.FileActionNotice != localizer["Files.CopyGatedNotice"])
+                    throw new InvalidOperationException("Executing unattached copy did not set CopyGatedNotice.");
+
+                Task.Run(async () => await unattachedStudio.ExecuteCutFileAsync(unattachedStudio.SelectedFile)).GetAwaiter().GetResult();
+                if (unattachedStudio.FileActionNotice != localizer["Files.CutGatedNotice"])
+                    throw new InvalidOperationException("Executing unattached cut did not set CutGatedNotice.");
+
+                Task.Run(async () => await unattachedStudio.ExecutePasteFileAsync(unattachedStudio.SelectedSpace)).GetAwaiter().GetResult();
+                if (unattachedStudio.FileActionNotice != localizer["Files.PasteGatedNotice"])
+                    throw new InvalidOperationException("Executing unattached paste did not set PasteGatedNotice.");
+
+                Task.Run(async () => await unattachedStudio.ExecuteDeleteFileAsync(unattachedStudio.SelectedFile)).GetAwaiter().GetResult();
+                if (unattachedStudio.FileActionNotice != localizer["Files.DeleteGatedNotice"])
+                    throw new InvalidOperationException("Executing unattached delete did not set DeleteGatedNotice.");
+
+                result.WorkspaceFileCapabilityGatesTruthful = true;
+
+                // 2. Verify injectable callback invocation when attached
+                WorkspaceFileItemViewModel? invokedOpenFile = null;
+                WorkspaceFileItemViewModel? invokedPreviewFile = null;
+                WorkspaceFileItemViewModel? invokedCopyFile = null;
+                WorkspaceFileItemViewModel? invokedCutFile = null;
+                SpaceItemViewModel? invokedPasteSpace = null;
+                (WorkspaceFileItemViewModel? file, string? newName) invokedRename = (null, null);
+                WorkspaceFileItemViewModel? invokedDeleteFile = null;
+
+                unattachedStudio.AttachOpenFileExecutor(f => { invokedOpenFile = f; return Task.CompletedTask; });
+                unattachedStudio.AttachPreviewFileExecutor(f => { invokedPreviewFile = f; return Task.CompletedTask; });
+                unattachedStudio.AttachCopyFileExecutor(f => { invokedCopyFile = f; return Task.CompletedTask; });
+                unattachedStudio.AttachCutFileExecutor(f => { invokedCutFile = f; return Task.CompletedTask; });
+                unattachedStudio.AttachPasteFileExecutor(s => { invokedPasteSpace = s; return Task.CompletedTask; });
+                unattachedStudio.AttachRenameFileExecutor((f, name) => { invokedRename = (f, name); return Task.CompletedTask; });
+                unattachedStudio.AttachDeleteFileExecutor(f => { invokedDeleteFile = f; return Task.CompletedTask; });
+
+                if (!unattachedStudio.CanOpenFile || !unattachedStudio.CanPreviewFile ||
+                    !unattachedStudio.CanCopyFile || !unattachedStudio.CanCutFile ||
+                    !unattachedStudio.CanPasteFile || !unattachedStudio.CanRenameFile ||
+                    unattachedStudio.CanDeleteFile)
+                {
+                    throw new InvalidOperationException("Attached StudioViewModel must gate managed delete and enable the other applicable actions.");
+                }
+
+                var targetTestFile = unattachedStudio.SelectedFile!;
+                var targetTestSpace = unattachedStudio.SelectedSpace!;
+
+                Task.Run(async () => await unattachedStudio.ExecuteOpenFileAsync(targetTestFile)).GetAwaiter().GetResult();
+                if (invokedOpenFile != targetTestFile)
+                    throw new InvalidOperationException("OnOpenFile callback was not invoked with expected file.");
+
+                Task.Run(async () => await unattachedStudio.ExecutePreviewFileAsync(targetTestFile)).GetAwaiter().GetResult();
+                if (invokedPreviewFile != targetTestFile)
+                    throw new InvalidOperationException("OnPreviewFile callback was not invoked with expected file.");
+
+                Task.Run(async () => await unattachedStudio.ExecuteCopyFileAsync(targetTestFile)).GetAwaiter().GetResult();
+                if (invokedCopyFile != targetTestFile)
+                    throw new InvalidOperationException("OnCopyFile callback was not invoked with expected file.");
+
+                Task.Run(async () => await unattachedStudio.ExecuteCutFileAsync(targetTestFile)).GetAwaiter().GetResult();
+                if (invokedCutFile != targetTestFile)
+                    throw new InvalidOperationException("OnCutFile callback was not invoked with expected file.");
+
+                Task.Run(async () => await unattachedStudio.ExecutePasteFileAsync(targetTestSpace)).GetAwaiter().GetResult();
+                if (invokedPasteSpace != targetTestSpace)
+                    throw new InvalidOperationException("OnPasteFile callback was not invoked with expected space.");
+
+                Task.Run(async () => await unattachedStudio.ExecuteRenameFileAsync((targetTestFile, "renamed_doc.txt"))).GetAwaiter().GetResult();
+                if (invokedRename.file != targetTestFile || invokedRename.newName != "renamed_doc.txt")
+                    throw new InvalidOperationException("OnRenameFile callback was not invoked with expected arguments.");
+
+                var mappedSpaceItem = unattachedStudio.AllSpaces.First(s => s.IsMapped);
+                unattachedStudio.SelectSpace(mappedSpaceItem);
+                var mappedTargetFile = mappedSpaceItem.Files.First();
+                unattachedStudio.SelectFile(mappedTargetFile);
+                if (!unattachedStudio.CanDeleteFile)
+                    throw new InvalidOperationException("Attached StudioViewModel must enable mapped-reference removal.");
+                Task.Run(async () => await unattachedStudio.ExecuteDeleteFileAsync(mappedTargetFile)).GetAwaiter().GetResult();
+                if (invokedDeleteFile != mappedTargetFile)
+                    throw new InvalidOperationException("OnDeleteFile callback was not invoked with expected mapped file.");
+
+                result.WorkspaceFileCallbacksInvoked = true;
+
+                // 3. Verify Managed vs Mapped capability presentation
+                var managedFileItem = unattachedStudio.AllSpaces.First(s => s.IsManaged).Files.First();
+                var mappedFileItem = unattachedStudio.AllSpaces.First(s => s.IsMapped).Files.First();
+
+                if (!managedFileItem.IsManaged || managedFileItem.IsMapped)
+                    throw new InvalidOperationException("Managed file item did not present IsManaged=true, IsMapped=false.");
+                if (managedFileItem.CapabilityBadgeText != localizer["Files.CapabilityManaged"])
+                    throw new InvalidOperationException($"Managed file badge text expected '{localizer["Files.CapabilityManaged"]}', got '{managedFileItem.CapabilityBadgeText}'.");
+                if (managedFileItem.DeleteActionText != localizer["Files.ActionDelete"])
+                    throw new InvalidOperationException($"Managed file delete action text expected '{localizer["Files.ActionDelete"]}', got '{managedFileItem.DeleteActionText}'.");
+
+                if (!mappedFileItem.IsMapped || mappedFileItem.IsManaged)
+                    throw new InvalidOperationException("Mapped file item did not present IsMapped=true, IsManaged=false.");
+                if (mappedFileItem.CapabilityBadgeText != localizer["Files.CapabilityMapped"])
+                    throw new InvalidOperationException($"Mapped file badge text expected '{localizer["Files.CapabilityMapped"]}', got '{mappedFileItem.CapabilityBadgeText}'.");
+                if (mappedFileItem.DeleteActionText != localizer["Files.ActionRemove"])
+                    throw new InvalidOperationException($"Mapped file delete action text expected '{localizer["Files.ActionRemove"]}', got '{mappedFileItem.DeleteActionText}'.");
+
+                result.WorkspaceFileManagedVsMappedVerified = true;
+
+                // 4. Verify Selection Retention across state refreshes
+                unattachedStudio.SelectSpace(unattachedStudio.AllSpaces.First(s => s.Id == managedFileItem.SpaceId));
+                unattachedStudio.SelectFile(managedFileItem);
+                if (unattachedStudio.SelectedFile?.Id != managedFileItem.Id)
+                    throw new InvalidOperationException("SelectedFile was not properly selected.");
+
+                unattachedStudio.RefreshFromState(p3State);
+                if (unattachedStudio.SelectedFile?.Id != managedFileItem.Id)
+                    throw new InvalidOperationException("SelectedFile was not retained across RefreshFromState.");
+
+                result.WorkspaceFileSelectionRetentionVerified = true;
                 result.OperationHistoryStatusesVerified = true;
 
                 // Verify that RecoveryRequired displays actionable warning text, NEVER as success

@@ -104,6 +104,21 @@ public sealed class WorkspaceStore : IAsyncDisposable
     private static WorkspaceState Copy(WorkspaceState state) =>
         JsonSerializer.Deserialize<WorkspaceState>(JsonSerializer.Serialize(state, Json), Json)!;
 
+    private static bool IsInvalidDirectoryManifestEntry(WorkspaceDirectoryFileIdentity? item)
+    {
+        if (item is null || string.IsNullOrWhiteSpace(item.RelativePath) || item.RelativePath.Length > 4_096 ||
+            Path.IsPathFullyQualified(item.RelativePath) || item.Length < 0 ||
+            item.LastWriteTimeUtcTicks < 0 || string.IsNullOrWhiteSpace(item.Sha256) ||
+            item.Sha256.Length != 64)
+            return true;
+
+        string root = Path.Combine(Path.GetTempPath(), "DeskNestManifestValidation");
+        string full = Path.GetFullPath(Path.Combine(root, item.RelativePath));
+        string prefix = root + Path.DirectorySeparatorChar;
+        return !full.StartsWith(prefix,
+            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+    }
+
     private static void Validate(WorkspaceState state)
     {
         if (state.SchemaVersion != WorkspaceState.CurrentSchemaVersion || state.Revision < 0 ||
@@ -155,10 +170,12 @@ public sealed class WorkspaceStore : IAsyncDisposable
         {
             bool invalidPaths = operation.SourcePath is { } sourcePath && !Path.IsPathFullyQualified(sourcePath) ||
                 operation.DestinationPath is { } destinationPath && !Path.IsPathFullyQualified(destinationPath);
+            bool invalidManifest = operation.OriginalDirectoryManifest is { } manifest &&
+                (manifest.Count > 100_000 || manifest.Any(IsInvalidDirectoryManifestEntry));
             if (operation.Id == Guid.Empty || !operations.Add(operation.Id) || !files.Contains(operation.FileId) ||
                 !Enum.IsDefined(operation.Status) ||
                 operation.TargetSpaceId is { } operationTarget && !spaces.Contains(operationTarget) ||
-                invalidPaths)
+                invalidPaths || invalidManifest)
                 throw new InvalidDataException("Invalid proposed operation");
         }
     }

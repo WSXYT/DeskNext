@@ -187,6 +187,37 @@ public sealed class DesktopOrganizationTransactionTests
     }
 
     [Fact]
+    public async Task DirectoryFaultInjectionLeavesRecoverableJournalForCompletedMoves()
+    {
+        using var root = new TempDirectory();
+        string sourceOne = Path.Combine(root.Path, "one");
+        string sourceTwo = Path.Combine(root.Path, "two");
+        string destinationOne = Path.Combine(root.Path, "out-one");
+        string destinationTwo = Path.Combine(root.Path, "out-two");
+        string journal = Path.Combine(root.Path, "operation.json");
+        Directory.CreateDirectory(sourceOne);
+        Directory.CreateDirectory(sourceTwo);
+        await File.WriteAllTextAsync(Path.Combine(sourceOne, "one.txt"), "one");
+        await File.WriteAllTextAsync(Path.Combine(sourceTwo, "two.txt"), "two");
+
+        var transaction = new DesktopOrganizationTransaction(journal, directoryMoveGuard: move =>
+            !move.SourcePath.EndsWith("two", StringComparison.OrdinalIgnoreCase));
+        await Assert.ThrowsAsync<IOException>(() => transaction.ExecuteDirectoriesAsync([
+            new OrganizationDirectoryMove(sourceOne, destinationOne),
+            new OrganizationDirectoryMove(sourceTwo, destinationTwo)]));
+
+        Assert.False(Directory.Exists(sourceOne));
+        Assert.True(Directory.Exists(destinationOne));
+        Assert.True(Directory.Exists(sourceTwo));
+        Assert.True(File.Exists(journal));
+
+        var restored = await transaction.RecoverAsync();
+        Assert.Equal(OrganizationTransactionStatus.Completed, restored.Status);
+        Assert.True(File.Exists(Path.Combine(sourceOne, "one.txt")));
+        Assert.False(Directory.Exists(destinationOne));
+    }
+
+    [Fact]
     public async Task ExecuteRejectsDuplicateSourceBeforeMovingAnything()
     {
         using var root = new TempDirectory();

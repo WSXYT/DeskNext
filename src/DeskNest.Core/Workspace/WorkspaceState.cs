@@ -10,6 +10,8 @@ public sealed record WorkspaceSpace(Guid Id, string Name, string Description, Sp
 public sealed record WorkspaceFile(Guid Id, Guid SpaceId, string Name, string Path, bool IsDirectory);
 public sealed record PendingFile(Guid Id, string Name, string Path, TriageReason Reason,
     Guid? SuggestedSpaceId, DateTimeOffset SeenAt);
+public sealed record WorkspaceDirectoryFileIdentity(
+    string RelativePath, long Length, long LastWriteTimeUtcTicks, string Sha256);
 public sealed record ProposedOperation(Guid Id, Guid FileId, Guid? TargetSpaceId,
     ProposedOperationStatus Status, DateTimeOffset CreatedAt)
 {
@@ -19,6 +21,7 @@ public sealed record ProposedOperation(Guid Id, Guid FileId, Guid? TargetSpaceId
     public long? OriginalLength { get; init; }
     public long? OriginalLastWriteUtcTicks { get; init; }
     public string? OriginalSha256 { get; init; }
+    public List<WorkspaceDirectoryFileIdentity>? OriginalDirectoryManifest { get; init; }
 }
 
 public sealed record WorkspaceSettings

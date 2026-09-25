@@ -149,6 +149,115 @@ public sealed class WorkspaceStoreTests
     }
 
     [Fact]
+    public async Task ManualCoordinatorUndoesCompletedDirectoryMoveThroughManifest()
+    {
+        using var temp = new TemporaryDirectory();
+        string sourceFolder = Path.Combine(temp.Path, "source");
+        string targetFolder = Path.Combine(temp.Path, "target");
+        string sourceDirectory = Path.Combine(sourceFolder, "project");
+        Directory.CreateDirectory(Path.Combine(sourceDirectory, "nested"));
+        Directory.CreateDirectory(targetFolder);
+        string sourcePath = Path.Combine(sourceDirectory, "nested", "item.txt");
+        await File.WriteAllTextAsync(sourcePath, "directory undo");
+        var sourceSpace = new WorkspaceSpace(Guid.NewGuid(), "Source", "", SpaceStorageMode.Managed, sourceFolder);
+        var targetSpace = new WorkspaceSpace(Guid.NewGuid(), "Target", "", SpaceStorageMode.Managed, targetFolder);
+        var file = new WorkspaceFile(Guid.NewGuid(), sourceSpace.Id, "project", sourceDirectory, true);
+        await using var store = await WorkspaceStore.OpenAsync(temp.Path);
+        await store.UpdateAsync(state => state with { Spaces = [sourceSpace, targetSpace], Files = [file] });
+        var coordinator = new ManualOrganizationCoordinator(
+            store, new DesktopOrganizationTransaction(Path.Combine(temp.Path, "operation.json")));
+
+        await coordinator.MoveFileAsync(file.Id, targetSpace.Id);
+        var operation = store.Snapshot.Operations.Single();
+        Assert.NotNull(operation.OriginalDirectoryManifest);
+        await coordinator.UndoOperationAsync(operation.Id);
+
+        Assert.True(File.Exists(sourcePath));
+        Assert.False(Directory.Exists(Path.Combine(targetFolder, "project")));
+        Assert.Equal(sourceDirectory, store.Snapshot.Files.Single().Path);
+        Assert.Equal(ProposedOperationStatus.Undone, store.Snapshot.Operations.Single().Status);
+    }
+
+    [Fact]
+    public async Task DirectoryUndoRefusesChangedManifestAndMarksRecoveryRequired()
+    {
+        using var temp = new TemporaryDirectory();
+        string sourceFolder = Path.Combine(temp.Path, "source");
+        string targetFolder = Path.Combine(temp.Path, "target");
+        string sourceDirectory = Path.Combine(sourceFolder, "project");
+        Directory.CreateDirectory(sourceDirectory);
+        Directory.CreateDirectory(targetFolder);
+        await File.WriteAllTextAsync(Path.Combine(sourceDirectory, "item.txt"), "original");
+        var sourceSpace = new WorkspaceSpace(Guid.NewGuid(), "Source", "", SpaceStorageMode.Managed, sourceFolder);
+        var targetSpace = new WorkspaceSpace(Guid.NewGuid(), "Target", "", SpaceStorageMode.Managed, targetFolder);
+        var file = new WorkspaceFile(Guid.NewGuid(), sourceSpace.Id, "project", sourceDirectory, true);
+        await using var store = await WorkspaceStore.OpenAsync(temp.Path);
+        await store.UpdateAsync(state => state with { Spaces = [sourceSpace, targetSpace], Files = [file] });
+        var coordinator = new ManualOrganizationCoordinator(
+            store, new DesktopOrganizationTransaction(Path.Combine(temp.Path, "operation.json")));
+
+        await coordinator.MoveFileAsync(file.Id, targetSpace.Id);
+        var operation = store.Snapshot.Operations.Single();
+        await File.WriteAllTextAsync(Path.Combine(targetFolder, "project", "item.txt"), "changed");
+
+        await Assert.ThrowsAsync<IOException>(() => coordinator.UndoOperationAsync(operation.Id));
+        Assert.Equal(ProposedOperationStatus.RecoveryRequired, store.Snapshot.Operations.Single().Status);
+        Assert.True(File.Exists(Path.Combine(targetFolder, "project", "item.txt")));
+        Assert.False(Directory.Exists(sourceDirectory));
+    }
+
+    [Fact]
+    public async Task ManualCoordinatorRenamesManagedFileThroughTransactionAndUndo()
+    {
+        using var temp = new TemporaryDirectory();
+        string managedFolder = Path.Combine(temp.Path, "managed");
+        Directory.CreateDirectory(managedFolder);
+        string sourcePath = Path.Combine(managedFolder, "old.txt");
+        string renamedPath = Path.Combine(managedFolder, "new.txt");
+        await File.WriteAllTextAsync(sourcePath, "rename");
+        var space = new WorkspaceSpace(Guid.NewGuid(), "Managed", "", SpaceStorageMode.Managed, managedFolder);
+        var file = new WorkspaceFile(Guid.NewGuid(), space.Id, "old.txt", sourcePath, false);
+        await using var store = await WorkspaceStore.OpenAsync(temp.Path);
+        await store.UpdateAsync(state => state with { Spaces = [space], Files = [file] });
+        var coordinator = new ManualOrganizationCoordinator(
+            store, new DesktopOrganizationTransaction(Path.Combine(temp.Path, "operation.json")));
+
+        await coordinator.RenameFileAsync(file.Id, "new.txt");
+        var operation = store.Snapshot.Operations.Single();
+        Assert.False(File.Exists(sourcePath));
+        Assert.True(File.Exists(renamedPath));
+        Assert.Equal("new.txt", store.Snapshot.Files.Single().Name);
+        Assert.Equal(ProposedOperationStatus.Completed, operation.Status);
+
+        await coordinator.UndoOperationAsync(operation.Id);
+        Assert.True(File.Exists(sourcePath));
+        Assert.False(File.Exists(renamedPath));
+        Assert.Equal("old.txt", store.Snapshot.Files.Single().Name);
+        Assert.Equal(ProposedOperationStatus.Undone, store.Snapshot.Operations.Single().Status);
+    }
+
+    [Fact]
+    public async Task ManualCoordinatorRemovesMappedReferenceWithoutTouchingSource()
+    {
+        using var temp = new TemporaryDirectory();
+        string externalFolder = Path.Combine(temp.Path, "external");
+        Directory.CreateDirectory(externalFolder);
+        string sourcePath = Path.Combine(externalFolder, "reference.txt");
+        await File.WriteAllTextAsync(sourcePath, "preserve");
+        var space = new WorkspaceSpace(Guid.NewGuid(), "Mapped", "", SpaceStorageMode.Mapped, externalFolder);
+        var file = new WorkspaceFile(Guid.NewGuid(), space.Id, "reference.txt", sourcePath, false);
+        await using var store = await WorkspaceStore.OpenAsync(temp.Path);
+        await store.UpdateAsync(state => state with { Spaces = [space], Files = [file] });
+        var coordinator = new ManualOrganizationCoordinator(
+            store, new DesktopOrganizationTransaction(Path.Combine(temp.Path, "operation.json")));
+
+        await coordinator.RemoveMappedReferenceAsync(file.Id);
+
+        Assert.Empty(store.Snapshot.Files);
+        Assert.Equal("preserve", await File.ReadAllTextAsync(sourcePath));
+    }
+
+    [Fact]
     public async Task UndoRefusesModifiedDestinationAndMarksRecoveryRequired()
     {
         using var temp = new TemporaryDirectory();

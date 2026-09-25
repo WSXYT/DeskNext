@@ -252,6 +252,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
                 {
                     Studio.AttachManualMoveExecutor(ExecuteManualMoveAsync);
                     Studio.AttachManualUndoExecutor(ExecuteUndoManualMoveAsync);
+                    Studio.AttachRenameFileExecutor(ExecuteRenameFileAsync);
+                    Studio.AttachDeleteFileExecutor(ExecuteRemoveMappedReferenceAsync);
                 }
             }
             else
@@ -261,6 +263,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
                 {
                     Studio.AttachManualMoveExecutor(ExecuteManualMoveAsync);
                     Studio.AttachManualUndoExecutor(ExecuteUndoManualMoveAsync);
+                    Studio.AttachRenameFileExecutor(ExecuteRenameFileAsync);
+                    Studio.AttachDeleteFileExecutor(ExecuteRemoveMappedReferenceAsync);
                 }
             }
         }
@@ -299,6 +303,38 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             {
                 await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => ApplySnapshot(_store.Snapshot));
             }
+        }
+    }
+
+    private async Task ExecuteRenameFileAsync(WorkspaceFileItemViewModel file, string newName)
+    {
+        if (_manualCoordinator is null)
+            throw new InvalidOperationException("Manual organization is not initialized.");
+
+        try
+        {
+            await _manualCoordinator.RenameFileAsync(file.Id, newName).ConfigureAwait(false);
+        }
+        finally
+        {
+            if (_store is not null)
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => ApplySnapshot(_store.Snapshot));
+        }
+    }
+
+    private async Task ExecuteRemoveMappedReferenceAsync(WorkspaceFileItemViewModel file)
+    {
+        if (_manualCoordinator is null)
+            throw new InvalidOperationException("Manual organization is not initialized.");
+
+        try
+        {
+            await _manualCoordinator.RemoveMappedReferenceAsync(file.Id).ConfigureAwait(false);
+        }
+        finally
+        {
+            if (_store is not null)
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => ApplySnapshot(_store.Snapshot));
         }
     }
 

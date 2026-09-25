@@ -1,4 +1,4 @@
-# P2 metadata studio verification (in progress)
+# P2 first usable native version verification (automated gate complete; physical matrix explicit)
 
 P2 is **not a live organizer**: no desktop watcher, automated file move, ONNX worker integration or Jev API invocation is enabled. The P2 decision request/reply contract only evaluates metadata; file action authorization remains in later phases. F01–F13 end-to-end entries in `feature-tracker.md` remain unverified.
 
@@ -40,8 +40,10 @@ The first visual pass was rejected after direct PNG inspection because it still 
 
 The final cleanup removed the remaining decorative `✦` from all 12 dictionaries and replaced empty-state glyphs with vector marks. Release build completed with 0 warnings/0 errors; Core tests passed 20/20; Inference tests passed 4/4; the headless smoke with native ABI and opt-in dark/light offscreen fixtures passed all 10 steps, 12-language parity, RTL path isolation, injected Escape/Enter/Tab checks and 10 realized containers for 10,000 metadata rows.
 
-## Remaining P2 acceptance work
+## Final P2 automated acceptance at `ce142a7`
 
-- Complete long-text/RTL visual coverage and keyboard flows, plus native 100%/150%/200% DPI evidence. Long-text tests currently prove no layout exception, not lack of text clipping. A single Tab transition is not a full keyboard-accessibility audit.
-- Unavailable physical-display evidence remains unverified; native-backend CI startup is not manual desktop UX acceptance.
-- Check final P2 plan gate before starting P3. In particular, a documented manual-path capsule must not be reported as OS drag-and-drop; model selection UI must not be reported as an active inference engine.
+- Release build completed with 0 warnings and 0 errors; `DeskNest.Core.Tests` passed 36/36 and `DeskNest.Inference.Tests` passed 4/4.
+- `--headless-smoke` passed in 3108 ms with 226-key exact parity across all 12 locales, RTL path isolation, 1280x720/1600x900 long-text bounds, real StudioView virtualization of 10,000 metadata rows, genuine Escape/Enter/Tab/Shift+Tab/arrow/Space input injection, drag/drop routing, operation lifecycle rendering, identity-checked manual move and undo callback boundaries.
+- `--native-window-smoke` has been verified on the Windows development host with a valid HWND, 1280x760 bounds, and observed RenderScaling 2.50 (250%). CI evidence covers native startup at scale 1.0 on Windows, Linux/Xvfb, and macOS.
+- The P2 implementation/automated acceptance gate is complete. P2 does not claim physical 150%/200% display matrices, physical IME behavior, DWM material fidelity, or hardware accessibility behavior; those remain explicit deployment verification items because this host/CI setup cannot safely change display settings.
+- The P2 UI remains metadata-only for file enrollment. Physical moves, monitoring takeover, model execution, and Jev calls are not enabled by this phase.
