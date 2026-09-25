@@ -50,33 +50,56 @@ public sealed class ManualOrganizationCoordinator
             throw new InvalidDataException("The target file would escape the target space.");
         }
 
-        OrganizationTransactionStatus status;
-        if (file.IsDirectory)
-        {
-            var result = await _transaction.ExecuteDirectoriesAsync(
-                [new OrganizationDirectoryMove(source, destination)], cancellationToken)
-                .ConfigureAwait(false);
-            status = result.Status;
-        }
-        else
-        {
-            var result = await _transaction.ExecuteAsync(
-                [new OrganizationMove(source, destination)], cancellationToken)
-                .ConfigureAwait(false);
-            status = result.Status;
-        }
-
+        var operationId = Guid.NewGuid();
         await _store.UpdateAsync(state => state with
         {
-            Files = state.Files.Select(item => item.Id == fileId
-                ? item with { SpaceId = targetSpaceId, Path = destination, Name = Path.GetFileName(destination) }
-                : item).ToList(),
-            Pending = state.Pending.Where(item => !string.Equals(
-                Path.GetFullPath(item.Path), source,
-                OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal)).ToList()
+            Operations = [.. state.Operations, new ProposedOperation(
+                operationId, fileId, targetSpaceId, ProposedOperationStatus.PendingUser, DateTimeOffset.UtcNow)]
         }, cancellationToken).ConfigureAwait(false);
 
-        return new ManualOrganizationResult(
-            fileId, sourceSpace.Id, targetSpaceId, source, destination, status);
+        try
+        {
+            OrganizationTransactionStatus status;
+            if (file.IsDirectory)
+            {
+                var result = await _transaction.ExecuteDirectoriesAsync(
+                    [new OrganizationDirectoryMove(source, destination)], cancellationToken)
+                    .ConfigureAwait(false);
+                status = result.Status;
+            }
+            else
+            {
+                var result = await _transaction.ExecuteAsync(
+                    [new OrganizationMove(source, destination)], cancellationToken)
+                    .ConfigureAwait(false);
+                status = result.Status;
+            }
+
+            await _store.UpdateAsync(state => state with
+            {
+                Files = state.Files.Select(item => item.Id == fileId
+                    ? item with { SpaceId = targetSpaceId, Path = destination, Name = Path.GetFileName(destination) }
+                    : item).ToList(),
+                Pending = state.Pending.Where(item => !string.Equals(
+                    Path.GetFullPath(item.Path), source,
+                    OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal)).ToList(),
+                Operations = state.Operations.Select(item => item.Id == operationId
+                    ? item with { Status = ProposedOperationStatus.Completed }
+                    : item).ToList()
+            }, cancellationToken).ConfigureAwait(false);
+
+            return new ManualOrganizationResult(
+                fileId, sourceSpace.Id, targetSpaceId, source, destination, status);
+        }
+        catch
+        {
+            await _store.UpdateAsync(state => state with
+            {
+                Operations = state.Operations.Select(item => item.Id == operationId
+                    ? item with { Status = ProposedOperationStatus.RecoveryRequired }
+                    : item).ToList()
+            }, CancellationToken.None).ConfigureAwait(false);
+            throw;
+        }
     }
 }

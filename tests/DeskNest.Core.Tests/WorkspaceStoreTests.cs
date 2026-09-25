@@ -117,6 +117,7 @@ public sealed class WorkspaceStoreTests
         Assert.True(File.Exists(Path.Combine(targetFolder, "source.txt")));
         Assert.Equal(targetSpace.Id, store.Snapshot.Files.Single().SpaceId);
         Assert.Equal(Path.Combine(targetFolder, "source.txt"), store.Snapshot.Files.Single().Path);
+        Assert.Equal(ProposedOperationStatus.Completed, store.Snapshot.Operations.Single().Status);
     }
 
     [Fact]
@@ -140,6 +141,7 @@ public sealed class WorkspaceStoreTests
             .MoveFileAsync(file.Id, targetSpace.Id));
 
         Assert.Equal(sourcePath, store.Snapshot.Files.Single().Path);
+        Assert.Equal(ProposedOperationStatus.RecoveryRequired, store.Snapshot.Operations.Single().Status);
         Assert.True(File.Exists(sourcePath));
         Assert.False(File.Exists(Path.Combine(targetFolder, "source.txt")));
     }

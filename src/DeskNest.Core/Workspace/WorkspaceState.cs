@@ -4,7 +4,7 @@ namespace DeskNest.Core.Workspace;
 public enum SpaceStorageMode { Managed, Mapped }
 public enum InferenceProvider { Laya, Jev }
 public enum TriageReason { FilenameAmbiguous, CategoriesInsufficient, NearTie }
-public enum ProposedOperationStatus { Proposed, PendingUser }
+public enum ProposedOperationStatus { Proposed, PendingUser, Completed, RecoveryRequired }
 
 public sealed record WorkspaceSpace(Guid Id, string Name, string Description, SpaceStorageMode Mode, string Folder);
 public sealed record WorkspaceFile(Guid Id, Guid SpaceId, string Name, string Path, bool IsDirectory);
