@@ -121,6 +121,63 @@ public sealed class WorkspaceStoreTests
     }
 
     [Fact]
+    public async Task ManualCoordinatorUndoesCompletedMoveThroughTransaction()
+    {
+        using var temp = new TemporaryDirectory();
+        string sourceFolder = Path.Combine(temp.Path, "source");
+        string targetFolder = Path.Combine(temp.Path, "target");
+        Directory.CreateDirectory(sourceFolder);
+        Directory.CreateDirectory(targetFolder);
+        string sourcePath = Path.Combine(sourceFolder, "source.txt");
+        await File.WriteAllTextAsync(sourcePath, "undo");
+        var sourceSpace = new WorkspaceSpace(Guid.NewGuid(), "Source", "", SpaceStorageMode.Managed, sourceFolder);
+        var targetSpace = new WorkspaceSpace(Guid.NewGuid(), "Target", "", SpaceStorageMode.Managed, targetFolder);
+        var file = new WorkspaceFile(Guid.NewGuid(), sourceSpace.Id, "source.txt", sourcePath, false);
+        await using var store = await WorkspaceStore.OpenAsync(temp.Path);
+        await store.UpdateAsync(state => state with { Spaces = [sourceSpace, targetSpace], Files = [file] });
+        var coordinator = new ManualOrganizationCoordinator(
+            store, new DesktopOrganizationTransaction(Path.Combine(temp.Path, "operation.json")));
+
+        await coordinator.MoveFileAsync(file.Id, targetSpace.Id);
+        var operation = store.Snapshot.Operations.Single();
+        await coordinator.UndoOperationAsync(operation.Id);
+
+        Assert.True(File.Exists(sourcePath));
+        Assert.False(File.Exists(Path.Combine(targetFolder, "source.txt")));
+        Assert.Equal(sourceSpace.Id, store.Snapshot.Files.Single().SpaceId);
+        Assert.Equal(ProposedOperationStatus.Undone, store.Snapshot.Operations.Single().Status);
+    }
+
+    [Fact]
+    public async Task UndoRefusesModifiedDestinationAndMarksRecoveryRequired()
+    {
+        using var temp = new TemporaryDirectory();
+        string sourceFolder = Path.Combine(temp.Path, "source");
+        string targetFolder = Path.Combine(temp.Path, "target");
+        Directory.CreateDirectory(sourceFolder);
+        Directory.CreateDirectory(targetFolder);
+        string sourcePath = Path.Combine(sourceFolder, "source.txt");
+        string destinationPath = Path.Combine(targetFolder, "source.txt");
+        await File.WriteAllTextAsync(sourcePath, "undo-safe");
+        var sourceSpace = new WorkspaceSpace(Guid.NewGuid(), "Source", "", SpaceStorageMode.Managed, sourceFolder);
+        var targetSpace = new WorkspaceSpace(Guid.NewGuid(), "Target", "", SpaceStorageMode.Managed, targetFolder);
+        var file = new WorkspaceFile(Guid.NewGuid(), sourceSpace.Id, "source.txt", sourcePath, false);
+        await using var store = await WorkspaceStore.OpenAsync(temp.Path);
+        await store.UpdateAsync(state => state with { Spaces = [sourceSpace, targetSpace], Files = [file] });
+        var coordinator = new ManualOrganizationCoordinator(
+            store, new DesktopOrganizationTransaction(Path.Combine(temp.Path, "operation.json")));
+
+        await coordinator.MoveFileAsync(file.Id, targetSpace.Id);
+        var operation = store.Snapshot.Operations.Single();
+        await File.WriteAllTextAsync(destinationPath, "modified");
+
+        await Assert.ThrowsAsync<IOException>(() => coordinator.UndoOperationAsync(operation.Id));
+        Assert.Equal(ProposedOperationStatus.RecoveryRequired, store.Snapshot.Operations.Single().Status);
+        Assert.Equal("modified", await File.ReadAllTextAsync(destinationPath));
+        Assert.False(File.Exists(sourcePath));
+    }
+
+    [Fact]
     public async Task ManualCoordinatorLeavesMetadataUnchangedWhenMoveIsRefused()
     {
         using var temp = new TemporaryDirectory();

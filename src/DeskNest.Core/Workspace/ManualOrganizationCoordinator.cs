@@ -56,6 +56,70 @@ public sealed class ManualOrganizationCoordinator
         }, cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<ManualOrganizationResult> UndoOperationAsync(
+        Guid operationId,
+        CancellationToken cancellationToken = default)
+    {
+        var snapshot = _store.Snapshot;
+        var operation = snapshot.Operations.FirstOrDefault(item => item.Id == operationId)
+            ?? throw new KeyNotFoundException($"Workspace operation was not found: {operationId}");
+        if (operation.Status != ProposedOperationStatus.Completed ||
+            operation.SourcePath is null || operation.DestinationPath is null || operation.SourceSpaceId == Guid.Empty)
+            throw new InvalidDataException("Only completed operations with recovery paths can be undone.");
+
+        var file = snapshot.Files.FirstOrDefault(item => item.Id == operation.FileId)
+            ?? throw new InvalidDataException("The operation file metadata is missing.");
+        var sourceSpace = snapshot.Spaces.FirstOrDefault(space => space.Id == operation.SourceSpaceId)
+            ?? throw new InvalidDataException("The operation source space is missing.");
+        string currentPath = Path.GetFullPath(operation.DestinationPath);
+        string restorePath = Path.GetFullPath(operation.SourcePath);
+
+        try
+        {
+            if (file.IsDirectory)
+                throw new NotSupportedException("Directory undo requires a persisted manifest and is not yet enabled.");
+
+            if (operation.OriginalLength is null || operation.OriginalLastWriteUtcTicks is null ||
+                string.IsNullOrWhiteSpace(operation.OriginalSha256))
+                throw new InvalidDataException("The operation has no complete source identity for undo.");
+
+            var expectedIdentity = new FileIdentity(
+                operation.OriginalLength.Value,
+                operation.OriginalLastWriteUtcTicks.Value,
+                operation.OriginalSha256);
+            var currentIdentity = FileIdentity.Capture(currentPath);
+            if (currentIdentity != expectedIdentity)
+                throw new IOException("Undo refused because the moved file was modified after organization.");
+            var result = await _transaction.ExecuteAsync(
+                [new OrganizationMove(currentPath, restorePath)], cancellationToken)
+                .ConfigureAwait(false);
+            OrganizationTransactionStatus status = result.Status;
+
+            await _store.UpdateAsync(state => state with
+            {
+                Files = state.Files.Select(item => item.Id == file.Id
+                    ? item with { SpaceId = sourceSpace.Id, Path = restorePath, Name = Path.GetFileName(restorePath) }
+                    : item).ToList(),
+                Operations = state.Operations.Select(item => item.Id == operationId
+                    ? item with { Status = ProposedOperationStatus.Undone }
+                    : item).ToList()
+            }, cancellationToken).ConfigureAwait(false);
+
+            return new ManualOrganizationResult(
+                file.Id, file.SpaceId, sourceSpace.Id, currentPath, restorePath, status);
+        }
+        catch
+        {
+            await _store.UpdateAsync(state => state with
+            {
+                Operations = state.Operations.Select(item => item.Id == operationId
+                    ? item with { Status = ProposedOperationStatus.RecoveryRequired }
+                    : item).ToList()
+            }, CancellationToken.None).ConfigureAwait(false);
+            throw;
+        }
+    }
+
     public async Task<ManualOrganizationResult> MoveFileAsync(
         Guid fileId,
         Guid targetSpaceId,
@@ -78,14 +142,20 @@ public sealed class ManualOrganizationCoordinator
             throw new InvalidDataException("The target file would escape the target space.");
         }
 
+        FileIdentity? originalIdentity = file.IsDirectory ? null : FileIdentity.Capture(source);
+
         var operationId = Guid.NewGuid();
         await _store.UpdateAsync(state => state with
         {
             Operations = [.. state.Operations, new ProposedOperation(
                 operationId, fileId, targetSpaceId, ProposedOperationStatus.PendingUser, DateTimeOffset.UtcNow)
             {
+                SourceSpaceId = sourceSpace.Id,
                 SourcePath = source,
-                DestinationPath = destination
+                DestinationPath = destination,
+                OriginalLength = originalIdentity?.Length,
+                OriginalLastWriteUtcTicks = originalIdentity?.LastWriteTimeUtcTicks,
+                OriginalSha256 = originalIdentity?.Sha256
             }]
         }, cancellationToken).ConfigureAwait(false);
 

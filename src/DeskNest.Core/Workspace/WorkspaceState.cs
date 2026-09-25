@@ -4,7 +4,7 @@ namespace DeskNest.Core.Workspace;
 public enum SpaceStorageMode { Managed, Mapped }
 public enum InferenceProvider { Laya, Jev }
 public enum TriageReason { FilenameAmbiguous, CategoriesInsufficient, NearTie }
-public enum ProposedOperationStatus { Proposed, PendingUser, Completed, RecoveryRequired }
+public enum ProposedOperationStatus { Proposed, PendingUser, Completed, Undone, RecoveryRequired }
 
 public sealed record WorkspaceSpace(Guid Id, string Name, string Description, SpaceStorageMode Mode, string Folder);
 public sealed record WorkspaceFile(Guid Id, Guid SpaceId, string Name, string Path, bool IsDirectory);
@@ -14,7 +14,11 @@ public sealed record ProposedOperation(Guid Id, Guid FileId, Guid? TargetSpaceId
     ProposedOperationStatus Status, DateTimeOffset CreatedAt)
 {
     public string? SourcePath { get; init; }
+    public Guid SourceSpaceId { get; init; }
     public string? DestinationPath { get; init; }
+    public long? OriginalLength { get; init; }
+    public long? OriginalLastWriteUtcTicks { get; init; }
+    public string? OriginalSha256 { get; init; }
 }
 
 public sealed record WorkspaceSettings
