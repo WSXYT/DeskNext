@@ -146,6 +146,20 @@ public sealed partial class StudioViewModel : ViewModelBase
         OnPropertyChanged(nameof(ManualMoveStatusNotice));
     }
 
+    // Injectable callback boundary for manual undo execution (P3)
+    public Func<Guid, Task>? OnUndoManualMove { get; set; }
+    public bool CanUndoManualMove => OnUndoManualMove != null;
+    public string ManualUndoStatusNotice => CanUndoManualMove
+        ? Localizer["Operations.UndoReadyNotice"]
+        : Localizer["Operations.UndoGatedNotice"];
+
+    public void AttachManualUndoExecutor(Func<Guid, Task> executor)
+    {
+        OnUndoManualMove = executor ?? throw new ArgumentNullException(nameof(executor));
+        OnPropertyChanged(nameof(CanUndoManualMove));
+        OnPropertyChanged(nameof(ManualUndoStatusNotice));
+    }
+
     // ==========================================
     // DROP CAPSULE ENTRYPOINT
     // ==========================================
@@ -240,6 +254,7 @@ public sealed partial class StudioViewModel : ViewModelBase
         Localizer.LanguageChanged += (_, _) =>
         {
             OnPropertyChanged(nameof(ManualMoveStatusNotice));
+            OnPropertyChanged(nameof(ManualUndoStatusNotice));
         };
 
         // Load spaces and files
@@ -374,13 +389,15 @@ public sealed partial class StudioViewModel : ViewModelBase
             string? spaceName = op.TargetSpaceId.HasValue && spacesDict.TryGetValue(op.TargetSpaceId.Value, out var targetSpace)
                 ? targetSpace.Name
                 : (op.TargetSpaceId.HasValue ? state.Spaces.FirstOrDefault(s => s.Id == op.TargetSpaceId.Value)?.Name : null);
-            OperationHistory.Add(new OperationItemViewModel(op, fileName, spaceName));
+            OperationHistory.Add(new OperationItemViewModel(op, fileName, spaceName, () => ExecuteUndoManualMoveAsync(op.Id)));
         }
 
         OnPropertyChanged(nameof(OperationHistoryCount));
         OnPropertyChanged(nameof(HasOperationHistory));
         OnPropertyChanged(nameof(ManualMoveStatusNotice));
         OnPropertyChanged(nameof(CanExecuteManualMove));
+        OnPropertyChanged(nameof(ManualUndoStatusNotice));
+        OnPropertyChanged(nameof(CanUndoManualMove));
 
         OnPropertyChanged(nameof(PendingCount));
         OnPropertyChanged(nameof(HasPendingItems));
@@ -839,6 +856,36 @@ public sealed partial class StudioViewModel : ViewModelBase
         else if (parameter is (Guid fileId, Guid targetSpaceId))
         {
             await OnExecuteManualMove(fileId, targetSpaceId);
+        }
+    }
+
+    [RelayCommand]
+    public async Task ExecuteUndoManualMoveAsync(object? parameter)
+    {
+        if (OnUndoManualMove == null)
+        {
+            OnPropertyChanged(nameof(CanUndoManualMove));
+            OnPropertyChanged(nameof(ManualUndoStatusNotice));
+            return;
+        }
+
+        Guid operationId = Guid.Empty;
+        if (parameter is Guid id)
+        {
+            operationId = id;
+        }
+        else if (parameter is OperationItemViewModel item)
+        {
+            operationId = item.Id;
+        }
+        else if (parameter is string idStr && Guid.TryParse(idStr, out var parsed))
+        {
+            operationId = parsed;
+        }
+
+        if (operationId != Guid.Empty)
+        {
+            await OnUndoManualMove(operationId);
         }
     }
 

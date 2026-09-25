@@ -211,13 +211,18 @@
   "Operations.StatusProposed": "Proposto",
   "Operations.StatusPendingUser": "Aguardando Usuário",
   "Operations.StatusCompleted": "Concluído",
+  "Operations.StatusUndone": "Desfeito",
   "Operations.StatusRecoveryRequired": "Recuperação Necessária",
   "Operations.DescProposed": "Operação proposta pelo modelo ou regras; nenhuma alteração física executada ainda.",
   "Operations.DescPendingUser": "Transação aguardando autorização explícita do usuário ou execução manual.",
   "Operations.DescCompleted": "Transação de movimentação física executada com sucesso e sincronizada com metadados do espaço.",
+  "Operations.DescUndone": "Transação de movimentação física desfeita com sucesso; arquivo restaurado com segurança para o espaço e caminho originais.",
   "Operations.DescRecoveryRequired": "Transação interrompida ou anomalia detectada; sistema retido em estado de proteção seguro.",
   "Operations.RecoveryRequiredAction": "[Ação Necessária] Confirmação física incompleta ou registro corrompido. Inspecione o diário de recuperação no diretório de dados antes de tentar novamente.",
-  "Operations.NoUndoNotice": "Aviso de Auditoria: Operações formam um registro imutável. Desfazer automático não está disponível para prevenir perda de dados.",
+  "Operations.NoUndoNotice": "Aviso de Auditoria: Operações formam um registro imutável. Desfazer automático ou reversão às cegas não estão disponíveis para prevenir perda de dados; apenas operações verificadas em estado «Concluído» disponibilizam desfazer manual com verificação de identidade.",
   "Operations.ManualMoveGatedNotice": "Movimentação manual bloqueada: Coordenador do Core não conectado; File.Move direto é proibido",
-  "Operations.ManualMoveReadyNotice": "Coordenador do Core conectado; movimentação manual controlada disponível"
+  "Operations.ManualMoveReadyNotice": "Coordenador do Core conectado; movimentação manual controlada disponível",
+  "Operations.UndoAction": "Desfazer Movimentação",
+  "Operations.UndoGatedNotice": "Desfazer manual bloqueado: coordenador de transação do Core não anexado; File.Move direto é proibido",
+  "Operations.UndoReadyNotice": "Coordenador de transação do Core anexado; desfazer manual controlado está disponível"
 }

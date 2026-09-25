@@ -211,13 +211,18 @@
   "Operations.StatusProposed": "Proposed",
   "Operations.StatusPendingUser": "Pending User",
   "Operations.StatusCompleted": "Completed",
+  "Operations.StatusUndone": "Undone",
   "Operations.StatusRecoveryRequired": "Recovery Required",
   "Operations.DescProposed": "Operation proposed by model or rule resolver; no physical file changes executed yet.",
   "Operations.DescPendingUser": "Transaction is awaiting explicit user authorization or manual trigger.",
   "Operations.DescCompleted": "Physical move transaction successfully executed and synchronized with workspace metadata.",
+  "Operations.DescUndone": "Physical move transaction successfully undone; file safely restored to its original space and path.",
   "Operations.DescRecoveryRequired": "Transaction interrupted or state anomaly detected; system halted in fail-closed safety state.",
   "Operations.RecoveryRequiredAction": "[Action Required] Physical commit incomplete or journal corrupted. Inspect the recovery journal in data directory and verify filesystem state before retrying.",
-  "Operations.NoUndoNotice": "Audit Notice: Operations are an immutable transaction log. Automatic undo and blind reversal are not available to prevent data loss.",
+  "Operations.NoUndoNotice": "Audit Notice: Operations are an immutable transaction log. Automatic undo and blind reversal are unavailable to prevent data loss; only verified Completed operations expose identity-checked manual undo.",
   "Operations.ManualMoveGatedNotice": "Manual move is gated: Core transaction coordinator not attached; direct File.Move is prohibited",
-  "Operations.ManualMoveReadyNotice": "Core transaction coordinator is attached; controlled manual move is available"
+  "Operations.ManualMoveReadyNotice": "Core transaction coordinator is attached; controlled manual move is available",
+  "Operations.UndoAction": "Undo Move",
+  "Operations.UndoGatedNotice": "Manual undo is gated: Core transaction coordinator not attached; direct File.Move is prohibited",
+  "Operations.UndoReadyNotice": "Core transaction coordinator is attached; controlled manual undo is available"
 }

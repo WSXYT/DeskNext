@@ -211,13 +211,18 @@
   "Operations.StatusProposed": "提案中",
   "Operations.StatusPendingUser": "ユーザー確認待ち",
   "Operations.StatusCompleted": "完了",
+  "Operations.StatusUndone": "取り消し済み",
   "Operations.StatusRecoveryRequired": "リカバリが必要",
   "Operations.DescProposed": "モデルまたはルールにより提案されましたが、まだ物理変更は実行されていません。",
   "Operations.DescPendingUser": "トランザクションはユーザーの明示的な承認または手動実行を待機しています。",
   "Operations.DescCompleted": "物理ファイル移動トランザクションが正常にコミットされ、メタデータと同期されました。",
+  "Operations.DescUndone": "物理的な移動トランザクションが正常に取り消され、ファイルは元の領域とパスに安全に復元されました。",
   "Operations.DescRecoveryRequired": "トランザクションの中断または異常を検知しました。安全のためフェイルクローズド状態で停止しています。",
   "Operations.RecoveryRequiredAction": "【要確認】物理コミットが不完全か、ジャーナルに異常があります。データディレクトリの復旧ログを確認し、ファイルの実位置を確かめてから再試行してください。",
-  "Operations.NoUndoNotice": "監査注記: 操作履歴は不変のトランザクションログです。ファイルの安全を確保するため、自動取り消しや逆移動は提供していません。",
+  "Operations.NoUndoNotice": "監査注記: 操作履歴は不変のトランザクションログです。ファイルの安全を確保するため自動取り消しやブラインド逆移動は提供されず、検証済みの「完了」操作のみが同一性確認を伴う手動取り消しに対応しています。",
   "Operations.ManualMoveGatedNotice": "手動移動はゲート制限中: コアコーディネーターが未接続のため直接の File.Move は禁止されています",
-  "Operations.ManualMoveReadyNotice": "コアコーディネーターが接続されており、制御された手動移動が可能です"
+  "Operations.ManualMoveReadyNotice": "コアコーディネーターが接続されており、制御された手動移動が可能です",
+  "Operations.UndoAction": "移動を取り消す",
+  "Operations.UndoGatedNotice": "手動取り消しはゲート制御されています: コアトランザクションコーディネーターが接続されていません。直接の File.Move は禁止されています",
+  "Operations.UndoReadyNotice": "コアトランザクションコーディネーターが接続されています。制御された手動取り消しが利用可能です"
 }

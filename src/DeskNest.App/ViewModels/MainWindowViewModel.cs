@@ -248,12 +248,20 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             if (Studio == null)
             {
                 Studio = new StudioViewModel(state, UpdateStoreAsync);
-                Studio.AttachManualMoveExecutor(ExecuteManualMoveAsync);
+                if (_manualCoordinator != null)
+                {
+                    Studio.AttachManualMoveExecutor(ExecuteManualMoveAsync);
+                    Studio.AttachManualUndoExecutor(ExecuteUndoManualMoveAsync);
+                }
             }
             else
             {
                 Studio.RefreshFromState(state);
-                Studio.AttachManualMoveExecutor(ExecuteManualMoveAsync);
+                if (_manualCoordinator != null)
+                {
+                    Studio.AttachManualMoveExecutor(ExecuteManualMoveAsync);
+                    Studio.AttachManualUndoExecutor(ExecuteUndoManualMoveAsync);
+                }
             }
         }
     }
@@ -263,7 +271,35 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         if (_manualCoordinator is null)
             throw new InvalidOperationException("Manual organization is not initialized.");
 
-        await _manualCoordinator.MoveFileAsync(fileId, targetSpaceId).ConfigureAwait(false);
+        try
+        {
+            await _manualCoordinator.MoveFileAsync(fileId, targetSpaceId).ConfigureAwait(false);
+        }
+        finally
+        {
+            if (_store is not null)
+            {
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => ApplySnapshot(_store.Snapshot));
+            }
+        }
+    }
+
+    private async Task ExecuteUndoManualMoveAsync(Guid operationId)
+    {
+        if (_manualCoordinator is null)
+            throw new InvalidOperationException("Manual organization is not initialized.");
+
+        try
+        {
+            await _manualCoordinator.UndoOperationAsync(operationId).ConfigureAwait(false);
+        }
+        finally
+        {
+            if (_store is not null)
+            {
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => ApplySnapshot(_store.Snapshot));
+            }
+        }
     }
 
     public async Task<WorkspaceState> UpdateStoreAsync(Func<WorkspaceState, WorkspaceState> update)

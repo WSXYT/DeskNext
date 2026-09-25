@@ -211,13 +211,18 @@
   "Operations.StatusProposed": "Propuesto",
   "Operations.StatusPendingUser": "Pendiente del usuario",
   "Operations.StatusCompleted": "Completado",
+  "Operations.StatusUndone": "Deshecho",
   "Operations.StatusRecoveryRequired": "Recuperación requerida",
   "Operations.DescProposed": "Operación propuesta por modelo o regla; aún no se han aplicado cambios físicos.",
   "Operations.DescPendingUser": "Transacción a la espera de autorización explícita del usuario o ejecución manual.",
   "Operations.DescCompleted": "Transacción de movimiento físico confirmada con éxito y sincronizada con los metadatos.",
+  "Operations.DescUndone": "Transacción de movimiento físico deshecha con éxito; archivo restaurado de forma segura a su espacio y ruta originales.",
   "Operations.DescRecoveryRequired": "Transacción interrumpida o anomalía detectada; sistema detenido en estado seguro contra fallos.",
   "Operations.RecoveryRequiredAction": "[Acción requerida] Confirmación física incompleta o diario dañado. Inspeccione el diario de recuperación en el directorio de datos antes de reintentar.",
-  "Operations.NoUndoNotice": "Aviso de auditoría: Las operaciones forman un registro inmutable. No existe deshacer automático para evitar pérdida de datos.",
+  "Operations.NoUndoNotice": "Aviso de auditoría: Las operaciones forman un registro inmutable. La reversión automática o a ciegas no está disponible para evitar pérdida de datos; solo las operaciones verificadas en estado «Completado» permiten un deshacer manual con verificación de identidad.",
   "Operations.ManualMoveGatedNotice": "Movimiento manual bloqueado: Coordinador del Core no conectado; prohibido usar File.Move directo",
-  "Operations.ManualMoveReadyNotice": "Coordinador del Core conectado; movimiento manual controlado disponible"
+  "Operations.ManualMoveReadyNotice": "Coordinador del Core conectado; movimiento manual controlado disponible",
+  "Operations.UndoAction": "Deshacer movimiento",
+  "Operations.UndoGatedNotice": "Deshacer manual bloqueado: coordinador de transacciones de Core no conectado; File.Move directo está prohibido",
+  "Operations.UndoReadyNotice": "Coordinador de transacciones de Core conectado; deshacer manual controlado disponible"
 }

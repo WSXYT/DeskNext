@@ -211,13 +211,18 @@
   "Operations.StatusProposed": "Vorgeschlagen",
   "Operations.StatusPendingUser": "Benutzeraktion ausstehend",
   "Operations.StatusCompleted": "Abgeschlossen",
+  "Operations.StatusUndone": "Rückgängig gemacht",
   "Operations.StatusRecoveryRequired": "Wiederherstellung erforderlich",
   "Operations.DescProposed": "Vorgang durch Modell oder Regel vorgeschlagen; noch keine physischen Änderungen durchgeführt.",
   "Operations.DescPendingUser": "Transaktion wartet auf ausdrückliche Genehmigung oder manuelle Ausführung durch den Benutzer.",
   "Operations.DescCompleted": "Physische Dateiverschiebung erfolgreich ausgeführt und mit Workspace-Metadaten synchronisiert.",
+  "Operations.DescUndone": "Die physische Verschiebung wurde erfolgreich rückgängig gemacht; die Datei wurde sicher am ursprünglichen Speicherort wiederhergestellt.",
   "Operations.DescRecoveryRequired": "Transaktion unterbrochen oder Anomalie erkannt; System im fehlersicheren Schutzmodus angehalten.",
   "Operations.RecoveryRequiredAction": "[Handlung erforderlich] Physischer Commit unvollständig oder Journal beschädigt. Prüfen Sie das Wiederherstellungsprotokoll im Datenverzeichnis vor einem erneuten Versuch.",
-  "Operations.NoUndoNotice": "Prüfhinweis: Vorgänge bilden ein unveränderliches Protokoll. Zum Schutz der Daten existiert keine automatische Rückgängigmachung.",
+  "Operations.NoUndoNotice": "Prüfhinweis: Vorgänge bilden ein unveränderliches Protokoll. Eine automatische oder blinde Rückgängigmachung ist zum Schutz der Daten nicht verfügbar; nur verifizierte „Abgeschlossen“-Vorgänge bieten ein identitätsgeprüftes manuelles Rückgängigmachen.",
   "Operations.ManualMoveGatedNotice": "Manuelle Verschiebung blockiert: Core-Koordinator nicht verbunden; direktes File.Move ist unzulässig",
-  "Operations.ManualMoveReadyNotice": "Core-Koordinator verbunden; kontrollierte manuelle Verschiebung verfügbar"
+  "Operations.ManualMoveReadyNotice": "Core-Koordinator verbunden; kontrollierte manuelle Verschiebung verfügbar",
+  "Operations.UndoAction": "Verschieben rückgängig machen",
+  "Operations.UndoGatedNotice": "Manuelles Rückgängigmachen ist gesperrt: Core-Transaktionskoordinator ist nicht angebunden; direktes File.Move ist unzulässig",
+  "Operations.UndoReadyNotice": "Core-Transaktionskoordinator ist angebunden; kontrolliertes manuelles Rückgängigmachen ist verfügbar"
 }

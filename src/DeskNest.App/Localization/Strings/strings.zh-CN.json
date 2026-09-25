@@ -211,13 +211,18 @@
   "Operations.StatusProposed": "已提议",
   "Operations.StatusPendingUser": "等待用户",
   "Operations.StatusCompleted": "已完成",
+  "Operations.StatusUndone": "已撤销",
   "Operations.StatusRecoveryRequired": "需要故障恢复",
   "Operations.DescProposed": "操作方案已由模型或规则生成，尚未执行物理变更。",
   "Operations.DescPendingUser": "事务正在等待用户明确核准或手动触发执行。",
   "Operations.DescCompleted": "物理移动事务已成功提交，文件与工作区元数据已完成同步。",
+  "Operations.DescUndone": "物理移动事务已成功撤销，文件已安全还原至原始空间与路径。",
   "Operations.DescRecoveryRequired": "事务执行中断或检测到状态异常，系统已进入防护中断状态。",
   "Operations.RecoveryRequiredAction": "【需要人工核对】文件未完成物理提交或日志异常。请检查数据目录中的恢复日志，确认文件物理位置后再重试，切勿重复强制移动。",
-  "Operations.NoUndoNotice": "审计说明：本记录为不可变的物理操作历史，系统不提供自动撤销或反向盲移功能，以确保文件安全。",
+  "Operations.NoUndoNotice": "审计说明：本记录为不可变的物理操作历史，系统不提供自动撤销或反向盲移功能，仅经校验的“已完成”操作支持身份核验的手动撤销，以确保文件安全。",
   "Operations.ManualMoveGatedNotice": "手动移动已门控：核心事务协调器未连接，禁止直接调用 File.Move",
-  "Operations.ManualMoveReadyNotice": "核心事务协调器已连接，可执行受控手动移动"
+  "Operations.ManualMoveReadyNotice": "核心事务协调器已连接，可执行受控手动移动",
+  "Operations.UndoAction": "撤销移动",
+  "Operations.UndoGatedNotice": "手动撤销已门控：核心事务协调器未连接，禁止直接调用 File.Move",
+  "Operations.UndoReadyNotice": "核心事务协调器已连接，可执行受控手动撤销"
 }

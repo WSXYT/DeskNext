@@ -1,5 +1,7 @@
 using System;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using DeskNest.App.Localization;
 using DeskNest.Core.Workspace;
 
@@ -7,6 +9,8 @@ namespace DeskNest.App.ViewModels;
 
 public sealed partial class OperationItemViewModel : ViewModelBase
 {
+    private readonly Func<Task>? _onUndo;
+
     public Guid Id { get; }
     public Guid FileId { get; }
     public Guid? TargetSpaceId { get; }
@@ -24,7 +28,10 @@ public sealed partial class OperationItemViewModel : ViewModelBase
     public bool IsProposed => Status == ProposedOperationStatus.Proposed;
     public bool IsPendingUser => Status == ProposedOperationStatus.PendingUser;
     public bool IsCompleted => Status == ProposedOperationStatus.Completed;
+    public bool IsUndone => Status == ProposedOperationStatus.Undone;
     public bool IsRecoveryRequired => Status == ProposedOperationStatus.RecoveryRequired;
+
+    public bool CanUndo => Status == ProposedOperationStatus.Completed;
 
     public bool HasSourcePath => !string.IsNullOrWhiteSpace(SourcePath);
     public bool HasDestinationPath => !string.IsNullOrWhiteSpace(DestinationPath);
@@ -34,6 +41,7 @@ public sealed partial class OperationItemViewModel : ViewModelBase
         ProposedOperationStatus.Proposed => Localizer["Operations.StatusProposed"],
         ProposedOperationStatus.PendingUser => Localizer["Operations.StatusPendingUser"],
         ProposedOperationStatus.Completed => Localizer["Operations.StatusCompleted"],
+        ProposedOperationStatus.Undone => Localizer["Operations.StatusUndone"],
         ProposedOperationStatus.RecoveryRequired => Localizer["Operations.StatusRecoveryRequired"],
         _ => Status.ToString()
     };
@@ -43,6 +51,7 @@ public sealed partial class OperationItemViewModel : ViewModelBase
         ProposedOperationStatus.Proposed => Localizer["Operations.DescProposed"],
         ProposedOperationStatus.PendingUser => Localizer["Operations.DescPendingUser"],
         ProposedOperationStatus.Completed => Localizer["Operations.DescCompleted"],
+        ProposedOperationStatus.Undone => Localizer["Operations.DescUndone"],
         ProposedOperationStatus.RecoveryRequired => Localizer["Operations.DescRecoveryRequired"],
         _ => string.Empty
     };
@@ -50,11 +59,22 @@ public sealed partial class OperationItemViewModel : ViewModelBase
     public string RecoveryActionPrompt => Localizer["Operations.RecoveryRequiredAction"];
     public string NoUndoNotice => Localizer["Operations.NoUndoNotice"];
 
+    [RelayCommand(CanExecute = nameof(CanUndo))]
+    private async Task UndoAsync()
+    {
+        if (_onUndo != null)
+        {
+            await _onUndo().ConfigureAwait(false);
+        }
+    }
+
     public OperationItemViewModel(
         ProposedOperation operation,
         string fileName,
-        string? targetSpaceName)
+        string? targetSpaceName,
+        Func<Task>? onUndo = null)
     {
+        _onUndo = onUndo;
         Id = operation.Id;
         FileId = operation.FileId;
         TargetSpaceId = operation.TargetSpaceId;

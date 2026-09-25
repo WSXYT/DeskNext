@@ -211,13 +211,18 @@
   "Operations.StatusProposed": "Proposé",
   "Operations.StatusPendingUser": "En attente de l'utilisateur",
   "Operations.StatusCompleted": "Terminé",
+  "Operations.StatusUndone": "Annulé",
   "Operations.StatusRecoveryRequired": "Récupération requise",
   "Operations.DescProposed": "Opération proposée par le modèle ou les règles ; aucune modification physique effectuée.",
   "Operations.DescPendingUser": "Transaction en attente de validation explicite de l'utilisateur ou de déclenchement manuel.",
   "Operations.DescCompleted": "Déplacement physique exécuté avec succès et synchronisé avec les métadonnées de l'espace.",
+  "Operations.DescUndone": "Transaction de déplacement physique annulée avec succès ; fichier restauré en toute sécurité dans son espace et son chemin d'origine.",
   "Operations.DescRecoveryRequired": "Transaction interrompue ou anomalie détectée ; système arrêté en mode de sécurité hermétique.",
   "Operations.RecoveryRequiredAction": "[Action requise] Validation physique incomplète ou journal endommagé. Inspectez le journal de récupération dans le dossier de données avant de réessayer.",
-  "Operations.NoUndoNotice": "Avis d'audit : Les opérations constituent un journal immuable. Aucune annulation automatique n'est fournie pour préserver les données.",
+  "Operations.NoUndoNotice": "Avis d'audit : Les opérations constituent un journal immuable. Aucune annulation automatique ou inversion aveugle n'est disponible afin d'éviter toute perte de données ; seules les opérations vérifiées « Terminé » disposent d'une annulation manuelle avec contrôle d'identité.",
   "Operations.ManualMoveGatedNotice": "Déplacement manuel restreint : Coordinateur Core non connecté ; File.Move direct est interdit",
-  "Operations.ManualMoveReadyNotice": "Coordinateur Core connecté ; déplacement manuel contrôlé disponible"
+  "Operations.ManualMoveReadyNotice": "Coordinateur Core connecté ; déplacement manuel contrôlé disponible",
+  "Operations.UndoAction": "Annuler le déplacement",
+  "Operations.UndoGatedNotice": "Annulation manuelle restreinte : coordinateur de transactions Core non attaché ; File.Move direct interdit",
+  "Operations.UndoReadyNotice": "Coordinateur de transactions Core attaché ; annulation manuelle contrôlée disponible"
 }

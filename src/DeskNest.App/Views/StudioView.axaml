@@ -669,6 +669,20 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- Manual Undo Gated Notice / Boundary Status -->
+                        <Border CornerRadius="{DynamicResource RadiusSmall}"
+                                Background="{DynamicResource SurfaceBrush}"
+                                BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                BorderThickness="1"
+                                Padding="12,8">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                                         Fill="{DynamicResource AccentPrimaryBrush}"/>
+                                <TextBlock Text="{Binding ManualUndoStatusNotice}"
+                                           FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </StackPanel>
+                        </Border>
+
                         <!-- Immutable Audit Log & No Undo Notice -->
                         <Border CornerRadius="{DynamicResource RadiusSmall}"
                                 Background="{DynamicResource WarningBadgeBgBrush}"
@@ -718,14 +732,29 @@
                                                                VerticalAlignment="Center"/>
                                                 </StackPanel>
 
-                                                <!-- Status Badge -->
-                                                <Border Grid.Column="1"
-                                                        CornerRadius="{DynamicResource RadiusSmall}"
-                                                        Padding="8,3"
-                                                        Background="{DynamicResource SurfaceElevatedBrush}">
-                                                    <TextBlock Text="{Binding StatusLocalized}"
-                                                               FontSize="11" FontWeight="Bold"/>
-                                                </Border>
+                                                <!-- Status Badge & Undo Action -->
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                    <Button x:Name="UndoOperationButton"
+                                                            Content="{Binding Localizer[Operations.UndoAction]}"
+                                                            Command="{Binding UndoCommand}"
+                                                            IsVisible="{Binding CanUndo}"
+                                                            IsEnabled="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).CanUndoManualMove}"
+                                                            CornerRadius="{DynamicResource RadiusSmall}"
+                                                            Padding="10,3"
+                                                            FontSize="11"
+                                                            FontWeight="SemiBold"
+                                                            Background="{DynamicResource SurfaceElevatedBrush}"
+                                                            BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                                            BorderThickness="1"
+                                                            Cursor="Hand"/>
+                                                    <!-- Status Badge -->
+                                                    <Border CornerRadius="{DynamicResource RadiusSmall}"
+                                                            Padding="8,3"
+                                                            Background="{DynamicResource SurfaceElevatedBrush}">
+                                                        <TextBlock Text="{Binding StatusLocalized}"
+                                                                   FontSize="11" FontWeight="Bold"/>
+                                                    </Border>
+                                                </StackPanel>
                                             </Grid>
 
                                             <!-- Paths & Timestamp -->

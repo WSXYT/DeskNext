@@ -61,6 +61,8 @@ public sealed class SmokeTestResult
     public bool OperationHistoryStatusesVerified { get; set; }
     public bool OperationRecoveryRequiredActionWarningVerified { get; set; }
     public bool ManualMoveGatedCallbackBoundaryVerified { get; set; }
+    public bool ManualUndoGatedCallbackBoundaryVerified { get; set; }
+    public bool OperationUndoneStatusVerified { get; set; }
     public string VirtualDpiStatus { get; set; } = "Unverified (Avalonia.Headless does not expose configurable per-window RenderScaling API; physical 100%/150%/200% DPI matrix remains open for physical display verification)";
     public double HeadlessScale { get; set; } = 1.0;
     public bool HeadlessOffscreenRenderRequested { get; set; }
@@ -1103,6 +1105,10 @@ public static class HeadlessSmokeRunner
                     throw new InvalidOperationException("MainWindow did not attach the Core manual organization coordinator.");
                 if (mainVm.Studio.ManualMoveStatusNotice != localizer["Operations.ManualMoveReadyNotice"])
                     throw new InvalidOperationException($"Expected MainWindow manual move status to be ready, got '{mainVm.Studio.ManualMoveStatusNotice}'");
+                if (!mainVm.Studio.CanUndoManualMove)
+                    throw new InvalidOperationException("MainWindow did not attach the Core manual undo coordinator.");
+                if (mainVm.Studio.ManualUndoStatusNotice != localizer["Operations.UndoReadyNotice"])
+                    throw new InvalidOperationException($"Expected MainWindow manual undo status to be ready, got '{mainVm.Studio.ManualUndoStatusNotice}'");
 
                 // Preserve the explicit gated boundary for a Studio instance without an executor.
                 var gatedStudio = new StudioViewModel(new WorkspaceState(), _ =>
@@ -1111,6 +1117,10 @@ public static class HeadlessSmokeRunner
                     throw new InvalidOperationException("An unattached StudioViewModel must keep manual moves gated.");
                 if (gatedStudio.ManualMoveStatusNotice != localizer["Operations.ManualMoveGatedNotice"])
                     throw new InvalidOperationException("Unattached StudioViewModel did not report the gated manual move status.");
+                if (gatedStudio.CanUndoManualMove)
+                    throw new InvalidOperationException("An unattached StudioViewModel must keep manual undo gated.");
+                if (gatedStudio.ManualUndoStatusNotice != localizer["Operations.UndoGatedNotice"])
+                    throw new InvalidOperationException("Unattached StudioViewModel did not report the gated manual undo status.");
 
                 // Test the callback boundary independently without performing a filesystem mutation.
                 Guid? manualMoveFileTarget = null;
@@ -1133,6 +1143,24 @@ public static class HeadlessSmokeRunner
 
                 result.ManualMoveGatedCallbackBoundaryVerified = true;
 
+                // Test the undo callback boundary independently without filesystem mutation
+                Guid? manualUndoOpTarget = null;
+                gatedStudio.OnUndoManualMove = opId =>
+                {
+                    manualUndoOpTarget = opId;
+                    return Task.CompletedTask;
+                };
+
+                if (!gatedStudio.CanUndoManualMove)
+                    throw new InvalidOperationException("CanUndoManualMove should be true when an undo callback is attached.");
+
+                var dummyOpId = Guid.NewGuid();
+                Task.Run(async () => await gatedStudio.ExecuteUndoManualMoveAsync(dummyOpId)).GetAwaiter().GetResult();
+                if (manualUndoOpTarget != dummyOpId)
+                    throw new InvalidOperationException("OnUndoManualMove callback boundary did not receive expected operation ID.");
+
+                result.ManualUndoGatedCallbackBoundaryVerified = true;
+
                 // Test Operation History statuses: Proposed, PendingUser, Completed, RecoveryRequired
                 var testOpFile = mainVm.Studio.SelectedSpace?.Files.FirstOrDefault()
                     ?? new WorkspaceFileItemViewModel(Guid.NewGuid(), mainVm.Studio.SelectedSpace?.Id ?? Guid.NewGuid(), "history_test.txt", Path.Combine(oobeDir.Path, "history_test.txt"), false);
@@ -1152,6 +1180,11 @@ public static class HeadlessSmokeRunner
                     SourcePath = testOpFile.Path,
                     DestinationPath = Path.Combine(oobeDir.Path, "Dest3", testOpFile.Name)
                 };
+                var opUndone = new ProposedOperation(Guid.NewGuid(), testOpFile.Id, mainVm.Studio.SelectedSpace?.Id, ProposedOperationStatus.Undone, DateTimeOffset.UtcNow.AddMinutes(-15))
+                {
+                    SourcePath = testOpFile.Path,
+                    DestinationPath = Path.Combine(oobeDir.Path, "Dest5", testOpFile.Name)
+                };
                 var opRecoveryRequired = new ProposedOperation(Guid.NewGuid(), testOpFile.Id, mainVm.Studio.SelectedSpace?.Id, ProposedOperationStatus.RecoveryRequired, DateTimeOffset.UtcNow.AddMinutes(-10))
                 {
                     SourcePath = testOpFile.Path,
@@ -1164,20 +1197,21 @@ public static class HeadlessSmokeRunner
                     OnboardingStep = 5,
                     Spaces = [.. mainVm.Studio.AllSpaces.Select(s => new WorkspaceSpace(s.Id, s.Name, s.Description, s.Mode, s.Folder))],
                     Files = [new WorkspaceFile(testOpFile.Id, mainVm.Studio.SelectedSpace?.Id ?? Guid.NewGuid(), testOpFile.Name, testOpFile.Path, false)],
-                    Operations = [opProposed, opPendingUser, opCompleted, opRecoveryRequired]
+                    Operations = [opProposed, opPendingUser, opCompleted, opUndone, opRecoveryRequired]
                 };
 
                 mainVm.Studio.RefreshFromState(stateWithOps);
                 Dispatcher.UIThread.RunJobs();
 
-                if (mainVm.Studio.OperationHistoryCount != 4)
-                    throw new InvalidOperationException($"Expected 4 operation history items, got {mainVm.Studio.OperationHistoryCount}");
+                if (mainVm.Studio.OperationHistoryCount != 5)
+                    throw new InvalidOperationException($"Expected 5 operation history items, got {mainVm.Studio.OperationHistoryCount}");
                 if (!mainVm.Studio.HasOperationHistory)
-                    throw new InvalidOperationException("HasOperationHistory is false despite having 4 items.");
+                    throw new InvalidOperationException("HasOperationHistory is false despite having 5 items.");
 
                 var itemProposed = mainVm.Studio.OperationHistory.FirstOrDefault(o => o.Id == opProposed.Id);
                 var itemPendingUser = mainVm.Studio.OperationHistory.FirstOrDefault(o => o.Id == opPendingUser.Id);
                 var itemCompleted = mainVm.Studio.OperationHistory.FirstOrDefault(o => o.Id == opCompleted.Id);
+                var itemUndone = mainVm.Studio.OperationHistory.FirstOrDefault(o => o.Id == opUndone.Id);
                 var itemRecoveryRequired = mainVm.Studio.OperationHistory.FirstOrDefault(o => o.Id == opRecoveryRequired.Id);
 
                 if (itemProposed == null || !itemProposed.IsProposed || itemProposed.StatusLocalized != localizer["Operations.StatusProposed"])
@@ -1186,9 +1220,40 @@ public static class HeadlessSmokeRunner
                     throw new InvalidOperationException("PendingUser status rendering/localization failed.");
                 if (itemCompleted == null || !itemCompleted.IsCompleted || itemCompleted.StatusLocalized != localizer["Operations.StatusCompleted"])
                     throw new InvalidOperationException("Completed status rendering/localization failed.");
+                if (itemUndone == null || !itemUndone.IsUndone || itemUndone.StatusLocalized != localizer["Operations.StatusUndone"])
+                    throw new InvalidOperationException("Undone status rendering/localization failed.");
+                if (itemUndone.StatusDescription != localizer["Operations.DescUndone"])
+                    throw new InvalidOperationException("Undone status description localization failed.");
                 if (itemRecoveryRequired == null || !itemRecoveryRequired.IsRecoveryRequired || itemRecoveryRequired.StatusLocalized != localizer["Operations.StatusRecoveryRequired"])
                     throw new InvalidOperationException("RecoveryRequired status rendering/localization failed.");
 
+                // Verify Undo action availability: ONLY Completed operations can be undone!
+                if (!itemCompleted.CanUndo)
+                    throw new InvalidOperationException("Completed operation must have CanUndo = true.");
+                if (itemProposed.CanUndo)
+                    throw new InvalidOperationException("Proposed operation must not allow undo.");
+                if (itemPendingUser.CanUndo)
+                    throw new InvalidOperationException("PendingUser operation must not allow undo.");
+                if (itemUndone.CanUndo)
+                    throw new InvalidOperationException("Undone operation must not allow undo.");
+                if (itemRecoveryRequired.CanUndo)
+                    throw new InvalidOperationException("RecoveryRequired operation must not allow undo.");
+
+                // Verify item UndoCommand routing through callback boundary
+                Guid? itemUndoInvokedId = null;
+                gatedStudio.OnUndoManualMove = opId =>
+                {
+                    itemUndoInvokedId = opId;
+                    return Task.CompletedTask;
+                };
+                var itemWithCallback = new OperationItemViewModel(opCompleted, testOpFile.Name, "Target", () => gatedStudio.ExecuteUndoManualMoveAsync(opCompleted.Id));
+                if (!itemWithCallback.CanUndo)
+                    throw new InvalidOperationException("OperationItemViewModel for completed operation should have CanUndo = true.");
+                itemWithCallback.UndoCommand.Execute(null);
+                if (itemUndoInvokedId != opCompleted.Id)
+                    throw new InvalidOperationException("OperationItemViewModel UndoCommand did not route through callback boundary.");
+
+                result.OperationUndoneStatusVerified = true;
                 result.OperationHistoryStatusesVerified = true;
 
                 // Verify that RecoveryRequired displays actionable warning text, NEVER as success

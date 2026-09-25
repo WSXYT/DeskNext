@@ -211,13 +211,18 @@
   "Operations.StatusProposed": "مقترح",
   "Operations.StatusPendingUser": "في انتظار المستخدم",
   "Operations.StatusCompleted": "مكتمل",
+  "Operations.StatusUndone": "تم التراجع",
   "Operations.StatusRecoveryRequired": "مطلوب الاسترداد",
   "Operations.DescProposed": "تم اقتراح العملية بواسطة النموذج أو القاعدة؛ لم يتم تنفيذ أي تغييرات فعلية بعد.",
   "Operations.DescPendingUser": "المعاملة في انتظار موافقة صريحة من المستخدم أو بدء يدوي.",
   "Operations.DescCompleted": "تم تنفيذ معاملة النقل الفعلي بنجاح ومزامنتها مع بيانات مساحة العمل.",
+  "Operations.DescUndone": "تم التراجع عن معاملة النقل الفعلي بنجاح؛ تمت استعادة الملف بأمان إلى مساحته ومساره الأصليين.",
   "Operations.DescRecoveryRequired": "توقفت المعاملة أو تم اكتشاف خلل؛ تم إيقاف النظام في وضع أمان محكم الإغلاق.",
   "Operations.RecoveryRequiredAction": "[إجراء مطلوب] لم يكتمل الالتزام الفعلي أو أن السجل تالف. افحص سجل الاسترداد في دليل البيانات وتحقق من حالة الملفات قبل إعادة المحاولة.",
-  "Operations.NoUndoNotice": "إشعار تدقيق: العمليات سجل معاملات غير قابل للتغيير. لا يتوفر تراجع تلقائي لمنع فقدان البيانات.",
+  "Operations.NoUndoNotice": "إشعار تدقيق: العمليات سجل معاملات غير قابل للتغيير. لا يتوفر تراجع تلقائي أو عكس أعمى لمنع فقدان البيانات؛ تتيح فقط العمليات المتحقق منها بحالة «مكتمل» التراجع اليدوي مع التحقق من الهوية.",
   "Operations.ManualMoveGatedNotice": "النقل اليدوي محظور: منسق المعاملات غير متصل؛ يُمنع استخدام File.Move المباشر",
-  "Operations.ManualMoveReadyNotice": "منسق المعاملات متصل؛ النقل اليدوي الخاضع للرقابة متاح"
+  "Operations.ManualMoveReadyNotice": "منسق المعاملات متصل؛ النقل اليدوي الخاضع للرقابة متاح",
+  "Operations.UndoAction": "تراجع عن النقل",
+  "Operations.UndoGatedNotice": "التراجع اليدوي معلق: منسق معاملات Core غير متصل؛ يُحظر استدعاء File.Move مباشرة",
+  "Operations.UndoReadyNotice": "منسق معاملات Core متصل؛ التراجع اليدوي الخاضع للتحكم متاح"
 }

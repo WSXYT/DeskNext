@@ -211,13 +211,18 @@
   "Operations.StatusProposed": "已提議",
   "Operations.StatusPendingUser": "等待使用者",
   "Operations.StatusCompleted": "已完成",
+  "Operations.StatusUndone": "已復原",
   "Operations.StatusRecoveryRequired": "需要故障復原",
   "Operations.DescProposed": "操作方案已由模型或規則產生，尚未執行實體變更。",
   "Operations.DescPendingUser": "交易正在等待使用者明確核准或手動觸發執行。",
   "Operations.DescCompleted": "實體移動交易已成功提交，檔案與工作區元數據已完成同步。",
+  "Operations.DescUndone": "實體移動事務已成功復原，檔案已安全還原至原始空間與路徑。",
   "Operations.DescRecoveryRequired": "交易執行中斷或檢測到狀態異常，系統已進入防護中斷狀態。",
   "Operations.RecoveryRequiredAction": "【需要人工核對】檔案未完成實體提交或日誌異常。請檢查資料目錄中的復原日誌，確認檔案實體位置後再重試，切勿重複強制移動。",
-  "Operations.NoUndoNotice": "審計說明：本記錄為不可變的實體操作歷史，系統不提供自動復原或反向盲移功能，以確保檔案安全。",
+  "Operations.NoUndoNotice": "審計說明：本記錄為不可變的實體操作歷史，系統不提供自動復原或反向盲移功能，僅經校驗的「已完成」操作支援身分核驗的手動復原，以確保檔案安全。",
   "Operations.ManualMoveGatedNotice": "手動移動已閘控：核心交易協調器未連接，禁止直接呼叫 File.Move",
-  "Operations.ManualMoveReadyNotice": "核心交易協調器已連接，可執行受控手動移動"
+  "Operations.ManualMoveReadyNotice": "核心交易協調器已連接，可執行受控手動移動",
+  "Operations.UndoAction": "復原移動",
+  "Operations.UndoGatedNotice": "手動復原已門控：核心事務協調器未連接，禁止直接調用 File.Move",
+  "Operations.UndoReadyNotice": "核心事務協調器已連接，可執行受控手動復原"
 }
