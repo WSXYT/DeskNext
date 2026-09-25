@@ -20,7 +20,7 @@ public sealed partial class WorkspaceFileItemViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isDirectory;
 
-    public string Icon => IsDirectory ? "📁" : "📄";
+    public string Icon => string.Empty;
     public string TypeLabel => IsDirectory ? "Directory" : "File";
 
     public WorkspaceFileItemViewModel(Guid id, Guid spaceId, string name, string path, bool isDirectory)

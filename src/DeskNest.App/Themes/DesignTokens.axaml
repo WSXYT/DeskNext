@@ -1,69 +1,96 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <CornerRadius x:Key="RadiusPrimary">8</CornerRadius>
+    <!-- Desktop Companion Corner Radii: Clean 4/6/8px -->
     <CornerRadius x:Key="RadiusSmall">4</CornerRadius>
-    <CornerRadius x:Key="RadiusLarge">12</CornerRadius>
-    <CornerRadius x:Key="RadiusPill">999</CornerRadius>
+    <CornerRadius x:Key="RadiusPrimary">6</CornerRadius>
+    <CornerRadius x:Key="RadiusLarge">8</CornerRadius>
+
+    <!-- Geometric Monochrome StreamGeometries (No icon dependency, no emoji) -->
+    <StreamGeometry x:Key="IconFolder">M2,4 C2,2.895 2.895,2 4,2 L7.586,2 C8.116,2 8.625,2.211 9,2.586 L10.414,4 L18,4 C19.105,4 20,4.895 20,6 L20,16 C20,17.105 19.105,18 18,18 L4,18 C2.895,18 2,17.105 2,16 Z</StreamGeometry>
+    <StreamGeometry x:Key="IconFile">M4,2 C2.895,2 2,2.895 2,4 L2,18 C2,19.105 2.895,20 4,20 L16,20 C17.105,20 18,19.105 18,18 L18,7 L13,2 Z M12,3.5 L16.5,8 L12,8 Z</StreamGeometry>
+    <StreamGeometry x:Key="IconCheck">M6.5,12.5 L3,9 L4.4,7.6 L6.5,9.7 L11.6,4.6 L13,6 Z</StreamGeometry>
 
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Key="Dark">
-            <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#111317" />
-            <SolidColorBrush x:Key="SurfaceBrush" Color="#191C23" />
-            <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#222630" />
-            <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="#20232C" />
-            <SolidColorBrush x:Key="BorderSubtleBrush" Color="#2D323E" />
-            <SolidColorBrush x:Key="BorderStrongBrush" Color="#3E4554" />
-            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#F3F4F6" />
-            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#9CA3AF" />
-            <SolidColorBrush x:Key="TextTertiaryBrush" Color="#6B7280" />
-            <SolidColorBrush x:Key="TextMutedBrush" Color="#4B5563" />
+            <!-- DeskBox-Inspired Layered Dark Obsidian/Atmospheric Backdrop -->
+            <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#0B0F17" />
+            <SolidColorBrush x:Key="SurfaceBrush" Color="#121824" />
+            <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#1C2638" />
+            <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="#182132" />
+            <SolidColorBrush x:Key="ConsoleBackgroundBrush" Color="#070A10" />
 
-            <SolidColorBrush x:Key="AccentPrimaryBrush" Color="#6366F1" />
-            <SolidColorBrush x:Key="AccentHoverBrush" Color="#4F46E5" />
-            <SolidColorBrush x:Key="AccentPressedBrush" Color="#4338CA" />
-            <SolidColorBrush x:Key="AccentSubtleBrush" Color="#1E1F3B" />
-            <SolidColorBrush x:Key="AccentBorderBrush" Color="#818CF8" />
-            <SolidColorBrush x:Key="AccentTextBrush" Color="#818CF8" />
+            <!-- Luminous 1px Hairline Chrome & Boundaries -->
+            <SolidColorBrush x:Key="BorderSubtleBrush" Color="#1E2A3E" />
+            <SolidColorBrush x:Key="BorderStrongBrush" Color="#2E3F5C" />
+            <SolidColorBrush x:Key="BorderHighlightBrush" Color="#4A648F" />
 
-            <SolidColorBrush x:Key="SuccessBadgeBgBrush" Color="#064E3B" />
+            <!-- Crisp Hierarchy Typography -->
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#F1F5F9" />
+            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#94A3B8" />
+            <SolidColorBrush x:Key="TextTertiaryBrush" Color="#64748B" />
+            <SolidColorBrush x:Key="TextMutedBrush" Color="#475569" />
+
+            <!-- Coherent Native Windows Slate/Glacier Accent -->
+            <SolidColorBrush x:Key="AccentPrimaryBrush" Color="#38BDF8" />
+            <SolidColorBrush x:Key="AccentHoverBrush" Color="#7DD3FC" />
+            <SolidColorBrush x:Key="AccentPressedBrush" Color="#0284C7" />
+            <SolidColorBrush x:Key="AccentSubtleBrush" Color="#0C2338" />
+            <SolidColorBrush x:Key="AccentBorderBrush" Color="#0284C7" />
+            <SolidColorBrush x:Key="AccentTextBrush" Color="#38BDF8" />
+
+            <!-- Attention / Triage Marker (DeskBox Warm Amber/Oxidized Copper) -->
+            <SolidColorBrush x:Key="PendingMarkerBrush" Color="#F59E0B" />
+
+            <!-- Semantic Restrained Badges -->
+            <SolidColorBrush x:Key="SuccessBadgeBgBrush" Color="#09261B" />
             <SolidColorBrush x:Key="SuccessBadgeFgBrush" Color="#34D399" />
-            <SolidColorBrush x:Key="WarningBadgeBgBrush" Color="#78350F" />
+            <SolidColorBrush x:Key="WarningBadgeBgBrush" Color="#291D09" />
             <SolidColorBrush x:Key="WarningBadgeFgBrush" Color="#FBBF24" />
-            <SolidColorBrush x:Key="InfoBadgeBgBrush" Color="#1E1B4B" />
-            <SolidColorBrush x:Key="InfoBadgeFgBrush" Color="#818CF8" />
-            <SolidColorBrush x:Key="NeutralBadgeBgBrush" Color="#27272A" />
-            <SolidColorBrush x:Key="NeutralBadgeFgBrush" Color="#A1A1AA" />
-            <SolidColorBrush x:Key="ConsoleBackgroundBrush" Color="#0B0C0E" />
+            <SolidColorBrush x:Key="InfoBadgeBgBrush" Color="#0C2338" />
+            <SolidColorBrush x:Key="InfoBadgeFgBrush" Color="#38BDF8" />
+            <SolidColorBrush x:Key="NeutralBadgeBgBrush" Color="#151D2A" />
+            <SolidColorBrush x:Key="NeutralBadgeFgBrush" Color="#94A3B8" />
         </ResourceDictionary>
 
         <ResourceDictionary x:Key="Light">
-            <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#F7F8FA" />
-            <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF" />
-            <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#F1F3F5" />
+            <!-- Warm/Soft Slate-Gray Desktop Surfaces -->
+            <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#F1F5F9" />
+            <SolidColorBrush x:Key="SurfaceBrush" Color="#F8FAFC" />
+            <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#E2E8F0" />
             <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="#FFFFFF" />
-            <SolidColorBrush x:Key="BorderSubtleBrush" Color="#E5E7EB" />
-            <SolidColorBrush x:Key="BorderStrongBrush" Color="#D1D5DB" />
-            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#111827" />
-            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#4B5563" />
-            <SolidColorBrush x:Key="TextTertiaryBrush" Color="#6B7280" />
-            <SolidColorBrush x:Key="TextMutedBrush" Color="#9CA3AF" />
+            <SolidColorBrush x:Key="ConsoleBackgroundBrush" Color="#EAEFF5" />
 
-            <SolidColorBrush x:Key="AccentPrimaryBrush" Color="#6366F1" />
-            <SolidColorBrush x:Key="AccentHoverBrush" Color="#4F46E5" />
-            <SolidColorBrush x:Key="AccentPressedBrush" Color="#4338CA" />
-            <SolidColorBrush x:Key="AccentSubtleBrush" Color="#EEF2FF" />
-            <SolidColorBrush x:Key="AccentBorderBrush" Color="#818CF8" />
-            <SolidColorBrush x:Key="AccentTextBrush" Color="#4F46E5" />
+            <!-- 1px Hairline Chrome & Borders -->
+            <SolidColorBrush x:Key="BorderSubtleBrush" Color="#E2E8F0" />
+            <SolidColorBrush x:Key="BorderStrongBrush" Color="#CBD5E1" />
+            <SolidColorBrush x:Key="BorderHighlightBrush" Color="#FFFFFF" />
 
-            <SolidColorBrush x:Key="SuccessBadgeBgBrush" Color="#ECFDF5" />
-            <SolidColorBrush x:Key="SuccessBadgeFgBrush" Color="#059669" />
-            <SolidColorBrush x:Key="WarningBadgeBgBrush" Color="#FFFBEB" />
-            <SolidColorBrush x:Key="WarningBadgeFgBrush" Color="#D97706" />
-            <SolidColorBrush x:Key="InfoBadgeBgBrush" Color="#EEF2FF" />
-            <SolidColorBrush x:Key="InfoBadgeFgBrush" Color="#4F46E5" />
-            <SolidColorBrush x:Key="NeutralBadgeBgBrush" Color="#F3F4F6" />
-            <SolidColorBrush x:Key="NeutralBadgeFgBrush" Color="#4B5563" />
-            <SolidColorBrush x:Key="ConsoleBackgroundBrush" Color="#F0F2F5" />
+            <!-- Crisp Hierarchy Typography -->
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#0F172A" />
+            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#475569" />
+            <SolidColorBrush x:Key="TextTertiaryBrush" Color="#64748B" />
+            <SolidColorBrush x:Key="TextMutedBrush" Color="#94A3B8" />
+
+            <!-- Coherent Native Windows Slate Accent -->
+            <SolidColorBrush x:Key="AccentPrimaryBrush" Color="#0284C7" />
+            <SolidColorBrush x:Key="AccentHoverBrush" Color="#0369A1" />
+            <SolidColorBrush x:Key="AccentPressedBrush" Color="#075985" />
+            <SolidColorBrush x:Key="AccentSubtleBrush" Color="#E0F2FE" />
+            <SolidColorBrush x:Key="AccentBorderBrush" Color="#7DD3FC" />
+            <SolidColorBrush x:Key="AccentTextBrush" Color="#0284C7" />
+
+            <!-- Attention / Triage Marker (DeskBox Amber/Oxidized Copper) -->
+            <SolidColorBrush x:Key="PendingMarkerBrush" Color="#D97706" />
+
+            <!-- Semantic Restrained Badges -->
+            <SolidColorBrush x:Key="SuccessBadgeBgBrush" Color="#DEF7EC" />
+            <SolidColorBrush x:Key="SuccessBadgeFgBrush" Color="#057A55" />
+            <SolidColorBrush x:Key="WarningBadgeBgBrush" Color="#FEF3C7" />
+            <SolidColorBrush x:Key="WarningBadgeFgBrush" Color="#B45309" />
+            <SolidColorBrush x:Key="InfoBadgeBgBrush" Color="#E0F2FE" />
+            <SolidColorBrush x:Key="InfoBadgeFgBrush" Color="#0284C7" />
+            <SolidColorBrush x:Key="NeutralBadgeBgBrush" Color="#E2E8F0" />
+            <SolidColorBrush x:Key="NeutralBadgeFgBrush" Color="#475569" />
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 </ResourceDictionary>

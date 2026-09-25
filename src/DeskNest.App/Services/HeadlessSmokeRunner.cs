@@ -833,37 +833,63 @@ public static class HeadlessSmokeRunner
                             OnboardingStep = 1
                         };
 
-                        // Render actual OOBE and Studio across target resolutions and locales
-                        foreach (var (loc, suffix) in new[] { ("en-US", "en"), ("de-DE", "de"), ("ar-SA", "ar") })
+                        // Render actual OOBE and Studio across target themes, resolutions and locales
+                        foreach (var (themeMode, themePrefix) in new[] { (AppThemeMode.Dark, "dark"), (AppThemeMode.Light, "light") })
                         {
-                            localizer.CurrentLanguage = loc;
+                            themeMgr.CurrentThemeMode = themeMode;
+                            var winBgBrush = themeMode == AppThemeMode.Dark
+                                ? new SolidColorBrush(Color.Parse("#0B0F17"))
+                                : new SolidColorBrush(Color.Parse("#F1F5F9"));
 
-                            // OOBE at 1280x720
-                            var oobeVm = new OnboardingViewModel(fixtureOobeState, u => Task.FromResult(u(fixtureOobeState)));
-                            var oobeWin = new Window
+                            foreach (var (loc, suffix) in new[] { ("en-US", "en"), ("de-DE", "de"), ("ar-SA", "ar") })
                             {
-                                Content = new OnboardingView { DataContext = oobeVm },
-                                FlowDirection = localizer.FlowDirectionValue
-                            };
-                            RenderHeadlessWindow(oobeWin, 1280, 720, $"oobe-1280x720-{suffix}.png");
+                                localizer.CurrentLanguage = loc;
 
-                            // Studio at 1280x720
-                            var studioVm1280 = new StudioViewModel(fixtureState, u => Task.FromResult(u(fixtureState)));
-                            var studioWin1280 = new Window
-                            {
-                                Content = new StudioView { DataContext = studioVm1280 },
-                                FlowDirection = localizer.FlowDirectionValue
-                            };
-                            RenderHeadlessWindow(studioWin1280, 1280, 720, $"studio-1280x720-{suffix}.png");
+                                // OOBE at 1280x720
+                                var oobeVm = new OnboardingViewModel(fixtureOobeState, u => Task.FromResult(u(fixtureOobeState)));
+                                var oobeWin = new Window
+                                {
+                                    Content = new OnboardingView { DataContext = oobeVm },
+                                    FlowDirection = localizer.FlowDirectionValue,
+                                    Background = winBgBrush
+                                };
+                                RenderHeadlessWindow(oobeWin, 1280, 720, $"oobe-1280x720-{themePrefix}-{suffix}.png");
+                                if (themeMode == AppThemeMode.Dark)
+                                {
+                                    File.Copy(Path.Combine(requestedRenderPngDir, $"oobe-1280x720-{themePrefix}-{suffix}.png"),
+                                              Path.Combine(requestedRenderPngDir, $"oobe-1280x720-{suffix}.png"), true);
+                                }
 
-                            // Studio at 1600x900
-                            var studioVm1600 = new StudioViewModel(fixtureState, u => Task.FromResult(u(fixtureState)));
-                            var studioWin1600 = new Window
-                            {
-                                Content = new StudioView { DataContext = studioVm1600 },
-                                FlowDirection = localizer.FlowDirectionValue
-                            };
-                            RenderHeadlessWindow(studioWin1600, 1600, 900, $"studio-1600x900-{suffix}.png");
+                                // Studio at 1280x720
+                                var studioVm1280 = new StudioViewModel(fixtureState, u => Task.FromResult(u(fixtureState)));
+                                var studioWin1280 = new Window
+                                {
+                                    Content = new StudioView { DataContext = studioVm1280 },
+                                    FlowDirection = localizer.FlowDirectionValue,
+                                    Background = winBgBrush
+                                };
+                                RenderHeadlessWindow(studioWin1280, 1280, 720, $"studio-1280x720-{themePrefix}-{suffix}.png");
+                                if (themeMode == AppThemeMode.Dark)
+                                {
+                                    File.Copy(Path.Combine(requestedRenderPngDir, $"studio-1280x720-{themePrefix}-{suffix}.png"),
+                                              Path.Combine(requestedRenderPngDir, $"studio-1280x720-{suffix}.png"), true);
+                                }
+
+                                // Studio at 1600x900
+                                var studioVm1600 = new StudioViewModel(fixtureState, u => Task.FromResult(u(fixtureState)));
+                                var studioWin1600 = new Window
+                                {
+                                    Content = new StudioView { DataContext = studioVm1600 },
+                                    FlowDirection = localizer.FlowDirectionValue,
+                                    Background = winBgBrush
+                                };
+                                RenderHeadlessWindow(studioWin1600, 1600, 900, $"studio-1600x900-{themePrefix}-{suffix}.png");
+                                if (themeMode == AppThemeMode.Dark)
+                                {
+                                    File.Copy(Path.Combine(requestedRenderPngDir, $"studio-1600x900-{themePrefix}-{suffix}.png"),
+                                              Path.Combine(requestedRenderPngDir, $"studio-1600x900-{suffix}.png"), true);
+                                }
+                            }
                         }
 
                         localizer.CurrentLanguage = origLang;

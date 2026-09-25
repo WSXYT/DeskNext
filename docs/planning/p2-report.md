@@ -21,9 +21,27 @@ P2 is **not a live organizer**: no desktop watcher, automated file move, ONNX wo
 
 These observations do not prove a presented frame, correct clipping, physical keyboard navigation, or the 100%/150%/200% DPI matrix. Dispatcher render priority is not a frame-presentation acknowledgment. The in-process watchdog depends on dispatcher responsiveness; CI step timeouts provide the outer bound. The prior claim that the development host was at 100% was unsupported and is superseded by the observed Avalonia scale of 2.5, not by independent physical-display measurement.
 
+## Keyboard and offscreen capture follow-up at `daca4cd`
+
+Parent reran the Release build, all 20 Core and 4 Inference tests, and the headless smoke with native ABI loading plus opt-in PNG output. The smoke passed in 2797 ms with 7 realized containers for 10,000 rows. An active LSP probe reported no errors in the changed smoke runner.
+
+- Headless `KeyPress`/`KeyRelease` now exercise Escape dismissal, Enter submission of a new space, and a Tab focus transition. This replaces direct command invocation; it does not verify physical keyboard/IME behavior or all navigation paths.
+- The previous capture cropping defect is corrected by setting each window's target dimensions before rendering. The parent inspected `artifacts/p2-visual-verified/studio-1280x720-ar.png` and `oobe-1280x720-de.png`: the sampled views fit the image and Arabic Studio navigation is mirrored. These are offscreen component fixtures, not full MainWindow or physical-window screenshots, and not exhaustive visual acceptance.
+- The capture currently covers OOBE step 1 at 1280×720 and Studio at 1280×720/1600×900 in en/de/ar. It does not cover every wizard step, tab, theme or long-text state. German OOBE fixture still selects English in its language field and shows raw `Light`; fixture settings and localized theme labels need follow-up. Temporary paths still contain the host username because the OS temp directory is beneath the profile; do not call these anonymous screenshots or share them publicly without sanitization.
+
+## Phase 1 visual pass at working tree after `daca4cd`
+
+The first visual pass was rejected after direct PNG inspection because it still read as a generic white administration form. The second pass was reviewed against the DeskBox Mica/Acrylic screenshot and now provides a more appropriate reference-led baseline:
+
+- Dark and light themes use layered graphite/slate surfaces, a thin chrome divider, a compact navigation rail, and an open file canvas. Dense file text stays on opaque surfaces; the offscreen renderer does not prove DWM Mica/Acrylic.
+- The studio rail uses stable space rows with managed/mapped edge markers, quiet filters, and fixed path/count spacing. File and empty-state marks use local Avalonia vector geometries rather than emoji or textual `[FILE]`/`[DIR]` badges.
+- OOBE step 1 has a restrained managed-space/mapped-space architecture anchor instead of a draft slogan card. The existing five-tab bindings, localization contract, ListBox virtualization and metadata-only boundary remain intact.
+- Parent inspected dark/light Studio, dark OOBE, and Arabic Studio fixtures under `artifacts/p2-visual-industrial`. This is visual regression evidence for in-memory offscreen composition only, not physical-window, DWM, ClearType or DPI evidence.
+
+The final cleanup removed the remaining decorative `✦` from all 12 dictionaries and replaced empty-state glyphs with vector marks. Release build completed with 0 warnings/0 errors; Core tests passed 20/20; Inference tests passed 4/4; the headless smoke with native ABI and opt-in dark/light offscreen fixtures passed all 10 steps, 12-language parity, RTL path isolation, injected Escape/Enter/Tab checks and 10 realized containers for 10,000 metadata rows.
+
 ## Remaining P2 acceptance work
 
-- Explicit long-text, RTL, 1280×720 and 1600×900 visual review, actual keyboard input/focus traversal, and native 100%/150%/200% DPI evidence. Long-text tests currently prove no layout exception, not lack of text clipping; hotkey configuration and command invocation do not prove key routing.
-- Parent inspected the opt-in offscreen PNG and found capture cropping: the window was arranged at 2560×1520 before rendering into a 1280×760 bitmap. This image is not valid target-viewport acceptance evidence. Gemini is correcting capture dimensions and adding focused key-event tests. Offscreen bitmap output must never be described as a physical-window screenshot.
+- Complete long-text/RTL visual coverage and keyboard flows, plus native 100%/150%/200% DPI evidence. Long-text tests currently prove no layout exception, not lack of text clipping. A single Tab transition is not a full keyboard-accessibility audit.
 - Unavailable physical-display evidence remains unverified; native-backend CI startup is not manual desktop UX acceptance.
 - Check final P2 plan gate before starting P3. In particular, a documented manual-path capsule must not be reported as OS drag-and-drop; model selection UI must not be reported as an active inference engine.

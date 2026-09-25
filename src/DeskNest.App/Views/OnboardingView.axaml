@@ -5,7 +5,9 @@
              xmlns:th="using:DeskNest.App.Themes"
              xmlns:core="using:DeskNest.Core.Workspace"
              x:Class="DeskNest.App.Views.OnboardingView"
-             x:DataType="vm:OnboardingViewModel">
+             x:DataType="vm:OnboardingViewModel"
+             Background="{DynamicResource WindowBackgroundBrush}"
+             Foreground="{DynamicResource TextPrimaryBrush}">
 
     <Grid RowDefinitions="Auto,*,Auto" Margin="32,20">
         <!-- TOP: STEP PROGRESS INDICATOR -->
@@ -14,62 +16,62 @@
                 BorderBrush="{DynamicResource BorderSubtleBrush}"
                 BorderThickness="1"
                 CornerRadius="{DynamicResource RadiusPrimary}"
-                Padding="20,12"
+                Padding="16,10"
                 Margin="0,0,0,16">
             <Grid ColumnDefinitions="*,*,*,*,*">
                 <!-- Step 1 Indicator -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
-                    <Border Width="24" Height="24" CornerRadius="12"
+                    <Border Width="20" Height="20" CornerRadius="3"
                             Background="{Binding Step1Bg}">
                         <TextBlock Text="1" Foreground="White" FontWeight="Bold" FontSize="11"
                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <TextBlock Text="{Binding Localizer[OOBE.Step1.Title]}"
-                               FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center"/>
+                               FontWeight="SemiBold" FontSize="11" VerticalAlignment="Center"/>
                 </StackPanel>
 
                 <!-- Step 2 Indicator -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
-                    <Border Width="24" Height="24" CornerRadius="12"
+                    <Border Width="20" Height="20" CornerRadius="3"
                             Background="{Binding Step2Bg}">
                         <TextBlock Text="2" Foreground="White" FontWeight="Bold" FontSize="11"
                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <TextBlock Text="{Binding Localizer[OOBE.Step2.Title]}"
-                               FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center"/>
+                               FontWeight="SemiBold" FontSize="11" VerticalAlignment="Center"/>
                 </StackPanel>
 
                 <!-- Step 3 Indicator -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
-                    <Border Width="24" Height="24" CornerRadius="12"
+                    <Border Width="20" Height="20" CornerRadius="3"
                             Background="{Binding Step3Bg}">
                         <TextBlock Text="3" Foreground="White" FontWeight="Bold" FontSize="11"
                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <TextBlock Text="{Binding Localizer[OOBE.Step3.Title]}"
-                               FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center"/>
+                               FontWeight="SemiBold" FontSize="11" VerticalAlignment="Center"/>
                 </StackPanel>
 
                 <!-- Step 4 Indicator -->
                 <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
-                    <Border Width="24" Height="24" CornerRadius="12"
+                    <Border Width="20" Height="20" CornerRadius="3"
                             Background="{Binding Step4Bg}">
                         <TextBlock Text="4" Foreground="White" FontWeight="Bold" FontSize="11"
                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <TextBlock Text="{Binding Localizer[OOBE.Step4.Title]}"
-                               FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center"/>
+                               FontWeight="SemiBold" FontSize="11" VerticalAlignment="Center"/>
                 </StackPanel>
 
                 <!-- Step 5 Indicator -->
                 <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
-                    <Border Width="24" Height="24" CornerRadius="12"
+                    <Border Width="20" Height="20" CornerRadius="3"
                             Background="{Binding Step5Bg}">
                         <TextBlock Text="5" Foreground="White" FontWeight="Bold" FontSize="11"
                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <TextBlock Text="{Binding Localizer[OOBE.Step5.Title]}"
-                               FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center"/>
+                               FontWeight="SemiBold" FontSize="11" VerticalAlignment="Center"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -116,7 +118,7 @@
                             <ComboBox ItemsSource="{Binding SupportedThemes}"
                                       SelectedItem="{Binding SelectedTheme}"
                                       HorizontalAlignment="Stretch"
-                                      CornerRadius="{DynamicResource RadiusPrimary}">
+                                      CornerRadius="{DynamicResource RadiusSmall}">
                                 <ComboBox.ItemTemplate>
                                     <DataTemplate x:DataType="th:AppThemeMode">
                                         <TextBlock Text="{Binding}"/>
@@ -125,20 +127,49 @@
                             </ComboBox>
                         </StackPanel>
 
-                        <!-- Brand Statement Card -->
-                        <Border CornerRadius="{DynamicResource RadiusPrimary}"
-                                Background="{DynamicResource AccentSubtleBrush}"
-                                BorderBrush="{DynamicResource AccentBorderBrush}"
+                        <!-- Architectural Anchor Card (Real Content, No Marketing Slogan) -->
+                        <Border CornerRadius="{DynamicResource RadiusSmall}"
+                                Background="{DynamicResource SurfaceElevatedBrush}"
+                                BorderBrush="{DynamicResource BorderSubtleBrush}"
                                 BorderThickness="1"
                                 Padding="16,14"
                                 Margin="0,10,0,0">
-                            <StackPanel Spacing="6">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Text="✦" Foreground="{DynamicResource AccentPrimaryBrush}" FontSize="16"/>
-                                    <TextBlock Text="{Binding Localizer[App.Title]}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource AccentTextBrush}"/>
-                                </StackPanel>
-                                <TextBlock Text="{Binding Localizer[App.Tagline]}" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                <TextBlock Text="{Binding Localizer[App.TaglineDraftNotice]}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="{Binding Localizer[Welcome.DualParadigmTitle]}"
+                                           FontWeight="SemiBold" FontSize="13"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <Grid ColumnDefinitions="*,12,*">
+                                    <Border Grid.Column="0"
+                                            CornerRadius="3"
+                                            Background="{DynamicResource SurfaceBrush}"
+                                            BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                            BorderThickness="1"
+                                            Padding="10,8">
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="{Binding Localizer[Welcome.ManagedTitle]}"
+                                                       FontWeight="SemiBold" FontSize="11"
+                                                       Foreground="{DynamicResource AccentTextBrush}"/>
+                                            <TextBlock Text="{Binding Localizer[Welcome.ManagedDesc]}"
+                                                       TextWrapping="Wrap" FontSize="11"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Grid.Column="2"
+                                            CornerRadius="3"
+                                            Background="{DynamicResource SurfaceBrush}"
+                                            BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                            BorderThickness="1"
+                                            Padding="10,8">
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="{Binding Localizer[Welcome.MappedTitle]}"
+                                                       FontWeight="SemiBold" FontSize="11"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                            <TextBlock Text="{Binding Localizer[Welcome.MappedDesc]}"
+                                                       TextWrapping="Wrap" FontSize="11"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -166,16 +197,20 @@
                                     CornerRadius="{DynamicResource RadiusPrimary}"
                                     Background="{DynamicResource SurfaceBrush}"
                                     BorderBrush="{Binding IsLayaSelected, Converter={x:Null}}"
-                                    BorderThickness="2">
+                                    BorderThickness="1">
                                 <StackPanel Spacing="8">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <TextBlock Text="⚡" FontSize="16" Foreground="{DynamicResource AccentPrimaryBrush}"/>
-                                        <TextBlock Text="{Binding Localizer[OOBE.Step2.Laya]}" FontWeight="Bold" FontSize="14"/>
+                                        <PathIcon Data="{StaticResource IconFolder}"
+                                                  Width="16" Height="16"
+                                                  Foreground="{DynamicResource AccentPrimaryBrush}"/>
+                                        <TextBlock Text="{Binding Localizer[OOBE.Step2.Laya]}" FontWeight="Bold" FontSize="13"/>
                                     </StackPanel>
                                     <TextBlock Text="{Binding Localizer[OOBE.Step2.LayaDesc]}"
                                                TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     <Border CornerRadius="{DynamicResource RadiusSmall}"
                                             Background="{DynamicResource SuccessBadgeBgBrush}"
+                                            BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                            BorderThickness="1"
                                             Padding="6,2" HorizontalAlignment="Left">
                                         <TextBlock Text="100% On-Device / Zero Telemetry" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource SuccessBadgeFgBrush}"/>
                                     </Border>
@@ -192,16 +227,20 @@
                                     CornerRadius="{DynamicResource RadiusPrimary}"
                                     Background="{DynamicResource SurfaceBrush}"
                                     BorderBrush="{Binding IsJevSelected, Converter={x:Null}}"
-                                    BorderThickness="2">
+                                    BorderThickness="1">
                                 <StackPanel Spacing="8">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <TextBlock Text="☁" FontSize="16" Foreground="{DynamicResource AccentPrimaryBrush}"/>
-                                        <TextBlock Text="{Binding Localizer[OOBE.Step2.Jev]}" FontWeight="Bold" FontSize="14"/>
+                                        <PathIcon Data="{StaticResource IconFile}"
+                                                  Width="16" Height="16"
+                                                  Foreground="{DynamicResource AccentPrimaryBrush}"/>
+                                        <TextBlock Text="{Binding Localizer[OOBE.Step2.Jev]}" FontWeight="Bold" FontSize="13"/>
                                     </StackPanel>
                                     <TextBlock Text="{Binding Localizer[OOBE.Step2.JevDesc]}"
                                                TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     <Border CornerRadius="{DynamicResource RadiusSmall}"
                                             Background="{DynamicResource InfoBadgeBgBrush}"
+                                            BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                            BorderThickness="1"
                                             Padding="6,2" HorizontalAlignment="Left">
                                         <TextBlock Text="Cloud Decision / Metadata Only" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource InfoBadgeFgBrush}"/>
                                     </Border>

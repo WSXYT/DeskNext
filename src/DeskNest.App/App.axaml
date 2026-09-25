@@ -12,5 +12,14 @@
 
     <Application.Styles>
         <FluentTheme />
+        <Style Selector="Button">
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusPrimary}" />
+        </Style>
+        <Style Selector="TextBox">
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSmall}" />
+        </Style>
+        <Style Selector="ComboBox">
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSmall}" />
+        </Style>
     </Application.Styles>
 </Application>
