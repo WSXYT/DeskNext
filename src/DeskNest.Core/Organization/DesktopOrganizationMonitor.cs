@@ -29,6 +29,7 @@ public sealed class DesktopOrganizationMonitor : IAsyncDisposable
     private readonly Func<IReadOnlyList<DesktopOrganizationMonitorCandidate>, Task> _onCandidates;
     private readonly Dictionary<string, FileSystemWatcher> _watchers = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, DateTimeOffset> _baseline = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, byte> _queued = new(StringComparer.OrdinalIgnoreCase);
     private readonly Channel<string> _events;
     private readonly CancellationTokenSource _stop = new();
     private Task? _worker;
@@ -109,20 +110,27 @@ public sealed class DesktopOrganizationMonitor : IAsyncDisposable
     {
         await foreach (var path in _events.Reader.ReadAllAsync(_stop.Token).ConfigureAwait(false))
         {
-            if (!File.Exists(path) && !Directory.Exists(path))
-                continue;
-            if (IsExcluded(path))
-                continue;
+            try
+            {
+                if (!File.Exists(path) && !Directory.Exists(path))
+                    continue;
+                if (IsExcluded(path))
+                    continue;
 
-            bool isDirectory = Directory.Exists(path);
-            bool stable = await WaitForStabilityAsync(path, _stop.Token).ConfigureAwait(false);
-            var exclusion = isDirectory
-                ? DesktopOrganizationExclusionReason.Folder
-                : stable ? DesktopOrganizationExclusionReason.None : DesktopOrganizationExclusionReason.SlowItem;
-            await _onCandidates([
-                new DesktopOrganizationMonitorCandidate(
-                    path, isDirectory, DesktopOrganizationSourceScope.Personal, stable, exclusion)
-            ]).ConfigureAwait(false);
+                bool isDirectory = Directory.Exists(path);
+                bool stable = await WaitForStabilityAsync(path, _stop.Token).ConfigureAwait(false);
+                var exclusion = isDirectory
+                    ? DesktopOrganizationExclusionReason.Folder
+                    : stable ? DesktopOrganizationExclusionReason.None : DesktopOrganizationExclusionReason.SlowItem;
+                await _onCandidates([
+                    new DesktopOrganizationMonitorCandidate(
+                        path, isDirectory, DesktopOrganizationSourceScope.Personal, stable, exclusion)
+                ]).ConfigureAwait(false);
+            }
+            finally
+            {
+                _queued.TryRemove(path, out _);
+            }
         }
     }
 
@@ -139,8 +147,14 @@ public sealed class DesktopOrganizationMonitor : IAsyncDisposable
 
     private void Enqueue(string path)
     {
-        if (!_events.Writer.TryWrite(Path.GetFullPath(path)))
+        string normalized = Path.GetFullPath(path);
+        if (!_queued.TryAdd(normalized, 0))
+            return;
+        if (!_events.Writer.TryWrite(normalized))
+        {
+            _queued.TryRemove(normalized, out _);
             Interlocked.Exchange(ref _overflowed, 1);
+        }
     }
 
     private bool IsExcluded(string path) =>
