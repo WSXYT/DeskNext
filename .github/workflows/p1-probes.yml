@@ -14,13 +14,17 @@ jobs:
           - os: ubuntu-24.04
             rid: linux-x64
           - os: macos-15
-            rid: osx-x64
+            rid: osx-arm64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+      - name: Confirm macOS runner architecture matches RID
+        if: runner.os == 'macOS'
+        shell: bash
+        run: test "$(uname -m)" = arm64
       - name: Run headless Core and inference unit tests
         run: dotnet test DeskNest.sln -c Release -m:1 -p:UseSharedCompilation=false
       - name: Build native bridge (Debug, serial)
