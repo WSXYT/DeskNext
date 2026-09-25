@@ -84,18 +84,21 @@ public sealed class DesktopOrganizationTransaction
         WriteIndented = false
     };
 
+
     private readonly SemaphoreSlim _operationGate = new(1, 1);
     private readonly string _journalPath;
+    private readonly Func<OrganizationMoveReceipt, bool>? _moveGuard;
 
-    public DesktopOrganizationTransaction(string journalPath)
+    public DesktopOrganizationTransaction(
+        string journalPath,
+        Func<OrganizationMoveReceipt, bool>? moveGuard = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(journalPath);
         if (!Path.IsPathFullyQualified(journalPath))
-        {
             throw new ArgumentException("The journal path must be absolute.", nameof(journalPath));
-        }
 
         _journalPath = journalPath;
+        _moveGuard = moveGuard;
     }
 
     public async Task<OrganizationTransactionResult> ExecuteAsync(
@@ -396,19 +399,18 @@ public sealed class DesktopOrganizationTransaction
         return result;
     }
 
-    private static void MoveOne(OrganizationMoveReceipt move)
+    private void MoveOne(OrganizationMoveReceipt move)
     {
+        if (_moveGuard is not null && !_moveGuard(move))
+            throw new IOException($"Fault injection refused move: {move.SourcePath}");
+
         Directory.CreateDirectory(Path.GetDirectoryName(move.DestinationPath)!);
         if (File.Exists(move.DestinationPath) || Directory.Exists(move.DestinationPath))
-        {
             throw new IOException($"Destination appeared during transaction: {move.DestinationPath}");
-        }
 
         var current = FileIdentity.Capture(move.SourcePath);
         if (current != move.Identity)
-        {
             throw new IOException($"Source changed before move: {move.SourcePath}");
-        }
 
         File.Move(move.SourcePath, move.DestinationPath);
     }

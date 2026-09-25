@@ -132,6 +132,35 @@ public sealed class DesktopOrganizationTransactionTests
     }
 
     [Fact]
+    public async Task FaultInjectionLeavesRecoveryJournalForCompletedMoves()
+    {
+        using var root = new TempDirectory();
+        string sourceOne = Path.Combine(root.Path, "one.txt");
+        string sourceTwo = Path.Combine(root.Path, "two.txt");
+        string destinationOne = Path.Combine(root.Path, "out-one.txt");
+        string destinationTwo = Path.Combine(root.Path, "out-two.txt");
+        string journal = Path.Combine(root.Path, "operation.json");
+        await File.WriteAllTextAsync(sourceOne, "one");
+        await File.WriteAllTextAsync(sourceTwo, "two");
+
+        var transaction = new DesktopOrganizationTransaction(journal, move =>
+            !move.SourcePath.EndsWith("two.txt", StringComparison.OrdinalIgnoreCase));
+        await Assert.ThrowsAsync<IOException>(() => transaction.ExecuteAsync([
+            new OrganizationMove(sourceOne, destinationOne),
+            new OrganizationMove(sourceTwo, destinationTwo)]));
+
+        Assert.False(File.Exists(sourceOne));
+        Assert.True(File.Exists(destinationOne));
+        Assert.True(File.Exists(sourceTwo));
+        Assert.True(File.Exists(journal));
+
+        var restored = await transaction.RecoverAsync();
+        Assert.Equal(OrganizationTransactionStatus.Completed, restored.Status);
+        Assert.True(File.Exists(sourceOne));
+        Assert.False(File.Exists(destinationOne));
+    }
+
+    [Fact]
     public async Task ExecuteRejectsDuplicateSourceBeforeMovingAnything()
     {
         using var root = new TempDirectory();
