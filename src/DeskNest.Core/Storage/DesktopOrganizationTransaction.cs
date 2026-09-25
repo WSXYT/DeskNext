@@ -65,6 +65,12 @@ public enum OrganizationTransactionStatus
     RecoveryRequired
 }
 
+public enum OrganizationDirectoryMoveSupport
+{
+    SameVolumeAtomicWithManifest,
+    CrossVolumeCopyNotImplemented
+}
+
 public sealed record OrganizationTransactionResult(
     Guid OperationId,
     OrganizationTransactionStatus Status,
@@ -102,6 +108,11 @@ public sealed class DesktopOrganizationTransaction
     }
 
     public bool HasRecoveryJournal => File.Exists(_journalPath);
+
+    public OrganizationDirectoryMoveSupport DirectoryMoveSupport =>
+        OrganizationDirectoryMoveSupport.SameVolumeAtomicWithManifest;
+
+    public bool SupportsCrossVolumeDirectoryMoves => false;
 
     public async Task<OrganizationTransactionResult> ExecuteAsync(
         IReadOnlyList<OrganizationMove> requestedMoves,
@@ -316,7 +327,8 @@ public sealed class DesktopOrganizationTransaction
             var destinationRoot = Path.GetPathRoot(destination);
             if (!string.Equals(sourceRoot, destinationRoot,
                     OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
-                throw new IOException("Cross-volume directory moves require a copy-and-verify adapter.");
+                throw new NotSupportedException(
+                    "Cross-volume directory copy is not implemented; the operation is intentionally blocked.");
 
             result.Add(new OrganizationDirectoryMoveReceipt(
                 source, destination, CaptureDirectoryManifest(source), false));

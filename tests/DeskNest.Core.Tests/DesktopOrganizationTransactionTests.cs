@@ -120,6 +120,32 @@ public sealed class DesktopOrganizationTransactionTests
     }
 
     [Fact]
+    public async Task CrossVolumeDirectoryMovesExposeUnsupportedCapabilityAndFailClosed()
+    {
+        using var root = new TempDirectory();
+        string source = Path.Combine(root.Path, "source-dir");
+        Directory.CreateDirectory(source);
+        var transaction = new DesktopOrganizationTransaction(Path.Combine(root.Path, "operation.json"));
+
+        Assert.False(transaction.SupportsCrossVolumeDirectoryMoves);
+        Assert.Equal(
+            OrganizationDirectoryMoveSupport.SameVolumeAtomicWithManifest,
+            transaction.DirectoryMoveSupport);
+
+        string sourceRoot = Path.GetPathRoot(root.Path)!;
+        string? alternateRoot = DriveInfo.GetDrives()
+            .Select(drive => drive.RootDirectory.FullName)
+            .FirstOrDefault(candidate => !string.Equals(candidate, sourceRoot,
+                StringComparison.OrdinalIgnoreCase));
+        if (alternateRoot is null)
+            return;
+
+        await Assert.ThrowsAsync<NotSupportedException>(() => transaction.ExecuteDirectoriesAsync([
+            new OrganizationDirectoryMove(source, Path.Combine(alternateRoot, "DeskNest-test-destination"))]));
+        Assert.True(Directory.Exists(source));
+    }
+
+    [Fact]
     public async Task ExecuteDirectoriesRejectsDestinationInsideSource()
     {
         using var root = new TempDirectory();
