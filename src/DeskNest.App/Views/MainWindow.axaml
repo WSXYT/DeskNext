@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:DeskNest.App.ViewModels"
+        xmlns:views="using:DeskNest.App.Views"
         xmlns:loc="using:DeskNest.App.Localization"
         xmlns:th="using:DeskNest.App.Themes"
         x:Class="DeskNest.App.Views.MainWindow"
@@ -13,17 +14,16 @@
         Foreground="{DynamicResource TextPrimaryBrush}"
         FlowDirection="{Binding CurrentFlowDirection}">
 
-    <Grid RowDefinitions="Auto,Auto,*,Auto">
-        <!-- TOP SHELL HEADER -->
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- TOP HEADER BAR -->
         <Border Grid.Row="0"
                 Background="{DynamicResource SurfaceBrush}"
                 BorderBrush="{DynamicResource BorderSubtleBrush}"
                 BorderThickness="0,0,0,1"
                 Padding="20,12">
             <Grid ColumnDefinitions="Auto,*,Auto">
-                <!-- Brand & Probe Tag -->
+                <!-- Brand & Slogan -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                    <!-- Brand Icon Box -->
                     <Border Width="36" Height="36"
                             CornerRadius="{DynamicResource RadiusPrimary}"
                             Background="{DynamicResource AccentPrimaryBrush}">
@@ -47,14 +47,14 @@
                                     BorderBrush="{DynamicResource AccentBorderBrush}"
                                     BorderThickness="1"
                                     Padding="6,2">
-                                <TextBlock Text="{Binding Localizer[App.ProbeTag]}"
+                                <TextBlock Text="{Binding Localizer[App.ProbeTagP2]}"
                                            FontSize="11"
                                            FontWeight="SemiBold"
                                            Foreground="{DynamicResource AccentTextBrush}"/>
                             </Border>
                         </StackPanel>
 
-                        <!-- Slogan with Draft Notice -->
+                        <!-- Slogan -->
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <TextBlock Text="{Binding Localizer[App.Tagline]}"
                                        FontSize="12"
@@ -67,7 +67,7 @@
                 </StackPanel>
 
                 <!-- Controls: Theme and Language -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
                     <!-- Theme Selector -->
                     <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                         <TextBlock Text="{Binding Localizer[Theme.Label]}"
@@ -107,589 +107,94 @@
             </Grid>
         </Border>
 
-        <!-- NAVIGATION BAR -->
-        <Border Grid.Row="1"
-                Background="{DynamicResource SurfaceBrush}"
-                BorderBrush="{DynamicResource BorderSubtleBrush}"
-                BorderThickness="0,0,0,1"
-                Padding="20,8">
-            <StackPanel Orientation="Horizontal" Spacing="10">
-                <Button Command="{Binding SelectTabCommand}"
-                        CommandParameter="0"
-                        CornerRadius="{DynamicResource RadiusPrimary}"
-                        Padding="14,8"
-                        Background="{Binding SelectedTabIndex, Converter={x:Null}}">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock Text="✦" Foreground="{DynamicResource AccentPrimaryBrush}"/>
-                        <TextBlock Text="{Binding Localizer[Nav.Overview]}" FontWeight="SemiBold"/>
-                    </StackPanel>
-                </Button>
-
-                <Button Command="{Binding SelectTabCommand}"
-                        CommandParameter="1"
-                        CornerRadius="{DynamicResource RadiusPrimary}"
-                        Padding="14,8">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock Text="⊞" Foreground="{DynamicResource AccentPrimaryBrush}"/>
-                        <TextBlock Text="{Binding Localizer[Nav.Spaces]}" FontWeight="SemiBold"/>
-                    </StackPanel>
-                </Button>
-
-                <Button Command="{Binding SelectTabCommand}"
-                        CommandParameter="2"
-                        CornerRadius="{DynamicResource RadiusPrimary}"
-                        Padding="14,8">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock Text="⚡" Foreground="{DynamicResource AccentPrimaryBrush}"/>
-                        <TextBlock Text="{Binding Localizer[Nav.Probe]}" FontWeight="SemiBold"/>
-                    </StackPanel>
-                </Button>
-            </StackPanel>
-        </Border>
-
-        <!-- MAIN CONTENT AREA -->
-        <Grid Grid.Row="2" Margin="20">
-            <!-- TAB 0: OVERVIEW & FIRST-USE ARCHITECTURE -->
-            <ScrollViewer IsVisible="{Binding IsOverviewTab}">
-                <StackPanel Spacing="16" MaxWidth="1180" HorizontalAlignment="Stretch">
-                    <!-- Hero Banner -->
-                    <Border CornerRadius="{DynamicResource RadiusPrimary}"
-                            Background="{DynamicResource SurfaceBrush}"
-                            BorderBrush="{DynamicResource AccentBorderBrush}"
-                            BorderThickness="1"
-                            Padding="24,20">
-                        <StackPanel Spacing="8">
-                            <TextBlock Text="{Binding Localizer[Welcome.Title]}"
-                                       FontSize="20"
-                                       FontWeight="Bold"
-                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <TextBlock Text="{Binding Localizer[Welcome.Subtitle]}"
-                                       FontSize="14"
-                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
-
-                            <!-- Safety Gate Notice -->
-                            <Border Margin="0,10,0,0"
-                                    CornerRadius="{DynamicResource RadiusPrimary}"
-                                    Background="{DynamicResource WarningBadgeBgBrush}"
-                                    Padding="12,10">
-                                <TextBlock Text="{Binding Localizer[Welcome.Notice]}"
-                                           TextWrapping="Wrap"
-                                           FontSize="12"
-                                           Foreground="{DynamicResource WarningBadgeFgBrush}"/>
-                            </Border>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- Dual Space Paradigm Section -->
-                    <TextBlock Text="{Binding Localizer[Welcome.DualParadigmTitle]}"
-                               FontSize="16"
-                               FontWeight="Bold"
-                               Margin="0,8,0,0"/>
-
-                    <Grid ColumnDefinitions="*,16,*" HorizontalAlignment="Stretch">
-                        <!-- Managed Space Card -->
-                        <Border Grid.Column="0"
-                                CornerRadius="{DynamicResource RadiusPrimary}"
-                                Background="{DynamicResource SurfaceBrush}"
-                                BorderBrush="{DynamicResource BorderSubtleBrush}"
-                                BorderThickness="1"
-                                Padding="18">
-                            <StackPanel Spacing="8">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <Border CornerRadius="{DynamicResource RadiusSmall}"
-                                            Background="{DynamicResource InfoBadgeBgBrush}"
-                                            Padding="6,3">
-                                        <TextBlock Text="{Binding Localizer[Spaces.BadgeManaged]}"
-                                                   FontSize="11"
-                                                   FontWeight="Bold"
-                                                   Foreground="{DynamicResource InfoBadgeFgBrush}"/>
-                                    </Border>
-                                    <TextBlock Text="{Binding Localizer[Welcome.ManagedTitle]}"
-                                               FontWeight="Bold"
-                                               FontSize="14"/>
-                                </StackPanel>
-                                <TextBlock Text="{Binding Localizer[Welcome.ManagedDesc]}"
-                                           TextWrapping="Wrap"
-                                           FontSize="13"
-                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                <Border CornerRadius="{DynamicResource RadiusSmall}"
-                                        Background="{DynamicResource ConsoleBackgroundBrush}"
-                                        Padding="8,6"
-                                        Margin="0,6,0,0">
-                                    <TextBlock Text="~/DeskNest/Spaces"
-                                               FontFamily="Consolas,Menlo,Monospace"
-                                               FontSize="12"
-                                               FlowDirection="LeftToRight"
-                                               Foreground="{DynamicResource AccentTextBrush}"/>
-                                </Border>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Mapped Space Card -->
-                        <Border Grid.Column="2"
-                                CornerRadius="{DynamicResource RadiusPrimary}"
-                                Background="{DynamicResource SurfaceBrush}"
-                                BorderBrush="{DynamicResource BorderSubtleBrush}"
-                                BorderThickness="1"
-                                Padding="18">
-                            <StackPanel Spacing="8">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <Border CornerRadius="{DynamicResource RadiusSmall}"
-                                            Background="{DynamicResource NeutralBadgeBgBrush}"
-                                            Padding="6,3">
-                                        <TextBlock Text="{Binding Localizer[Spaces.BadgeMapped]}"
-                                                   FontSize="11"
-                                                   FontWeight="Bold"
-                                                   Foreground="{DynamicResource NeutralBadgeFgBrush}"/>
-                                    </Border>
-                                    <TextBlock Text="{Binding Localizer[Welcome.MappedTitle]}"
-                                               FontWeight="Bold"
-                                               FontSize="14"/>
-                                </StackPanel>
-                                <TextBlock Text="{Binding Localizer[Welcome.MappedDesc]}"
-                                           TextWrapping="Wrap"
-                                           FontSize="13"
-                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                <Border CornerRadius="{DynamicResource RadiusSmall}"
-                                        Background="{DynamicResource ConsoleBackgroundBrush}"
-                                        Padding="8,6"
-                                        Margin="0,6,0,0">
-                                    <TextBlock Text="User-selected external directory (read/inspect only)"
-                                               FontFamily="Consolas,Menlo,Monospace"
-                                               FontSize="12"
-                                               FlowDirection="LeftToRight"
-                                               Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                </Border>
-                            </StackPanel>
-                        </Border>
-                    </Grid>
-
-                    <!-- Preset OOBE Templates Direction -->
-                    <TextBlock Text="{Binding Localizer[Welcome.TemplatesTitle]}"
-                               FontSize="16"
-                               FontWeight="Bold"
-                               Margin="0,8,0,0"/>
-
-                    <Grid ColumnDefinitions="*,12,*,12,*,12,*" HorizontalAlignment="Stretch">
-                        <!-- Office -->
-                        <Border Grid.Column="0"
-                                CornerRadius="{DynamicResource RadiusPrimary}"
-                                Background="{DynamicResource SurfaceBrush}"
-                                BorderBrush="{DynamicResource BorderSubtleBrush}"
-                                BorderThickness="1"
-                                Padding="14">
-                            <StackPanel Spacing="6">
-                                <TextBlock Text="📁" FontSize="20"/>
-                                <TextBlock Text="{Binding Localizer[Template.Office]}"
-                                           FontWeight="Bold"
-                                           FontSize="13"/>
-                                <TextBlock Text="{Binding Localizer[Template.OfficeDesc]}"
-                                           TextWrapping="Wrap"
-                                           FontSize="11"
-                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Development -->
-                        <Border Grid.Column="2"
-                                CornerRadius="{DynamicResource RadiusPrimary}"
-                                Background="{DynamicResource SurfaceBrush}"
-                                BorderBrush="{DynamicResource BorderSubtleBrush}"
-                                BorderThickness="1"
-                                Padding="14">
-                            <StackPanel Spacing="6">
-                                <TextBlock Text="💻" FontSize="20"/>
-                                <TextBlock Text="{Binding Localizer[Template.Development]}"
-                                           FontWeight="Bold"
-                                           FontSize="13"/>
-                                <TextBlock Text="{Binding Localizer[Template.DevelopmentDesc]}"
-                                           TextWrapping="Wrap"
-                                           FontSize="11"
-                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Creative -->
-                        <Border Grid.Column="4"
-                                CornerRadius="{DynamicResource RadiusPrimary}"
-                                Background="{DynamicResource SurfaceBrush}"
-                                BorderBrush="{DynamicResource BorderSubtleBrush}"
-                                BorderThickness="1"
-                                Padding="14">
-                            <StackPanel Spacing="6">
-                                <TextBlock Text="🎨" FontSize="20"/>
-                                <TextBlock Text="{Binding Localizer[Template.Creative]}"
-                                           FontWeight="Bold"
-                                           FontSize="13"/>
-                                <TextBlock Text="{Binding Localizer[Template.CreativeDesc]}"
-                                           TextWrapping="Wrap"
-                                           FontSize="11"
-                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Custom -->
-                        <Border Grid.Column="6"
-                                CornerRadius="{DynamicResource RadiusPrimary}"
-                                Background="{DynamicResource SurfaceBrush}"
-                                BorderBrush="{DynamicResource BorderSubtleBrush}"
-                                BorderThickness="1"
-                                Padding="14">
-                            <StackPanel Spacing="6">
-                                <TextBlock Text="⚙" FontSize="20"/>
-                                <TextBlock Text="{Binding Localizer[Template.Custom]}"
-                                           FontWeight="Bold"
-                                           FontSize="13"/>
-                                <TextBlock Text="{Binding Localizer[Template.CustomDesc]}"
-                                           TextWrapping="Wrap"
-                                           FontSize="11"
-                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            </StackPanel>
-                        </Border>
-                    </Grid>
+        <!-- MAIN BODY -->
+        <Grid Grid.Row="1">
+            <!-- 1. Loading View -->
+            <Border IsVisible="{Binding IsLoading}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel Spacing="12" HorizontalAlignment="Center">
+                    <TextBlock Text="✦" FontSize="32" Foreground="{DynamicResource AccentPrimaryBrush}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="{Binding Localizer[Status.Loading]}" FontSize="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                 </StackPanel>
-            </ScrollViewer>
+            </Border>
 
-            <!-- TAB 1: SPACES CANVAS & INSPECTOR -->
-            <Grid ColumnDefinitions="*,20,380"
-                  IsVisible="{Binding IsSpacesTab}"
-                  x:Name="SpacesTabGrid">
-                <!-- Spaces List -->
-                <ScrollViewer Grid.Column="0">
-                    <StackPanel Spacing="14">
-                        <TextBlock Text="{Binding Localizer[Spaces.Title]}"
-                                   FontSize="18"
-                                   FontWeight="Bold"/>
-                        <TextBlock Text="{Binding Localizer[Spaces.Subtitle]}"
-                                   FontSize="13"
-                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <!-- 2. Startup Error View (Visible fail-closed without overwriting metadata) -->
+            <Border IsVisible="{Binding HasStartupError}" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24" MaxWidth="680">
+                <Border Background="{DynamicResource SurfaceBrush}"
+                        BorderBrush="{DynamicResource WarningBadgeFgBrush}"
+                        BorderThickness="2"
+                        CornerRadius="{DynamicResource RadiusLarge}"
+                        Padding="32">
+                    <StackPanel Spacing="16">
+                        <!-- Icon & Title -->
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <Border Width="40" Height="40" CornerRadius="20" Background="{DynamicResource WarningBadgeBgBrush}">
+                                <TextBlock Text="⚠" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource WarningBadgeFgBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel Spacing="2" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Localizer[Startup.Error.Title]}" FontWeight="Bold" FontSize="18"/>
+                                <TextBlock Text="{Binding Localizer[Startup.Error.Subtitle]}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </StackPanel>
+                        </StackPanel>
 
-                        <ItemsControl ItemsSource="{Binding RepresentativeSpaces}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:SpacePreviewItemViewModel">
-                                    <Border Margin="0,0,0,12"
-                                            CornerRadius="{DynamicResource RadiusPrimary}"
-                                            Background="{DynamicResource SurfaceBrush}"
-                                            BorderBrush="{DynamicResource BorderSubtleBrush}"
-                                            BorderThickness="1"
-                                            Padding="16">
-                                        <Grid ColumnDefinitions="*,Auto">
-                                            <StackPanel Grid.Column="0" Spacing="6">
-                                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                                    <TextBlock Text="{Binding Name}"
-                                                               FontWeight="Bold"
-                                                               FontSize="14"/>
+                        <!-- Lock error specifics -->
+                        <StackPanel Spacing="8" IsVisible="{Binding IsLockConflict}">
+                            <TextBlock Text="{Binding Localizer[Startup.LockError.Title]}" FontWeight="Bold" FontSize="15" Foreground="{DynamicResource WarningBadgeFgBrush}"/>
+                            <TextBlock Text="{Binding Localizer[Startup.LockError.Message]}" TextWrapping="Wrap" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        </StackPanel>
 
-                                                    <Border CornerRadius="{DynamicResource RadiusSmall}"
-                                                            Background="{DynamicResource InfoBadgeBgBrush}"
-                                                            Padding="6,2">
-                                                        <TextBlock Text="{Binding Mode}"
-                                                                   FontSize="11"
-                                                                   FontWeight="SemiBold"
-                                                                   Foreground="{DynamicResource InfoBadgeFgBrush}"/>
-                                                    </Border>
+                        <!-- Recovery error specifics -->
+                        <StackPanel Spacing="8" IsVisible="{Binding IsRecoveryRequired}">
+                            <TextBlock Text="{Binding Localizer[Startup.RecoveryError.Title]}" FontWeight="Bold" FontSize="15" Foreground="{DynamicResource WarningBadgeFgBrush}"/>
+                            <TextBlock Text="{Binding Localizer[Startup.RecoveryError.Message]}" TextWrapping="Wrap" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        </StackPanel>
 
-                                                    <Border CornerRadius="{DynamicResource RadiusSmall}"
-                                                            Background="{DynamicResource SuccessBadgeBgBrush}"
-                                                            Padding="6,2">
-                                                        <TextBlock Text="{Binding Status}"
-                                                                   FontSize="11"
-                                                                   FontWeight="SemiBold"
-                                                                   Foreground="{DynamicResource SuccessBadgeFgBrush}"/>
-                                                    </Border>
-                                                </StackPanel>
-
-                                                <TextBlock Text="{Binding Description}"
-                                                           FontSize="12"
-                                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
-
-                                                <StackPanel Orientation="Horizontal" Spacing="16" Margin="0,4,0,0">
-                                                    <TextBlock Text="{Binding PhysicalPath}"
-                                                               FontFamily="Consolas,Menlo,Monospace"
-                                                               FontSize="11"
-                                                               FlowDirection="LeftToRight"
-                                                               Foreground="{DynamicResource TextMutedBrush}"/>
-
-                                                    <TextBlock Text="{Binding ItemCount, StringFormat='{}Items: {0}'}"
-                                                               FontSize="11"
-                                                               Foreground="{DynamicResource TextMutedBrush}"/>
-                                                </StackPanel>
-                                            </StackPanel>
-
-                                            <!-- Select / Inspect Button -->
-                                            <Button Grid.Column="1"
-                                                    Content="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).Localizer[Spaces.InspectButton]}"
-                                                    Command="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext).SelectSpaceCommand}"
-                                                    CommandParameter="{Binding}"
-                                                    CornerRadius="{DynamicResource RadiusPrimary}"
-                                                    VerticalAlignment="Center"
-                                                    Padding="12,6"/>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
-                </ScrollViewer>
-
-                <!-- Inspector Drawer -->
-                <Border Grid.Column="2"
-                        CornerRadius="{DynamicResource RadiusPrimary}"
-                        Background="{DynamicResource SurfaceBrush}"
-                        BorderBrush="{DynamicResource BorderSubtleBrush}"
-                        BorderThickness="1"
-                        Padding="18">
-                    <StackPanel Spacing="12">
-                        <TextBlock Text="{Binding Localizer[Spaces.DetailTitle]}"
-                                   FontSize="15"
-                                   FontWeight="Bold"/>
-
-                        <Border Height="1" Background="{DynamicResource BorderSubtleBrush}"/>
-
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="{Binding Localizer[Spaces.PathLabel]}"
-                                       FontSize="11"
-                                       Foreground="{DynamicResource TextMutedBrush}"/>
-                            <TextBlock Text="{Binding SelectedSpace.PhysicalPath}"
+                        <!-- Diagnostic details box -->
+                        <Border Background="{DynamicResource ConsoleBackgroundBrush}"
+                                CornerRadius="{DynamicResource RadiusSmall}"
+                                Padding="12,10">
+                            <TextBlock Text="{Binding StartupErrorMessage}"
                                        FontFamily="Consolas,Menlo,Monospace"
-                                       FontSize="12"
+                                       FontSize="11"
                                        FlowDirection="LeftToRight"
-                                       TextWrapping="Wrap"
-                                       Foreground="{DynamicResource AccentTextBrush}"/>
-                        </StackPanel>
-
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="{Binding Localizer[Spaces.ModeLabel]}"
-                                       FontSize="11"
-                                       Foreground="{DynamicResource TextMutedBrush}"/>
-                            <TextBlock Text="{Binding SelectedSpace.Mode}"
-                                       FontWeight="SemiBold"
-                                       FontSize="13"/>
-                        </StackPanel>
-
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="Safety Bounds Contract"
-                                       FontSize="11"
-                                       Foreground="{DynamicResource TextMutedBrush}"/>
-                            <TextBlock Text="{Binding SelectedSpace.BoundsSummary}"
-                                       TextWrapping="Wrap"
-                                       FontSize="12"
-                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        </StackPanel>
-
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="Execution Gate Status"
-                                       FontSize="11"
-                                       Foreground="{DynamicResource TextMutedBrush}"/>
-                            <TextBlock Text="{Binding SelectedSpace.RulesSummary}"
-                                       TextWrapping="Wrap"
-                                       FontSize="12"
-                                       Foreground="{DynamicResource WarningBadgeFgBrush}"/>
-                        </StackPanel>
-
-                        <Border CornerRadius="{DynamicResource RadiusSmall}"
-                                Background="{DynamicResource ConsoleBackgroundBrush}"
-                                Padding="10"
-                                Margin="0,10,0,0">
-                            <TextBlock Text="{Binding Localizer[Spaces.DetailNotice]}"
-                                       TextWrapping="Wrap"
-                                       FontSize="11"
-                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                       Foreground="{DynamicResource TextMutedBrush}"
+                                       TextWrapping="Wrap"/>
                         </Border>
-                    </StackPanel>
-                </Border>
-            </Grid>
 
-            <!-- TAB 2: SYSTEM PROBE & DIAGNOSTICS -->
-            <Grid RowDefinitions="Auto,Auto,*,Auto"
-                  IsVisible="{Binding IsProbeTab}"
-                  x:Name="ProbeTabGrid">
-                <!-- Runtime Metrics Tiles -->
-                <Grid Grid.Row="0" ColumnDefinitions="*,10,*,10,*,10,*,10,*,10,*" Margin="0,0,0,14">
-                    <!-- Avalonia -->
-                    <Border Grid.Column="0"
-                            CornerRadius="{DynamicResource RadiusPrimary}"
-                            Background="{DynamicResource SurfaceBrush}"
-                            BorderBrush="{DynamicResource BorderSubtleBrush}"
-                            BorderThickness="1"
-                            Padding="12,10">
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="{Binding Localizer[Probe.ItemAvalonia]}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
-                            <TextBlock Text="{Binding Probe.AvaloniaVersion}" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource AccentTextBrush}"/>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- OS -->
-                    <Border Grid.Column="2"
-                            CornerRadius="{DynamicResource RadiusPrimary}"
-                            Background="{DynamicResource SurfaceBrush}"
-                            BorderBrush="{DynamicResource BorderSubtleBrush}"
-                            BorderThickness="1"
-                            Padding="12,10">
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="{Binding Localizer[Probe.ItemOS]}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
-                            <TextBlock Text="{Binding Probe.OperatingSystem}" FontWeight="SemiBold" FontSize="11" TextTrimming="CharacterEllipsis"/>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- RID -->
-                    <Border Grid.Column="4"
-                            CornerRadius="{DynamicResource RadiusPrimary}"
-                            Background="{DynamicResource SurfaceBrush}"
-                            BorderBrush="{DynamicResource BorderSubtleBrush}"
-                            BorderThickness="1"
-                            Padding="12,10">
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="{Binding Localizer[Probe.ItemRID]}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
-                            <TextBlock Text="{Binding Probe.RuntimeIdentifier}" FontWeight="Bold" FontSize="12" FontFamily="Consolas,Menlo,Monospace" FlowDirection="LeftToRight"/>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- Arch -->
-                    <Border Grid.Column="6"
-                            CornerRadius="{DynamicResource RadiusPrimary}"
-                            Background="{DynamicResource SurfaceBrush}"
-                            BorderBrush="{DynamicResource BorderSubtleBrush}"
-                            BorderThickness="1"
-                            Padding="12,10">
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="{Binding Localizer[Probe.ItemArch]}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
-                            <TextBlock Text="{Binding Probe.Architecture}" FontWeight="Bold" FontSize="12"/>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- .NET -->
-                    <Border Grid.Column="8"
-                            CornerRadius="{DynamicResource RadiusPrimary}"
-                            Background="{DynamicResource SurfaceBrush}"
-                            BorderBrush="{DynamicResource BorderSubtleBrush}"
-                            BorderThickness="1"
-                            Padding="12,10">
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="{Binding Localizer[Probe.ItemDotNet]}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
-                            <TextBlock Text="{Binding Probe.Framework}" FontWeight="SemiBold" FontSize="11" TextTrimming="CharacterEllipsis"/>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- Memory -->
-                    <Border Grid.Column="10"
-                            CornerRadius="{DynamicResource RadiusPrimary}"
-                            Background="{DynamicResource SurfaceBrush}"
-                            BorderBrush="{DynamicResource BorderSubtleBrush}"
-                            BorderThickness="1"
-                            Padding="12,10">
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="{Binding Localizer[Probe.ItemWorkingSet]}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
-                            <TextBlock Text="{Binding Probe.WorkingSetMemory}" FontWeight="Bold" FontSize="12" FontFamily="Consolas,Menlo,Monospace" FlowDirection="LeftToRight"/>
-                        </StackPanel>
-                    </Border>
-                </Grid>
-
-                <!-- Subsystem Gate Statuses (Truthful reporting, no fake bridge) -->
-                <Grid Grid.Row="1" ColumnDefinitions="*,12,*,12,*" Margin="0,0,0,14">
-                    <!-- Native Pogget Bridge -->
-                    <Border Grid.Column="0"
-                            CornerRadius="{DynamicResource RadiusPrimary}"
-                            Background="{DynamicResource SurfaceBrush}"
-                            BorderBrush="{DynamicResource BorderSubtleBrush}"
-                            BorderThickness="1"
-                            Padding="14">
-                        <StackPanel Spacing="6">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <Border CornerRadius="{DynamicResource RadiusSmall}" Background="{DynamicResource WarningBadgeBgBrush}" Padding="6,2">
-                                    <TextBlock Text="PENDING P1b" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource WarningBadgeFgBrush}"/>
-                                </Border>
-                                <TextBlock Text="{Binding Localizer[Probe.ItemNativeBridge]}" FontWeight="Bold" FontSize="13"/>
-                            </StackPanel>
-                            <TextBlock Text="{Binding Probe.NativeBridgeStatus}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- Core File Transaction -->
-                    <Border Grid.Column="2"
-                            CornerRadius="{DynamicResource RadiusPrimary}"
-                            Background="{DynamicResource SurfaceBrush}"
-                            BorderBrush="{DynamicResource BorderSubtleBrush}"
-                            BorderThickness="1"
-                            Padding="14">
-                        <StackPanel Spacing="6">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <Border CornerRadius="{DynamicResource RadiusSmall}" Background="{DynamicResource WarningBadgeBgBrush}" Padding="6,2">
-                                    <TextBlock Text="PENDING P1a" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource WarningBadgeFgBrush}"/>
-                                </Border>
-                                <TextBlock Text="{Binding Localizer[Probe.ItemCoreEngine]}" FontWeight="Bold" FontSize="13"/>
-                            </StackPanel>
-                            <TextBlock Text="{Binding Probe.CoreEngineStatus}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- ONNX Inference -->
-                    <Border Grid.Column="4"
-                            CornerRadius="{DynamicResource RadiusPrimary}"
-                            Background="{DynamicResource SurfaceBrush}"
-                            BorderBrush="{DynamicResource BorderSubtleBrush}"
-                            BorderThickness="1"
-                            Padding="14">
-                        <StackPanel Spacing="6">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <Border CornerRadius="{DynamicResource RadiusSmall}" Background="{DynamicResource WarningBadgeBgBrush}" Padding="6,2">
-                                    <TextBlock Text="PENDING P1c" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource WarningBadgeFgBrush}"/>
-                                </Border>
-                                <TextBlock Text="{Binding Localizer[Probe.ItemInference]}" FontWeight="Bold" FontSize="13"/>
-                            </StackPanel>
-                            <TextBlock Text="{Binding Probe.InferenceStatus}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
-                        </StackPanel>
-                    </Border>
-                </Grid>
-
-                <!-- Diagnostics Console Output -->
-                <Border Grid.Row="2"
-                        CornerRadius="{DynamicResource RadiusPrimary}"
-                        Background="{DynamicResource ConsoleBackgroundBrush}"
-                        BorderBrush="{DynamicResource BorderSubtleBrush}"
-                        BorderThickness="1"
-                        Padding="14">
-                    <Grid RowDefinitions="Auto,*">
-                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
-                            <TextBlock Grid.Column="0"
-                                       Text="{Binding Localizer[Probe.ConsoleHeader]}"
-                                       FontWeight="SemiBold"
-                                       FontSize="13"
-                                       VerticalAlignment="Center"
-                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
-
-                            <Button Grid.Column="1"
-                                    Content="{Binding Localizer[Probe.RunButton]}"
-                                    Command="{Binding Probe.RunProbeCommand}"
-                                    CornerRadius="{DynamicResource RadiusPrimary}"
+                        <!-- Error Action Buttons -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12" Margin="0,8,0,0">
+                            <Button Content="{Binding Localizer[Action.OpenDataFolder]}"
+                                    Command="{Binding OpenDataFolderCommand}"
+                                    CornerRadius="{DynamicResource RadiusSmall}"
+                                    Padding="14,8"/>
+                            <Button Content="{Binding Localizer[Action.Exit]}"
+                                    Command="{Binding ExitApplicationCommand}"
+                                    CornerRadius="{DynamicResource RadiusSmall}"
+                                    Padding="14,8"/>
+                            <Button Content="{Binding Localizer[Action.Retry]}"
+                                    Command="{Binding RetryStartupCommand}"
                                     Background="{DynamicResource AccentPrimaryBrush}"
                                     Foreground="White"
-                                    FontWeight="SemiBold"
-                                    Padding="14,6"/>
-                        </Grid>
-
-                        <ListBox Grid.Row="1"
-                                 ItemsSource="{Binding Probe.ProbeLogs}"
-                                 Background="Transparent"
-                                 BorderThickness="0"
-                                 FontFamily="Consolas,Menlo,Monospace"
-                                 FontSize="12"
-                                 FlowDirection="LeftToRight">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding}"
-                                               Foreground="{DynamicResource TextSecondaryBrush}"
-                                               Margin="0,1"/>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
-                    </Grid>
+                                    FontWeight="Bold"
+                                    CornerRadius="{DynamicResource RadiusSmall}"
+                                    Padding="16,8"/>
+                        </StackPanel>
+                    </StackPanel>
                 </Border>
-            </Grid>
+            </Border>
+
+            <!-- 3. Onboarding Wizard View -->
+            <Panel IsVisible="{Binding IsOnboardingActive}">
+                <views:OnboardingView DataContext="{Binding Onboarding}"/>
+            </Panel>
+
+            <!-- 4. Studio View -->
+            <Panel IsVisible="{Binding IsStudioActive}">
+                <views:StudioView DataContext="{Binding Studio}"/>
+            </Panel>
         </Grid>
 
         <!-- STATUS BAR -->
-        <Border Grid.Row="3"
+        <Border Grid.Row="2"
                 Background="{DynamicResource SurfaceBrush}"
                 BorderBrush="{DynamicResource BorderSubtleBrush}"
                 BorderThickness="0,1,0,0"
@@ -697,13 +202,13 @@
             <Grid ColumnDefinitions="Auto,*,Auto">
                 <!-- Status Left -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <Border Width="8" Height="8" CornerRadius="4" Background="#10B981" VerticalAlignment="Center"/>
-                    <TextBlock Text="{Binding Localizer[Status.Ready]}"
+                    <Border Width="8" Height="8" CornerRadius="4" Background="{Binding StatusDotColor}" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding StatusTitleText}"
                                FontSize="12"
                                FontWeight="SemiBold"
                                Foreground="{DynamicResource TextPrimaryBrush}"/>
                     <TextBlock Text="|" Foreground="{DynamicResource BorderSubtleBrush}"/>
-                    <TextBlock Text="{Binding Localizer[Status.Notice]}"
+                    <TextBlock Text="{Binding StatusNoticeText}"
                                FontSize="11"
                                Foreground="{DynamicResource TextMutedBrush}"/>
                 </StackPanel>

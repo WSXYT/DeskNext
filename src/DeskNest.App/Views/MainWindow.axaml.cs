@@ -1,3 +1,4 @@
+using System;
 using Avalonia.Controls;
 using DeskNest.App.ViewModels;
 
@@ -8,6 +9,29 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        DataContext = new MainWindowViewModel();
+        var vm = new MainWindowViewModel();
+        DataContext = vm;
+
+        Closed += async (s, e) =>
+        {
+            if (DataContext is MainWindowViewModel mvm)
+            {
+                await mvm.DisposeAsync();
+            }
+        };
+    }
+
+    public MainWindow(MainWindowViewModel viewModel)
+    {
+        InitializeComponent();
+        DataContext = viewModel;
+
+        Closed += async (s, e) =>
+        {
+            if (DataContext is MainWindowViewModel mvm)
+            {
+                await mvm.DisposeAsync();
+            }
+        };
     }
 }

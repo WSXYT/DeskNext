@@ -1,0 +1,561 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DeskNest.App.ViewModels"
+             xmlns:loc="using:DeskNest.App.Localization"
+             xmlns:th="using:DeskNest.App.Themes"
+             xmlns:core="using:DeskNest.Core.Workspace"
+             x:Class="DeskNest.App.Views.OnboardingView"
+             x:DataType="vm:OnboardingViewModel">
+
+    <Grid RowDefinitions="Auto,*,Auto" Margin="32,20">
+        <!-- TOP: STEP PROGRESS INDICATOR -->
+        <Border Grid.Row="0"
+                Background="{DynamicResource SurfaceBrush}"
+                BorderBrush="{DynamicResource BorderSubtleBrush}"
+                BorderThickness="1"
+                CornerRadius="{DynamicResource RadiusPrimary}"
+                Padding="20,12"
+                Margin="0,0,0,16">
+            <Grid ColumnDefinitions="*,*,*,*,*">
+                <!-- Step 1 Indicator -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+                    <Border Width="24" Height="24" CornerRadius="12"
+                            Background="{Binding Step1Bg}">
+                        <TextBlock Text="1" Foreground="White" FontWeight="Bold" FontSize="11"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <TextBlock Text="{Binding Localizer[OOBE.Step1.Title]}"
+                               FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Step 2 Indicator -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+                    <Border Width="24" Height="24" CornerRadius="12"
+                            Background="{Binding Step2Bg}">
+                        <TextBlock Text="2" Foreground="White" FontWeight="Bold" FontSize="11"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <TextBlock Text="{Binding Localizer[OOBE.Step2.Title]}"
+                               FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Step 3 Indicator -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+                    <Border Width="24" Height="24" CornerRadius="12"
+                            Background="{Binding Step3Bg}">
+                        <TextBlock Text="3" Foreground="White" FontWeight="Bold" FontSize="11"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <TextBlock Text="{Binding Localizer[OOBE.Step3.Title]}"
+                               FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Step 4 Indicator -->
+                <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+                    <Border Width="24" Height="24" CornerRadius="12"
+                            Background="{Binding Step4Bg}">
+                        <TextBlock Text="4" Foreground="White" FontWeight="Bold" FontSize="11"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <TextBlock Text="{Binding Localizer[OOBE.Step4.Title]}"
+                               FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Step 5 Indicator -->
+                <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+                    <Border Width="24" Height="24" CornerRadius="12"
+                            Background="{Binding Step5Bg}">
+                        <TextBlock Text="5" Foreground="White" FontWeight="Bold" FontSize="11"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <TextBlock Text="{Binding Localizer[OOBE.Step5.Title]}"
+                               FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- CENTER: STEP CONTENT -->
+        <Border Grid.Row="1"
+                Background="{DynamicResource SurfaceBrush}"
+                BorderBrush="{DynamicResource BorderSubtleBrush}"
+                BorderThickness="1"
+                CornerRadius="{DynamicResource RadiusPrimary}"
+                Padding="32,24">
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="20" MaxWidth="820" HorizontalAlignment="Stretch">
+
+                    <!-- ================= STEP 1: LANGUAGE & THEME ================= -->
+                    <StackPanel Spacing="16" IsVisible="{Binding IsStep1}">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{Binding Localizer[OOBE.Step1.Title]}"
+                                       FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBlock Text="{Binding Localizer[OOBE.Step1.Subtitle]}"
+                                       FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        </StackPanel>
+
+                        <Border Height="1" Background="{DynamicResource BorderSubtleBrush}"/>
+
+                        <!-- Language Field -->
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="{Binding Localizer[Language.Label]}" FontWeight="SemiBold" FontSize="13"/>
+                            <ComboBox ItemsSource="{Binding SupportedLanguages}"
+                                      SelectedItem="{Binding SelectedLanguage}"
+                                      HorizontalAlignment="Stretch"
+                                      CornerRadius="{DynamicResource RadiusPrimary}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="loc:LanguageInfo">
+                                        <TextBlock Text="{Binding DisplayText}"/>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </StackPanel>
+
+                        <!-- Theme Field -->
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="{Binding Localizer[Theme.Label]}" FontWeight="SemiBold" FontSize="13"/>
+                            <ComboBox ItemsSource="{Binding SupportedThemes}"
+                                      SelectedItem="{Binding SelectedTheme}"
+                                      HorizontalAlignment="Stretch"
+                                      CornerRadius="{DynamicResource RadiusPrimary}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="th:AppThemeMode">
+                                        <TextBlock Text="{Binding}"/>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </StackPanel>
+
+                        <!-- Brand Statement Card -->
+                        <Border CornerRadius="{DynamicResource RadiusPrimary}"
+                                Background="{DynamicResource AccentSubtleBrush}"
+                                BorderBrush="{DynamicResource AccentBorderBrush}"
+                                BorderThickness="1"
+                                Padding="16,14"
+                                Margin="0,10,0,0">
+                            <StackPanel Spacing="6">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="✦" Foreground="{DynamicResource AccentPrimaryBrush}" FontSize="16"/>
+                                    <TextBlock Text="{Binding Localizer[App.Title]}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource AccentTextBrush}"/>
+                                </StackPanel>
+                                <TextBlock Text="{Binding Localizer[App.Tagline]}" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Text="{Binding Localizer[App.TaglineDraftNotice]}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- ================= STEP 2: INFERENCE ENGINE & CACHE ================= -->
+                    <StackPanel Spacing="16" IsVisible="{Binding IsStep2}">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{Binding Localizer[OOBE.Step2.Title]}"
+                                       FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBlock Text="{Binding Localizer[OOBE.Step2.Subtitle]}"
+                                       FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        </StackPanel>
+
+                        <Border Height="1" Background="{DynamicResource BorderSubtleBrush}"/>
+
+                        <!-- Provider Option Cards -->
+                        <Grid ColumnDefinitions="*,16,*">
+                            <!-- Local Laya Card -->
+                            <Button Grid.Column="0"
+                                    Command="{Binding SelectProviderCommand}"
+                                    CommandParameter="{x:Static core:InferenceProvider.Laya}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch"
+                                    Padding="16"
+                                    CornerRadius="{DynamicResource RadiusPrimary}"
+                                    Background="{DynamicResource SurfaceBrush}"
+                                    BorderBrush="{Binding IsLayaSelected, Converter={x:Null}}"
+                                    BorderThickness="2">
+                                <StackPanel Spacing="8">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="⚡" FontSize="16" Foreground="{DynamicResource AccentPrimaryBrush}"/>
+                                        <TextBlock Text="{Binding Localizer[OOBE.Step2.Laya]}" FontWeight="Bold" FontSize="14"/>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding Localizer[OOBE.Step2.LayaDesc]}"
+                                               TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <Border CornerRadius="{DynamicResource RadiusSmall}"
+                                            Background="{DynamicResource SuccessBadgeBgBrush}"
+                                            Padding="6,2" HorizontalAlignment="Left">
+                                        <TextBlock Text="100% On-Device / Zero Telemetry" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource SuccessBadgeFgBrush}"/>
+                                    </Border>
+                                </StackPanel>
+                            </Button>
+
+                            <!-- Cloud Jev Card -->
+                            <Button Grid.Column="2"
+                                    Command="{Binding SelectProviderCommand}"
+                                    CommandParameter="{x:Static core:InferenceProvider.Jev}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch"
+                                    Padding="16"
+                                    CornerRadius="{DynamicResource RadiusPrimary}"
+                                    Background="{DynamicResource SurfaceBrush}"
+                                    BorderBrush="{Binding IsJevSelected, Converter={x:Null}}"
+                                    BorderThickness="2">
+                                <StackPanel Spacing="8">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="☁" FontSize="16" Foreground="{DynamicResource AccentPrimaryBrush}"/>
+                                        <TextBlock Text="{Binding Localizer[OOBE.Step2.Jev]}" FontWeight="Bold" FontSize="14"/>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding Localizer[OOBE.Step2.JevDesc]}"
+                                               TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <Border CornerRadius="{DynamicResource RadiusSmall}"
+                                            Background="{DynamicResource InfoBadgeBgBrush}"
+                                            Padding="6,2" HorizontalAlignment="Left">
+                                        <TextBlock Text="Cloud Decision / Metadata Only" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource InfoBadgeFgBrush}"/>
+                                    </Border>
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+
+                        <!-- Cache Directory Input -->
+                        <StackPanel Spacing="6" Margin="0,8,0,0">
+                            <TextBlock Text="{Binding Localizer[OOBE.Step2.ModelCache]}" FontWeight="SemiBold" FontSize="13"/>
+                            <TextBox Text="{Binding ModelCacheDirectory}"
+                                     CornerRadius="{DynamicResource RadiusPrimary}"
+                                     FontFamily="Consolas,Menlo,Monospace"
+                                     FlowDirection="LeftToRight"/>
+                        </StackPanel>
+
+                        <!-- Engine Notice -->
+                        <Border CornerRadius="{DynamicResource RadiusPrimary}"
+                                Background="{DynamicResource WarningBadgeBgBrush}"
+                                Padding="12,10">
+                            <TextBlock Text="{Binding Localizer[OOBE.Step2.EngineNotice]}"
+                                       TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource WarningBadgeFgBrush}"/>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- ================= STEP 3: PRESETS & EDITABLE CATEGORIES ================= -->
+                    <StackPanel Spacing="16" IsVisible="{Binding IsStep3}">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{Binding Localizer[OOBE.Step3.Title]}"
+                                       FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBlock Text="{Binding Localizer[OOBE.Step3.Subtitle]}"
+                                       FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        </StackPanel>
+
+                        <!-- Preset Buttons -->
+                        <Grid ColumnDefinitions="*,8,*,8,*,8,*">
+                            <Button Grid.Column="0" Content="{Binding Localizer[Template.Office]}"
+                                    Command="{Binding SelectPresetCommand}" CommandParameter="office"
+                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                    CornerRadius="{DynamicResource RadiusPrimary}" Padding="10,8"/>
+                            <Button Grid.Column="2" Content="{Binding Localizer[Template.Development]}"
+                                    Command="{Binding SelectPresetCommand}" CommandParameter="development"
+                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                    CornerRadius="{DynamicResource RadiusPrimary}" Padding="10,8"/>
+                            <Button Grid.Column="4" Content="{Binding Localizer[Template.Creative]}"
+                                    Command="{Binding SelectPresetCommand}" CommandParameter="creative"
+                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                    CornerRadius="{DynamicResource RadiusPrimary}" Padding="10,8"/>
+                            <Button Grid.Column="6" Content="{Binding Localizer[Template.Custom]}"
+                                    Command="{Binding SelectPresetCommand}" CommandParameter="custom"
+                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                    CornerRadius="{DynamicResource RadiusPrimary}" Padding="10,8"/>
+                        </Grid>
+
+                        <Border Height="1" Background="{DynamicResource BorderSubtleBrush}"/>
+
+                        <!-- Categories List -->
+                        <TextBlock Text="{Binding Localizer[OOBE.Step3.CategoriesLabel]}" FontWeight="SemiBold" FontSize="13"/>
+
+                        <ItemsControl ItemsSource="{Binding Categories}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:CategoryDraftItem">
+                                    <Border Margin="0,0,0,8"
+                                            Background="{DynamicResource SurfaceElevatedBrush}"
+                                            BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="{DynamicResource RadiusPrimary}"
+                                            Padding="12,10">
+                                        <Grid ColumnDefinitions="160,12,*,12,Auto,12,Auto">
+                                            <!-- Name -->
+                                            <TextBox Grid.Column="0"
+                                                     Text="{Binding Name}"
+                                                     PlaceholderText="{Binding $parent[UserControl].((vm:OnboardingViewModel)DataContext).Localizer[OOBE.Step3.NamePlaceholder]}"
+                                                     CornerRadius="{DynamicResource RadiusSmall}"/>
+
+                                            <!-- Description -->
+                                            <TextBox Grid.Column="2"
+                                                     Text="{Binding Description}"
+                                                     PlaceholderText="{Binding $parent[UserControl].((vm:OnboardingViewModel)DataContext).Localizer[OOBE.Step3.DescPlaceholder]}"
+                                                     CornerRadius="{DynamicResource RadiusSmall}"/>
+
+                                            <!-- Mode Badge -->
+                                            <Border Grid.Column="4"
+                                                    CornerRadius="{DynamicResource RadiusSmall}"
+                                                    Background="{DynamicResource InfoBadgeBgBrush}"
+                                                    Padding="8,4"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding ModeLocalized}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource InfoBadgeFgBrush}"/>
+                                            </Border>
+
+                                            <!-- Delete Button -->
+                                            <Button Grid.Column="6"
+                                                    Content="{Binding $parent[UserControl].((vm:OnboardingViewModel)DataContext).Localizer[OOBE.Step3.RemoveCategory]}"
+                                                    Command="{Binding $parent[UserControl].((vm:OnboardingViewModel)DataContext).RemoveCategoryCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    Foreground="{DynamicResource WarningBadgeFgBrush}"
+                                                    CornerRadius="{DynamicResource RadiusSmall}"
+                                                    Padding="10,6"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Add Category Form -->
+                        <Border Background="{DynamicResource SurfaceElevatedBrush}"
+                                BorderBrush="{DynamicResource AccentBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{DynamicResource RadiusPrimary}"
+                                Padding="12,10">
+                            <Grid ColumnDefinitions="160,12,*,12,Auto">
+                                <TextBox Grid.Column="0"
+                                         Text="{Binding NewCategoryName}"
+                                         PlaceholderText="{Binding Localizer[OOBE.Step3.NamePlaceholder]}"
+                                         CornerRadius="{DynamicResource RadiusSmall}"/>
+                                <TextBox Grid.Column="2"
+                                         Text="{Binding NewCategoryDesc}"
+                                         PlaceholderText="{Binding Localizer[OOBE.Step3.DescPlaceholder]}"
+                                         CornerRadius="{DynamicResource RadiusSmall}"/>
+                                <Button Grid.Column="4"
+                                        Content="{Binding Localizer[OOBE.Step3.AddCategory]}"
+                                        Command="{Binding AddCategoryCommand}"
+                                        Background="{DynamicResource AccentPrimaryBrush}"
+                                        Foreground="White"
+                                        FontWeight="SemiBold"
+                                        CornerRadius="{DynamicResource RadiusSmall}"
+                                        Padding="14,6"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Special Triage Notice -->
+                        <Border CornerRadius="{DynamicResource RadiusPrimary}"
+                                Background="{DynamicResource NeutralBadgeBgBrush}"
+                                Padding="12,10">
+                            <TextBlock Text="{Binding Localizer[OOBE.Step3.SpecialNotice]}"
+                                       TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource NeutralBadgeFgBrush}"/>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- ================= STEP 4: STORAGE & MONITORING ================= -->
+                    <StackPanel Spacing="16" IsVisible="{Binding IsStep4}">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{Binding Localizer[OOBE.Step4.Title]}"
+                                       FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBlock Text="{Binding Localizer[OOBE.Step4.Subtitle]}"
+                                       FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        </StackPanel>
+
+                        <Border Height="1" Background="{DynamicResource BorderSubtleBrush}"/>
+
+                        <!-- Managed Root Input -->
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="{Binding Localizer[OOBE.Step4.ManagedRootLabel]}" FontWeight="SemiBold" FontSize="13"/>
+                            <TextBox Text="{Binding ManagedRoot}"
+                                     CornerRadius="{DynamicResource RadiusPrimary}"
+                                     FontFamily="Consolas,Menlo,Monospace"
+                                     FlowDirection="LeftToRight"/>
+                        </StackPanel>
+
+                        <!-- Monitored Folders -->
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="{Binding Localizer[OOBE.Step4.MonitoredLabel]}" FontWeight="SemiBold" FontSize="13"/>
+                            <Grid ColumnDefinitions="*,8,Auto">
+                                <TextBox Grid.Column="0"
+                                         Text="{Binding NewMonitoredPath}"
+                                         PlaceholderText="{Binding Localizer[OOBE.Step4.MonitoredPlaceholder]}"
+                                         CornerRadius="{DynamicResource RadiusSmall}"
+                                         FontFamily="Consolas,Menlo,Monospace"
+                                         FlowDirection="LeftToRight"/>
+                                <Button Grid.Column="2"
+                                        Content="{Binding Localizer[Action.Add]}"
+                                        Command="{Binding AddMonitoredFolderCommand}"
+                                        CornerRadius="{DynamicResource RadiusSmall}"
+                                        Padding="12,6"/>
+                            </Grid>
+
+                            <ItemsControl ItemsSource="{Binding MonitoredFolders}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="x:String">
+                                        <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                                            <TextBlock Grid.Column="0" Text="{Binding}"
+                                                       FontFamily="Consolas,Menlo,Monospace"
+                                                       FontSize="12" FlowDirection="LeftToRight"
+                                                       VerticalAlignment="Center"/>
+                                            <Button Grid.Column="1" Content="{Binding $parent[UserControl].((vm:OnboardingViewModel)DataContext).Localizer[Action.Delete]}"
+                                                    Command="{Binding $parent[UserControl].((vm:OnboardingViewModel)DataContext).RemoveMonitoredFolderCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    CornerRadius="{DynamicResource RadiusSmall}"
+                                                    Padding="8,2" FontSize="11"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <!-- Excluded Folders -->
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="{Binding Localizer[OOBE.Step4.ExcludedLabel]}" FontWeight="SemiBold" FontSize="13"/>
+                            <Grid ColumnDefinitions="*,8,Auto">
+                                <TextBox Grid.Column="0"
+                                         Text="{Binding NewExcludedPath}"
+                                         PlaceholderText="{Binding Localizer[OOBE.Step4.ExcludedPlaceholder]}"
+                                         CornerRadius="{DynamicResource RadiusSmall}"
+                                         FontFamily="Consolas,Menlo,Monospace"
+                                         FlowDirection="LeftToRight"/>
+                                <Button Grid.Column="2"
+                                        Content="{Binding Localizer[Action.Add]}"
+                                        Command="{Binding AddExcludedFolderCommand}"
+                                        CornerRadius="{DynamicResource RadiusSmall}"
+                                        Padding="12,6"/>
+                            </Grid>
+
+                            <ItemsControl ItemsSource="{Binding ExcludedFolders}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="x:String">
+                                        <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                                            <TextBlock Grid.Column="0" Text="{Binding}"
+                                                       FontFamily="Consolas,Menlo,Monospace"
+                                                       FontSize="12" FlowDirection="LeftToRight"
+                                                       VerticalAlignment="Center"/>
+                                            <Button Grid.Column="1" Content="{Binding $parent[UserControl].((vm:OnboardingViewModel)DataContext).Localizer[Action.Delete]}"
+                                                    Command="{Binding $parent[UserControl].((vm:OnboardingViewModel)DataContext).RemoveExcludedFolderCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    CornerRadius="{DynamicResource RadiusSmall}"
+                                                    Padding="8,2" FontSize="11"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <!-- Wants Monitoring Checkbox with Clear Inactive Notice -->
+                        <StackPanel Spacing="6" Margin="0,6,0,0">
+                            <CheckBox IsChecked="{Binding WantsMonitoring}">
+                                <TextBlock Text="{Binding Localizer[OOBE.Step4.WantsMonitoring]}" FontWeight="SemiBold"/>
+                            </CheckBox>
+
+                            <Border CornerRadius="{DynamicResource RadiusPrimary}"
+                                    Background="{DynamicResource WarningBadgeBgBrush}"
+                                    Padding="12,10">
+                                <TextBlock Text="{Binding Localizer[OOBE.Step4.MonitoringNotice]}"
+                                           TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource WarningBadgeFgBrush}"/>
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- ================= STEP 5: REVIEW & COMPLETE ================= -->
+                    <StackPanel Spacing="16" IsVisible="{Binding IsStep5}">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{Binding Localizer[OOBE.Step5.Title]}"
+                                       FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBlock Text="{Binding Localizer[OOBE.Step5.Subtitle]}"
+                                       FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        </StackPanel>
+
+                        <Border Height="1" Background="{DynamicResource BorderSubtleBrush}"/>
+
+                        <!-- Summary Cards Grid -->
+                        <Border Background="{DynamicResource SurfaceElevatedBrush}"
+                                BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{DynamicResource RadiusPrimary}"
+                                Padding="18">
+                            <StackPanel Spacing="12">
+                                <Grid ColumnDefinitions="160,*">
+                                    <TextBlock Grid.Column="0" Text="{Binding Localizer[OOBE.Step5.SummaryEngine]}"
+                                               FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding SummaryProvider}" FontWeight="Bold"/>
+                                </Grid>
+
+                                <Grid ColumnDefinitions="160,*">
+                                    <TextBlock Grid.Column="0" Text="{Binding Localizer[OOBE.Step5.SummarySpaces]}"
+                                               FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <StackPanel Grid.Column="1" Spacing="4">
+                                        <TextBlock Text="{Binding SummaryCategoryCountText}" FontWeight="Bold"/>
+                                        <TextBlock Text="{Binding SummaryCategoryList}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <Grid ColumnDefinitions="160,*">
+                                    <TextBlock Grid.Column="0" Text="{Binding Localizer[OOBE.Step5.SummaryRoot]}"
+                                               FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding ManagedRoot}"
+                                               FontFamily="Consolas,Menlo,Monospace" FontSize="12"
+                                               FlowDirection="LeftToRight"/>
+                                </Grid>
+
+                                <Grid ColumnDefinitions="160,*">
+                                    <TextBlock Grid.Column="0" Text="{Binding Localizer[OOBE.Step5.SummaryMonitoring]}"
+                                               FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding SummaryMonitoringNotice}"
+                                               Foreground="{DynamicResource WarningBadgeFgBrush}"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Safety Contract Card -->
+                        <Border CornerRadius="{DynamicResource RadiusPrimary}"
+                                Background="{DynamicResource InfoBadgeBgBrush}"
+                                BorderBrush="{DynamicResource AccentBorderBrush}"
+                                BorderThickness="1"
+                                Padding="16,14">
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="{Binding Localizer[OOBE.Step5.SafetyTitle]}"
+                                           FontWeight="Bold" FontSize="13" Foreground="{DynamicResource AccentTextBrush}"/>
+                                <TextBlock Text="{Binding Localizer[OOBE.Step5.SafetyNotice]}"
+                                           TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- BOTTOM: ACTIONS & VALIDATION -->
+        <Border Grid.Row="2" Margin="0,16,0,0">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <Button Grid.Column="0"
+                        Content="{Binding Localizer[OOBE.BtnBack]}"
+                        Command="{Binding GoBackCommand}"
+                        CornerRadius="{DynamicResource RadiusPrimary}"
+                        Padding="20,10"
+                        FontWeight="SemiBold"
+                        IsEnabled="{Binding CanGoBack}"/>
+
+                <TextBlock Grid.Column="1"
+                           Text="{Binding ValidationError}"
+                           Foreground="{DynamicResource WarningBadgeFgBrush}"
+                           FontWeight="SemiBold"
+                           FontSize="13"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center"/>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12">
+                    <Button Content="{Binding Localizer[OOBE.BtnNext]}"
+                            Command="{Binding GoNextCommand}"
+                            Background="{DynamicResource AccentPrimaryBrush}"
+                            Foreground="White"
+                            CornerRadius="{DynamicResource RadiusPrimary}"
+                            Padding="24,10"
+                            FontWeight="Bold"
+                            IsVisible="{Binding CanGoNext}"/>
+
+                    <Button Content="{Binding Localizer[OOBE.BtnComplete]}"
+                            Command="{Binding CompleteOnboardingCommand}"
+                            Background="{DynamicResource AccentPrimaryBrush}"
+                            Foreground="White"
+                            CornerRadius="{DynamicResource RadiusPrimary}"
+                            Padding="24,10"
+                            FontWeight="Bold"
+                            IsVisible="{Binding IsCompleteStep}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

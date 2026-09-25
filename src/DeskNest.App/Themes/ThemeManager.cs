@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Styling;
+using Avalonia.Threading;
 
 namespace DeskNest.App.Themes;
 
@@ -54,12 +55,25 @@ public sealed class ThemeManager : INotifyPropertyChanged
         if (Application.Current == null)
             return;
 
-        Application.Current.RequestedThemeVariant = mode switch
+        var variant = mode switch
         {
             AppThemeMode.Light => ThemeVariant.Light,
             AppThemeMode.Dark => ThemeVariant.Dark,
             _ => ThemeVariant.Default
         };
+
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            Application.Current.RequestedThemeVariant = variant;
+        }
+        else
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (Application.Current != null)
+                    Application.Current.RequestedThemeVariant = variant;
+            });
+        }
     }
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)

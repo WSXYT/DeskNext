@@ -1,16 +1,34 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DeskNest.App.Localization;
+using DeskNest.App.Services;
 using DeskNest.App.Themes;
+using DeskNest.Core.Workspace;
 
 namespace DeskNest.App.ViewModels;
 
-public sealed partial class MainWindowViewModel : ViewModelBase
+public enum StartupState
 {
+    Loading,
+    Ready,
+    LockConflict,
+    RecoveryRequired,
+    Error
+}
+
+public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
+{
+    private WorkspaceStore? _store;
+    private string? _dataDirectory;
+
     public LocalizationManager Localizer => LocalizationManager.Instance;
     public ThemeManager ThemeMgr => ThemeManager.Instance;
 
@@ -23,18 +41,29 @@ public sealed partial class MainWindowViewModel : ViewModelBase
     };
 
     [ObservableProperty]
-    private int _selectedTabIndex = 0;
+    private bool _isLoading = true;
 
-    public bool IsOverviewTab => SelectedTabIndex == 0;
-    public bool IsSpacesTab => SelectedTabIndex == 1;
-    public bool IsProbeTab => SelectedTabIndex == 2;
+    [ObservableProperty]
+    private StartupState _startupState = StartupState.Loading;
 
-    partial void OnSelectedTabIndexChanged(int value)
-    {
-        OnPropertyChanged(nameof(IsOverviewTab));
-        OnPropertyChanged(nameof(IsSpacesTab));
-        OnPropertyChanged(nameof(IsProbeTab));
-    }
+    [ObservableProperty]
+    private string _startupErrorMessage = string.Empty;
+
+    public bool HasStartupError => StartupState is StartupState.LockConflict or StartupState.RecoveryRequired or StartupState.Error;
+    public bool IsLockConflict => StartupState == StartupState.LockConflict;
+    public bool IsRecoveryRequired => StartupState == StartupState.RecoveryRequired;
+
+    [ObservableProperty]
+    private bool _isOnboardingActive;
+
+    [ObservableProperty]
+    private bool _isStudioActive;
+
+    [ObservableProperty]
+    private OnboardingViewModel? _onboarding;
+
+    [ObservableProperty]
+    private StudioViewModel? _studio;
 
     [ObservableProperty]
     private LanguageInfo _selectedLanguage;
@@ -42,80 +71,22 @@ public sealed partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private AppThemeMode _selectedTheme;
 
-    [ObservableProperty]
-    private SpacePreviewItemViewModel? _selectedSpace;
-
-    public ObservableCollection<SpacePreviewItemViewModel> RepresentativeSpaces { get; } = new();
-
+    // Preserved for P1 probe compatibility
     public SystemProbeViewModel Probe { get; }
+    public ObservableCollection<SpacePreviewItemViewModel> RepresentativeSpaces { get; } = new();
 
     public FlowDirection CurrentFlowDirection => Localizer.FlowDirectionValue;
 
+    /// <summary>
+    /// Default constructor for UI startup and XAML designer.
+    /// Connects to the default WorkspaceStore.
+    /// </summary>
     public MainWindowViewModel()
     {
         _selectedLanguage = Localizer.CurrentLanguageInfo;
         _selectedTheme = ThemeMgr.CurrentThemeMode;
-
         Probe = new SystemProbeViewModel();
 
-        // Populate representative spaces (clean structural direction, no mock data deceit)
-        var officeSpace = new SpacePreviewItemViewModel(
-            id: "sp-office",
-            name: "办公空间 / Office",
-            description: "商务合同、财务报表、汇报胶片与参考归档文件",
-            mode: SpaceMode.Managed,
-            physicalPath: "~/DeskNest/Spaces/Office",
-            itemCount: 128,
-            status: "Spaces.BadgeReady",
-            boundsSummary: "收纳受控于 ~/DeskNest/Spaces/Office；具备避重重命名、事务快照与撤销日志保障。",
-            rulesSummary: "【P1 结构方向】文件操作受 Core 唯一执行器管控；P1 阶段不挂接真实移动。"
-        );
-
-        var devSpace = new SpacePreviewItemViewModel(
-            id: "sp-dev",
-            name: "研发归档 / Dev",
-            description: "源码工程代码、架构技术文档、构建制品与诊断日志",
-            mode: SpaceMode.Managed,
-            physicalPath: "~/DeskNest/Spaces/Dev",
-            itemCount: 342,
-            status: "Spaces.BadgeReady",
-            boundsSummary: "收纳受控于 ~/DeskNest/Spaces/Dev；目录整体移动保证原子性，禁止拆散代码库。",
-            rulesSummary: "【P1 结构方向】文件操作受 Core 唯一执行器管控；P1 阶段不挂接真实移动。"
-        );
-
-        var creativeSpace = new SpacePreviewItemViewModel(
-            id: "sp-creative",
-            name: "创意素材 / Creative",
-            description: "设计原稿、高清图像、音视频剪辑片段与字体素材",
-            mode: SpaceMode.Mapped,
-            physicalPath: "D:/CreativeProjects/Assets",
-            itemCount: 84,
-            status: "Spaces.BadgeReadOnly",
-            boundsSummary: "映射既有外部目录；保留原有物理路径，绝不搬动或删除用户原文件。",
-            rulesSummary: "【P1 结构方向】映射空间仅供结构化视窗呈现，解除映射永不删源。"
-        );
-
-        var scratchpadSpace = new SpacePreviewItemViewModel(
-            id: "sp-scratchpad",
-            name: "随手暂存 / Scratchpad",
-            description: "临时草稿、待分类素材与桌面临时下载文件",
-            mode: SpaceMode.Managed,
-            physicalPath: "~/DeskNest/Spaces/Scratchpad",
-            itemCount: 15,
-            status: "Spaces.BadgeReady",
-            boundsSummary: "收纳受控于 ~/DeskNest/Spaces/Scratchpad；支持一键撤销与重定位。",
-            rulesSummary: "【P1 结构方向】文件操作受 Core 唯一执行器管控；P1 阶段不挂接真实移动。"
-        );
-
-        RepresentativeSpaces.Add(officeSpace);
-        RepresentativeSpaces.Add(devSpace);
-        RepresentativeSpaces.Add(creativeSpace);
-        RepresentativeSpaces.Add(scratchpadSpace);
-
-        _selectedSpace = officeSpace;
-        officeSpace.IsSelected = true;
-
-        // Subscribe to localization changes to refresh flow direction and bindings
         Localizer.LanguageChanged += OnLanguageChanged;
         Localizer.PropertyChanged += (s, e) =>
         {
@@ -128,6 +99,157 @@ public sealed partial class MainWindowViewModel : ViewModelBase
             _selectedTheme = mode;
             OnPropertyChanged(nameof(SelectedTheme));
         };
+
+        _ = InitializeWorkspaceAsync();
+    }
+
+    /// <summary>
+    /// Test or direct injection constructor with an explicit WorkspaceStore.
+    /// </summary>
+    public MainWindowViewModel(WorkspaceStore store)
+    {
+        _store = store;
+        _selectedLanguage = Localizer.CurrentLanguageInfo;
+        _selectedTheme = ThemeMgr.CurrentThemeMode;
+        Probe = new SystemProbeViewModel();
+
+        Localizer.LanguageChanged += OnLanguageChanged;
+        Localizer.PropertyChanged += (s, e) =>
+        {
+            OnPropertyChanged(nameof(CurrentFlowDirection));
+            OnPropertyChanged(nameof(Localizer));
+        };
+
+        ThemeMgr.ThemeChanged += (s, mode) =>
+        {
+            _selectedTheme = mode;
+            OnPropertyChanged(nameof(SelectedTheme));
+        };
+
+        ApplySnapshot(store.Snapshot);
+        IsLoading = false;
+        StartupState = StartupState.Ready;
+    }
+
+    /// <summary>
+    /// Test or diagnostic constructor for demonstrating visible startup errors.
+    /// </summary>
+    public MainWindowViewModel(StartupState errorState, string errorMessage)
+    {
+        _startupState = errorState;
+        _startupErrorMessage = errorMessage;
+        _isLoading = false;
+        _selectedLanguage = Localizer.CurrentLanguageInfo;
+        _selectedTheme = ThemeMgr.CurrentThemeMode;
+        Probe = new SystemProbeViewModel();
+    }
+
+    public async Task InitializeWorkspaceAsync(string? customDataDir = null)
+    {
+        _dataDirectory = customDataDir;
+        IsLoading = true;
+        try
+        {
+            _store = await WorkspaceStore.OpenAsync(customDataDir);
+            StartupState = StartupState.Ready;
+            StartupErrorMessage = string.Empty;
+            ApplySnapshot(_store.Snapshot);
+        }
+        catch (IOException ex)
+        {
+            StartupState = StartupState.LockConflict;
+            StartupErrorMessage = ex.Message;
+        }
+        catch (InvalidDataException ex)
+        {
+            StartupState = StartupState.RecoveryRequired;
+            StartupErrorMessage = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            StartupState = StartupState.Error;
+            StartupErrorMessage = ex.Message;
+        }
+        finally
+        {
+            IsLoading = false;
+            OnPropertyChanged(nameof(HasStartupError));
+            OnPropertyChanged(nameof(IsLockConflict));
+            OnPropertyChanged(nameof(IsRecoveryRequired));
+            OnPropertyChanged(nameof(StatusDotColor));
+            OnPropertyChanged(nameof(StatusTitleText));
+            OnPropertyChanged(nameof(StatusNoticeText));
+        }
+    }
+
+    private void ApplySnapshot(WorkspaceState state)
+    {
+        // Synchronize language and theme
+        if (!string.IsNullOrWhiteSpace(state.Settings.Language))
+        {
+            var match = SupportedLanguages.FirstOrDefault(l => l.Code.Equals(state.Settings.Language, StringComparison.OrdinalIgnoreCase));
+            if (match != null && !Localizer.CurrentLanguage.Equals(match.Code, StringComparison.OrdinalIgnoreCase))
+            {
+                Localizer.CurrentLanguage = match.Code;
+                SelectedLanguage = match;
+            }
+        }
+
+        if (Enum.TryParse<AppThemeMode>(state.Settings.Theme, out var themeMode))
+        {
+            ThemeMgr.CurrentThemeMode = themeMode;
+            SelectedTheme = themeMode;
+        }
+
+        // Maintain RepresentativeSpaces for backward compatibility
+        RepresentativeSpaces.Clear();
+        foreach (var s in state.Spaces)
+        {
+            RepresentativeSpaces.Add(new SpacePreviewItemViewModel(
+                id: s.Id.ToString(),
+                name: s.Name,
+                description: s.Description,
+                mode: s.Mode == SpaceStorageMode.Managed ? SpaceMode.Managed : SpaceMode.Mapped,
+                physicalPath: s.Folder,
+                itemCount: state.Files.Count(f => f.SpaceId == s.Id),
+                status: s.Mode == SpaceStorageMode.Managed ? "Spaces.BadgeReady" : "Spaces.BadgeReadOnly",
+                boundsSummary: s.Mode == SpaceStorageMode.Managed ? "收纳受控于本目录" : "映射外部既有目录",
+                rulesSummary: "【P2 边界说明】Core 管控元数据，无实际文件移动。"
+            ));
+        }
+
+        if (!state.OnboardingComplete)
+        {
+            IsOnboardingActive = true;
+            IsStudioActive = false;
+            Studio = null;
+            if (Onboarding == null)
+            {
+                Onboarding = new OnboardingViewModel(state, UpdateStoreAsync);
+            }
+        }
+        else
+        {
+            IsOnboardingActive = false;
+            IsStudioActive = true;
+            Onboarding = null;
+            if (Studio == null)
+            {
+                Studio = new StudioViewModel(state, UpdateStoreAsync);
+            }
+            else
+            {
+                Studio.RefreshFromState(state);
+            }
+        }
+    }
+
+    public async Task<WorkspaceState> UpdateStoreAsync(Func<WorkspaceState, WorkspaceState> update)
+    {
+        if (_store == null) throw new InvalidOperationException("WorkspaceStore is not open.");
+        var next = await _store.UpdateAsync(update);
+        ApplySnapshot(next);
+        return next;
     }
 
     partial void OnSelectedLanguageChanged(LanguageInfo value)
@@ -146,6 +268,48 @@ public sealed partial class MainWindowViewModel : ViewModelBase
         }
     }
 
+    public string StatusDotColor => HasStartupError ? "#EF4444" : "#10B981";
+    public string StatusTitleText => HasStartupError ? Localizer["Status.Error"] : Localizer["Status.Ready"];
+    public string StatusNoticeText => HasStartupError ? Localizer["Status.NoticeError"] : Localizer["Status.NoticeP2"];
+
+    [RelayCommand]
+    public async Task RetryStartupAsync()
+    {
+        await InitializeWorkspaceAsync(_dataDirectory);
+    }
+
+    [RelayCommand]
+    public void ExitApplication()
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            desktop.Shutdown();
+        }
+    }
+
+    [RelayCommand]
+    public void OpenDataFolder()
+    {
+        try
+        {
+            var dir = _dataDirectory ?? WorkspaceStore.DefaultDataDirectory();
+            if (Directory.Exists(dir))
+            {
+                Process.Start(new ProcessStartInfo { FileName = dir, UseShellExecute = true });
+            }
+        }
+        catch { }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_store != null)
+        {
+            await _store.DisposeAsync();
+            _store = null;
+        }
+    }
+
     private void OnLanguageChanged(object? sender, string langCode)
     {
         foreach (var lang in SupportedLanguages)
@@ -157,24 +321,5 @@ public sealed partial class MainWindowViewModel : ViewModelBase
             }
         }
         OnPropertyChanged(nameof(CurrentFlowDirection));
-    }
-
-    [RelayCommand]
-    public void SelectSpace(SpacePreviewItemViewModel? space)
-    {
-        if (space == null)
-            return;
-
-        foreach (var s in RepresentativeSpaces)
-        {
-            s.IsSelected = (s == space);
-        }
-        SelectedSpace = space;
-    }
-
-    [RelayCommand]
-    public void SelectTab(int index)
-    {
-        SelectedTabIndex = index;
     }
 }

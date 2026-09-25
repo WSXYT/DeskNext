@@ -1,0 +1,789 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DeskNest.App.ViewModels"
+             xmlns:loc="using:DeskNest.App.Localization"
+             xmlns:th="using:DeskNest.App.Themes"
+             xmlns:core="using:DeskNest.Core.Workspace"
+             x:Class="DeskNest.App.Views.StudioView"
+             x:DataType="vm:StudioViewModel">
+
+    <Grid RowDefinitions="Auto,*">
+        <!-- TOP: STUDIO NAVIGATION BAR -->
+        <Border Grid.Row="0"
+                Background="{DynamicResource SurfaceBrush}"
+                BorderBrush="{DynamicResource BorderSubtleBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="20,8">
+            <Grid ColumnDefinitions="*,Auto">
+                <!-- Navigation Tabs -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                    <!-- Spaces Tab -->
+                    <Button Command="{Binding SelectTabCommand}" CommandParameter="0"
+                            CornerRadius="{DynamicResource RadiusPrimary}" Padding="14,8">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="⊞" Foreground="{DynamicResource AccentPrimaryBrush}"/>
+                            <TextBlock Text="{Binding Localizer[Nav.Spaces]}" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Triage Tab -->
+                    <Button Command="{Binding SelectTabCommand}" CommandParameter="1"
+                            CornerRadius="{DynamicResource RadiusPrimary}" Padding="14,8">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="⚡" Foreground="{DynamicResource AccentPrimaryBrush}"/>
+                            <TextBlock Text="{Binding Localizer[Nav.Triage]}" FontWeight="SemiBold"/>
+                            <Border IsVisible="{Binding HasPendingItems}"
+                                    CornerRadius="10"
+                                    Background="{DynamicResource WarningBadgeBgBrush}"
+                                    Padding="6,1">
+                                <TextBlock Text="{Binding PendingCount}" FontSize="11" FontWeight="Bold"
+                                           Foreground="{DynamicResource WarningBadgeFgBrush}"/>
+                            </Border>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Drop Capsule Tab -->
+                    <Button Command="{Binding SelectTabCommand}" CommandParameter="2"
+                            CornerRadius="{DynamicResource RadiusPrimary}" Padding="14,8">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="📥" Foreground="{DynamicResource AccentPrimaryBrush}"/>
+                            <TextBlock Text="{Binding Localizer[Capsule.Title]}" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Settings Tab -->
+                    <Button Command="{Binding SelectTabCommand}" CommandParameter="3"
+                            CornerRadius="{DynamicResource RadiusPrimary}" Padding="14,8">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="⚙" Foreground="{DynamicResource AccentPrimaryBrush}"/>
+                            <TextBlock Text="{Binding Localizer[Nav.Settings]}" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Diagnostics / Probe Tab -->
+                    <Button Command="{Binding SelectTabCommand}" CommandParameter="4"
+                            CornerRadius="{DynamicResource RadiusPrimary}" Padding="14,8">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="🔍" Foreground="{DynamicResource AccentPrimaryBrush}"/>
+                            <TextBlock Text="{Binding Localizer[Nav.Probe]}" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <!-- Right Action: Add Space Button -->
+                <Button Grid.Column="1"
+                        Content="{Binding Localizer[Spaces.AddSpace]}"
+                        Command="{Binding OpenAddSpaceDialogCommand}"
+                        Background="{DynamicResource AccentPrimaryBrush}"
+                        Foreground="White"
+                        CornerRadius="{DynamicResource RadiusPrimary}"
+                        Padding="14,8"
+                        FontWeight="SemiBold"/>
+            </Grid>
+        </Border>
+
+        <!-- MAIN TAB CONTENT -->
+        <Grid Grid.Row="1" Margin="20">
+
+            <!-- ================= TAB 0: SPACES WORKSPACE ================= -->
+            <Grid RowDefinitions="Auto,*" IsVisible="{Binding IsSpacesTab}">
+                <!-- Filter bar & Counters -->
+                <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,14">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                        <Button Content="{Binding Localizer[Spaces.FilterAll]}"
+                                Command="{Binding SetFilterCommand}" CommandParameter="All"
+                                CornerRadius="{DynamicResource RadiusSmall}" Padding="12,6"/>
+                        <Button Content="{Binding Localizer[Spaces.FilterManaged]}"
+                                Command="{Binding SetFilterCommand}" CommandParameter="Managed"
+                                CornerRadius="{DynamicResource RadiusSmall}" Padding="12,6"/>
+                        <Button Content="{Binding Localizer[Spaces.FilterMapped]}"
+                                Command="{Binding SetFilterCommand}" CommandParameter="Mapped"
+                                CornerRadius="{DynamicResource RadiusSmall}" Padding="12,6"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding ManagedSpacesCountText}"
+                                   FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <TextBlock Text="{Binding MappedSpacesCountText}"
+                                   FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Spaces Two-Column Layout -->
+                <Grid Grid.Row="1" ColumnDefinitions="360,16,*">
+                    <!-- Left: Spaces List -->
+                    <Border Grid.Column="0"
+                            Background="{DynamicResource SurfaceBrush}"
+                            BorderBrush="{DynamicResource BorderSubtleBrush}"
+                            BorderThickness="1"
+                            CornerRadius="{DynamicResource RadiusPrimary}"
+                            Padding="10">
+                        <ListBox ItemsSource="{Binding FilteredSpaces}"
+                                 SelectedItem="{Binding SelectedSpace}"
+                                 Background="Transparent"
+                                 BorderThickness="0">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:SpaceItemViewModel">
+                                    <Border Margin="0,0,0,6"
+                                            Background="{DynamicResource SurfaceElevatedBrush}"
+                                            BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="{DynamicResource RadiusPrimary}"
+                                            Padding="12,10">
+                                        <Grid RowDefinitions="Auto,Auto,Auto">
+                                            <!-- Title & Badge -->
+                                            <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                                                <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="Bold" FontSize="13"/>
+                                                <Border Grid.Column="1"
+                                                        CornerRadius="{DynamicResource RadiusSmall}"
+                                                        Background="{DynamicResource InfoBadgeBgBrush}"
+                                                        Padding="6,2">
+                                                    <TextBlock Text="{Binding ModeLocalized}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource InfoBadgeFgBrush}"/>
+                                                </Border>
+                                            </Grid>
+
+                                            <!-- Description -->
+                                            <TextBlock Grid.Row="1" Text="{Binding Description}"
+                                                       FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                                                       TextTrimming="CharacterEllipsis" Margin="0,4,0,0"/>
+
+                                            <!-- Path & Count -->
+                                            <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,6,0,0">
+                                                <TextBlock Grid.Column="0" Text="{Binding Folder}"
+                                                           FontFamily="Consolas,Menlo,Monospace" FontSize="10"
+                                                           FlowDirection="LeftToRight" TextTrimming="CharacterEllipsis"
+                                                           Foreground="{DynamicResource TextMutedBrush}"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding ItemCountText}"
+                                                           FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentTextBrush}"/>
+                                            </Grid>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Border>
+
+                    <!-- Right: Selected Space Detail & Virtualized Catalog -->
+                    <Border Grid.Column="2"
+                            Background="{DynamicResource SurfaceBrush}"
+                            BorderBrush="{DynamicResource BorderSubtleBrush}"
+                            BorderThickness="1"
+                            CornerRadius="{DynamicResource RadiusPrimary}"
+                            Padding="20">
+                        <Grid RowDefinitions="Auto,Auto,Auto,*">
+                            <!-- Space Header Info -->
+                            <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                                <StackPanel Grid.Column="0" Spacing="4">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="{Binding SelectedSpace.Name}" FontSize="18" FontWeight="Bold"/>
+                                        <Border CornerRadius="{DynamicResource RadiusSmall}"
+                                                Background="{DynamicResource InfoBadgeBgBrush}"
+                                                Padding="6,2" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding SelectedSpace.ModeLocalized}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource InfoBadgeFgBrush}"/>
+                                        </Border>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding SelectedSpace.Description}" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Path & Bounds -->
+                            <Border Grid.Row="1"
+                                    Background="{DynamicResource ConsoleBackgroundBrush}"
+                                    CornerRadius="{DynamicResource RadiusSmall}"
+                                    Padding="10,8"
+                                    Margin="0,12,0,10">
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <TextBlock Grid.Column="0" Text="{Binding Localizer[Spaces.PathLabel]}" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,6,0"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding SelectedSpace.Folder}"
+                                               FontFamily="Consolas,Menlo,Monospace" FontSize="11"
+                                               FlowDirection="LeftToRight" TextTrimming="CharacterEllipsis"
+                                               Foreground="{DynamicResource AccentTextBrush}"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding SelectedSpace.BoundsSummary}"
+                                               FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </Grid>
+                            </Border>
+
+                            <!-- Section Title -->
+                            <TextBlock Grid.Row="2" Text="{Binding Localizer[Spaces.FilesTitle]}"
+                                       FontWeight="Bold" FontSize="14" Margin="0,6,0,8"/>
+
+                            <!-- Virtualized File List or Empty State (Mutually Exclusive) -->
+                            <Grid Grid.Row="3">
+                                <!-- Empty State: Visible only when space is empty -->
+                                <Border IsVisible="{Binding SelectedSpace.IsEmpty}"
+                                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <StackPanel Spacing="10" HorizontalAlignment="Center">
+                                        <TextBlock Text="📂" FontSize="36" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="{Binding Localizer[Spaces.EmptyFiles]}"
+                                                   TextWrapping="Wrap" TextAlignment="Center"
+                                                   FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   MaxWidth="480"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Virtualizing ListBox for File Metadata: Visible only when space has files -->
+                                <ListBox x:Name="FilesListBox"
+                                         ItemsSource="{Binding SelectedSpace.Files}"
+                                         IsVisible="{Binding SelectedSpace.HasFiles}"
+                                         Background="Transparent"
+                                         BorderThickness="0"
+                                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:WorkspaceFileItemViewModel">
+                                            <Border Margin="0,0,0,4"
+                                                    Background="{DynamicResource SurfaceElevatedBrush}"
+                                                    BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="{DynamicResource RadiusSmall}"
+                                                    Padding="10,8">
+                                                <Grid ColumnDefinitions="Auto,12,*,Auto">
+                                                    <TextBlock Grid.Column="0" Text="{Binding Icon}" FontSize="14"/>
+                                                    <TextBlock Grid.Column="2" Text="{Binding Name}" FontWeight="SemiBold" FontSize="12"/>
+                                                    <TextBlock Grid.Column="3" Text="{Binding Path}"
+                                                               FontFamily="Consolas,Menlo,Monospace" FontSize="11"
+                                                               FlowDirection="LeftToRight" Foreground="{DynamicResource TextMutedBrush}"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Grid>
+
+            <!-- ================= TAB 1: TRIAGE DRAWER ================= -->
+            <Grid RowDefinitions="Auto,*" IsVisible="{Binding IsTriageTab}">
+                <Grid Grid.Row="0" Margin="0,0,0,16">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="{Binding Localizer[Triage.Title]}" FontSize="20" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding Localizer[Triage.Subtitle]}" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </StackPanel>
+                </Grid>
+
+                <Grid Grid.Row="1">
+                    <!-- Empty Triage State -->
+                    <Border IsVisible="{Binding !HasPendingItems}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <StackPanel Spacing="10" HorizontalAlignment="Center">
+                            <TextBlock Text="✓" FontSize="36" Foreground="{DynamicResource SuccessBadgeFgBrush}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="{Binding Localizer[Triage.Empty]}"
+                                       FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Pending Items List -->
+                    <ListBox ItemsSource="{Binding PendingItems}"
+                             SelectedItem="{Binding SelectedPendingItem}"
+                             IsVisible="{Binding HasPendingItems}"
+                             Background="Transparent"
+                             BorderThickness="0">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:PendingItemViewModel">
+                                <Border Margin="0,0,0,10"
+                                        Background="{DynamicResource SurfaceBrush}"
+                                        BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="{DynamicResource RadiusPrimary}"
+                                        Padding="16">
+                                    <Grid RowDefinitions="Auto,Auto,Auto,Auto">
+                                        <!-- Header: Name & Reason Badge -->
+                                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                                            <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="Bold" FontSize="14"/>
+                                            <Border Grid.Column="1"
+                                                    CornerRadius="{DynamicResource RadiusSmall}"
+                                                    Background="{DynamicResource WarningBadgeBgBrush}"
+                                                    Padding="8,3">
+                                                <TextBlock Text="{Binding ReasonLocalized}"
+                                                           FontSize="11" FontWeight="Bold"
+                                                           Foreground="{DynamicResource WarningBadgeFgBrush}"/>
+                                            </Border>
+                                        </Grid>
+
+                                        <!-- Path & Time -->
+                                        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,6,0,0">
+                                            <TextBlock Grid.Column="0" Text="{Binding Path}"
+                                                       FontFamily="Consolas,Menlo,Monospace" FontSize="11"
+                                                       FlowDirection="LeftToRight" Foreground="{DynamicResource TextMutedBrush}"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding FormattedSeenAt}"
+                                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
+                                        </Grid>
+
+                                        <!-- Resolution Feedback if any -->
+                                        <TextBlock Grid.Row="2"
+                                                   Text="{Binding ResolutionNotice}"
+                                                   Foreground="{DynamicResource AccentTextBrush}"
+                                                   FontSize="12" Margin="0,6,0,0"/>
+
+                                        <!-- Action Buttons Bar with Space Selector -->
+                                        <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="8" Margin="0,10,0,0">
+                                            <!-- Target space selector -->
+                                            <ComboBox ItemsSource="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).AllSpaces}"
+                                                      SelectedItem="{Binding TargetSpace}"
+                                                      PlaceholderText="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).Localizer[Triage.SelectTargetPrompt]}"
+                                                      Width="180"
+                                                      CornerRadius="{DynamicResource RadiusSmall}">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:SpaceItemViewModel">
+                                                        <TextBlock Text="{Binding Name}"/>
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+
+                                            <!-- Assign Button -->
+                                            <Button Content="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).Localizer[Triage.ActionAssign]}"
+                                                    Command="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).AssignPendingToSpaceCommand}"
+                                                    CommandParameter="{Binding TargetSpace}"
+                                                    CornerRadius="{DynamicResource RadiusSmall}"
+                                                    Padding="12,6" FontSize="12"/>
+
+                                            <!-- Create Space Button -->
+                                            <Button Content="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).Localizer[Triage.ActionNewSpace]}"
+                                                    Command="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).OpenCreateSpaceFromTriageCommand}"
+                                                    CornerRadius="{DynamicResource RadiusSmall}"
+                                                    Padding="12,6" FontSize="12"/>
+
+                                            <!-- Dismiss Button -->
+                                            <Button Content="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).Localizer[Triage.ActionDismiss]}"
+                                                    Command="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).DismissPendingItemCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    CornerRadius="{DynamicResource RadiusSmall}"
+                                                    Padding="12,6" FontSize="12"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Grid>
+
+            <!-- ================= TAB 2: DROP CAPSULE ================= -->
+            <Grid RowDefinitions="Auto,*" IsVisible="{Binding IsCapsuleTab}">
+                <StackPanel Grid.Row="0" Spacing="16" MaxWidth="700" HorizontalAlignment="Center" Margin="0,40,0,0">
+                    <StackPanel Spacing="4" HorizontalAlignment="Center">
+                        <TextBlock Text="{Binding Localizer[Capsule.Title]}" FontSize="24" FontWeight="Bold" HorizontalAlignment="Center"/>
+                        <TextBlock Text="{Binding Localizer[Capsule.Subtitle]}" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- Drop Capsule Pill Card with Native Drop Capability -->
+                    <Border x:Name="DropCapsuleBorder"
+                            CornerRadius="{DynamicResource RadiusLarge}"
+                            Background="{DynamicResource SurfaceBrush}"
+                            BorderBrush="{DynamicResource AccentBorderBrush}"
+                            BorderThickness="2"
+                            Padding="24">
+                        <StackPanel Spacing="14">
+                            <TextBlock Text="{Binding Localizer[Capsule.Instruction]}" FontWeight="SemiBold" FontSize="14" HorizontalAlignment="Center"/>
+
+                            <Grid ColumnDefinitions="*,8,Auto">
+                                <TextBox Grid.Column="0"
+                                         Text="{Binding CapsuleInputPath}"
+                                         PlaceholderText="{Binding Localizer[Capsule.Placeholder]}"
+                                         CornerRadius="{DynamicResource RadiusPrimary}"
+                                         FontFamily="Consolas,Menlo,Monospace"
+                                         FlowDirection="LeftToRight"/>
+                                <Button Grid.Column="2"
+                                        Content="{Binding Localizer[Capsule.Submit]}"
+                                        Command="{Binding SubmitCapsuleCommand}"
+                                        Background="{DynamicResource AccentPrimaryBrush}"
+                                        Foreground="White"
+                                        CornerRadius="{DynamicResource RadiusPrimary}"
+                                        Padding="16,8" FontWeight="Bold"/>
+                            </Grid>
+
+                            <TextBlock Text="{Binding CapsuleNotice}"
+                                       Foreground="{DynamicResource AccentTextBrush}"
+                                       FontSize="12" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Boundary Notice -->
+                    <Border CornerRadius="{DynamicResource RadiusPrimary}"
+                            Background="{DynamicResource WarningBadgeBgBrush}"
+                            Padding="14,12">
+                        <TextBlock Text="{Binding Localizer[Capsule.Notice]}"
+                                   TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource WarningBadgeFgBrush}"/>
+                    </Border>
+                </StackPanel>
+            </Grid>
+
+            <!-- ================= TAB 3: SETTINGS ================= -->
+            <ScrollViewer IsVisible="{Binding IsSettingsTab}">
+                <StackPanel Spacing="24" MaxWidth="800" HorizontalAlignment="Stretch">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="{Binding Localizer[Settings.Title]}" FontSize="22" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding Localizer[Settings.Subtitle]}" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </StackPanel>
+
+                    <Border Height="1" Background="{DynamicResource BorderSubtleBrush}"/>
+
+                    <!-- Section: General -->
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="{Binding Localizer[Settings.General]}" FontWeight="Bold" FontSize="15"/>
+                        <Grid ColumnDefinitions="*,16,*">
+                            <StackPanel Grid.Column="0" Spacing="6">
+                                <TextBlock Text="{Binding Localizer[Language.Label]}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <ComboBox ItemsSource="{Binding SupportedLanguages}"
+                                          SelectedItem="{Binding SettingsLanguage}"
+                                          HorizontalAlignment="Stretch"
+                                          CornerRadius="{DynamicResource RadiusSmall}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="loc:LanguageInfo">
+                                            <TextBlock Text="{Binding DisplayText}"/>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2" Spacing="6">
+                                <TextBlock Text="{Binding Localizer[Theme.Label]}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <ComboBox ItemsSource="{Binding SupportedThemes}"
+                                          SelectedItem="{Binding SettingsTheme}"
+                                          HorizontalAlignment="Stretch"
+                                          CornerRadius="{DynamicResource RadiusSmall}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="th:AppThemeMode">
+                                            <TextBlock Text="{Binding}"/>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- Section: Engine -->
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="{Binding Localizer[Settings.Engine]}" FontWeight="Bold" FontSize="15"/>
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="{Binding Localizer[OOBE.Step2.ModelCache]}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <TextBox Text="{Binding SettingsModelCache}"
+                                     CornerRadius="{DynamicResource RadiusSmall}"
+                                     FontFamily="Consolas,Menlo,Monospace"
+                                     FlowDirection="LeftToRight"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Section: Storage & Monitoring -->
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="{Binding Localizer[Settings.Storage]}" FontWeight="Bold" FontSize="15"/>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{Binding Localizer[OOBE.Step4.ManagedRootLabel]}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <TextBox Text="{Binding SettingsManagedRoot}"
+                                     CornerRadius="{DynamicResource RadiusSmall}"
+                                     FontFamily="Consolas,Menlo,Monospace"
+                                     FlowDirection="LeftToRight"/>
+                            <!-- Notice that root change applies only to new spaces -->
+                            <TextBlock Text="{Binding Localizer[Settings.ManagedRootNotice]}"
+                                       TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
+                                       Margin="0,4,0,0"/>
+                        </StackPanel>
+
+                        <!-- Monitored list -->
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="{Binding Localizer[OOBE.Step4.MonitoredLabel]}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <Grid ColumnDefinitions="*,8,Auto">
+                                <TextBox Grid.Column="0" Text="{Binding NewSettingsMonitoredFolder}"
+                                         FontFamily="Consolas,Menlo,Monospace" FlowDirection="LeftToRight"
+                                         CornerRadius="{DynamicResource RadiusSmall}"/>
+                                <Button Grid.Column="2" Content="{Binding Localizer[Action.Add]}" Command="{Binding AddSettingsMonitoredFolderCommand}"
+                                        CornerRadius="{DynamicResource RadiusSmall}" Padding="12,6"/>
+                            </Grid>
+                            <ItemsControl ItemsSource="{Binding SettingsMonitoredFolders}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="x:String">
+                                        <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                                            <TextBlock Grid.Column="0" Text="{Binding}"
+                                                       FontFamily="Consolas,Menlo,Monospace" FontSize="11" FlowDirection="LeftToRight"/>
+                                            <Button Grid.Column="1" Content="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).Localizer[Action.Delete]}"
+                                                    Command="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).RemoveSettingsMonitoredFolderCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    CornerRadius="{DynamicResource RadiusSmall}" Padding="8,2" FontSize="10"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <!-- Excluded list -->
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="{Binding Localizer[OOBE.Step4.ExcludedLabel]}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <Grid ColumnDefinitions="*,8,Auto">
+                                <TextBox Grid.Column="0" Text="{Binding NewSettingsExcludedFolder}"
+                                         FontFamily="Consolas,Menlo,Monospace" FlowDirection="LeftToRight"
+                                         CornerRadius="{DynamicResource RadiusSmall}"/>
+                                <Button Grid.Column="2" Content="{Binding Localizer[Action.Add]}" Command="{Binding AddSettingsExcludedFolderCommand}"
+                                        CornerRadius="{DynamicResource RadiusSmall}" Padding="12,6"/>
+                            </Grid>
+                            <ItemsControl ItemsSource="{Binding SettingsExcludedFolders}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="x:String">
+                                        <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                                            <TextBlock Grid.Column="0" Text="{Binding}"
+                                                       FontFamily="Consolas,Menlo,Monospace" FontSize="11" FlowDirection="LeftToRight"/>
+                                            <Button Grid.Column="1" Content="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).Localizer[Action.Delete]}"
+                                                    Command="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).RemoveSettingsExcludedFolderCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    CornerRadius="{DynamicResource RadiusSmall}" Padding="8,2" FontSize="10"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <!-- Wants monitoring checkbox with explicit inactive note -->
+                        <StackPanel Spacing="6">
+                            <CheckBox IsChecked="{Binding SettingsWantsMonitoring}">
+                                <TextBlock Text="{Binding Localizer[OOBE.Step4.WantsMonitoring]}" FontWeight="SemiBold"/>
+                            </CheckBox>
+                            <Border CornerRadius="{DynamicResource RadiusPrimary}"
+                                    Background="{DynamicResource WarningBadgeBgBrush}"
+                                    Padding="12,10">
+                                <TextBlock Text="{Binding Localizer[OOBE.Step4.MonitoringNotice]}"
+                                           TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource WarningBadgeFgBrush}"/>
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Save & Reset Actions -->
+                    <StackPanel Orientation="Horizontal" Spacing="16" Margin="0,10,0,20">
+                        <Button Content="{Binding Localizer[Settings.Save]}"
+                                Command="{Binding SaveSettingsCommand}"
+                                Background="{DynamicResource AccentPrimaryBrush}"
+                                Foreground="White"
+                                FontWeight="Bold"
+                                CornerRadius="{DynamicResource RadiusPrimary}"
+                                Padding="20,10"/>
+
+                        <Button Content="{Binding Localizer[Settings.ResetOnboarding]}"
+                                Command="{Binding ResetOnboardingCommand}"
+                                CornerRadius="{DynamicResource RadiusPrimary}"
+                                Padding="16,10"/>
+
+                        <TextBlock Text="{Binding SettingsSavedFeedback}"
+                                   Foreground="{DynamicResource SuccessBadgeFgBrush}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- ================= TAB 4: SYSTEM PROBE & DIAGNOSTICS ================= -->
+            <Grid RowDefinitions="Auto,Auto,*,Auto" IsVisible="{Binding IsProbeTab}">
+                <!-- Runtime Metrics Tiles -->
+                <Grid Grid.Row="0" ColumnDefinitions="*,10,*,10,*,10,*,10,*,10,*" Margin="0,0,0,14">
+                    <Border Grid.Column="0" CornerRadius="{DynamicResource RadiusPrimary}" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" Padding="12,10">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{Binding Localizer[Probe.ItemAvalonia]}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
+                            <TextBlock Text="{Binding Probe.AvaloniaVersion}" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource AccentTextBrush}"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="2" CornerRadius="{DynamicResource RadiusPrimary}" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" Padding="12,10">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{Binding Localizer[Probe.ItemOS]}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
+                            <TextBlock Text="{Binding Probe.OperatingSystem}" FontWeight="SemiBold" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="4" CornerRadius="{DynamicResource RadiusPrimary}" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" Padding="12,10">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{Binding Localizer[Probe.ItemRID]}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
+                            <TextBlock Text="{Binding Probe.RuntimeIdentifier}" FontWeight="Bold" FontSize="12" FontFamily="Consolas,Menlo,Monospace" FlowDirection="LeftToRight"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="6" CornerRadius="{DynamicResource RadiusPrimary}" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" Padding="12,10">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{Binding Localizer[Probe.ItemArch]}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
+                            <TextBlock Text="{Binding Probe.Architecture}" FontWeight="Bold" FontSize="12"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="8" CornerRadius="{DynamicResource RadiusPrimary}" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" Padding="12,10">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{Binding Localizer[Probe.ItemDotNet]}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
+                            <TextBlock Text="{Binding Probe.Framework}" FontWeight="SemiBold" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="10" CornerRadius="{DynamicResource RadiusPrimary}" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" Padding="12,10">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{Binding Localizer[Probe.ItemWorkingSet]}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
+                            <TextBlock Text="{Binding Probe.WorkingSetMemory}" FontWeight="Bold" FontSize="12" FontFamily="Consolas,Menlo,Monospace" FlowDirection="LeftToRight"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- Subsystem Gate Statuses -->
+                <Grid Grid.Row="1" ColumnDefinitions="*,12,*,12,*" Margin="0,0,0,14">
+                    <Border Grid.Column="0" CornerRadius="{DynamicResource RadiusPrimary}" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" Padding="14">
+                        <StackPanel Spacing="6">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Border CornerRadius="{DynamicResource RadiusSmall}" Background="{DynamicResource WarningBadgeBgBrush}" Padding="6,2">
+                                    <TextBlock Text="PENDING P1b" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource WarningBadgeFgBrush}"/>
+                                </Border>
+                                <TextBlock Text="{Binding Localizer[Probe.ItemNativeBridge]}" FontWeight="Bold" FontSize="13"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding Probe.NativeBridgeStatus}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="2" CornerRadius="{DynamicResource RadiusPrimary}" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" Padding="14">
+                        <StackPanel Spacing="6">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Border CornerRadius="{DynamicResource RadiusSmall}" Background="{DynamicResource SuccessBadgeBgBrush}" Padding="6,2">
+                                    <TextBlock Text="VERIFIED P2" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource SuccessBadgeFgBrush}"/>
+                                </Border>
+                                <TextBlock Text="{Binding Localizer[Probe.CoreP2Title]}" FontWeight="Bold" FontSize="13"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding Localizer[Probe.CoreP2Details]}"
+                                       FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="4" CornerRadius="{DynamicResource RadiusPrimary}" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" Padding="14">
+                        <StackPanel Spacing="6">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Border CornerRadius="{DynamicResource RadiusSmall}" Background="{DynamicResource WarningBadgeBgBrush}" Padding="6,2">
+                                    <TextBlock Text="PENDING P1c" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource WarningBadgeFgBrush}"/>
+                                </Border>
+                                <TextBlock Text="{Binding Localizer[Probe.ItemInference]}" FontWeight="Bold" FontSize="13"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding Probe.InferenceStatus}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- Diagnostics Console Output -->
+                <Border Grid.Row="2"
+                        CornerRadius="{DynamicResource RadiusPrimary}"
+                        Background="{DynamicResource ConsoleBackgroundBrush}"
+                        BorderBrush="{DynamicResource BorderSubtleBrush}"
+                        BorderThickness="1"
+                        Padding="14">
+                    <Grid RowDefinitions="Auto,*">
+                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+                            <TextBlock Grid.Column="0"
+                                       Text="{Binding Localizer[Probe.ConsoleHeader]}"
+                                       FontWeight="SemiBold"
+                                       FontSize="13"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+
+                            <Button Grid.Column="1"
+                                    Content="{Binding Localizer[Probe.RunButton]}"
+                                    Command="{Binding Probe.RunProbeCommand}"
+                                    CornerRadius="{DynamicResource RadiusPrimary}"
+                                    Background="{DynamicResource AccentPrimaryBrush}"
+                                    Foreground="White"
+                                    FontWeight="SemiBold"
+                                    Padding="14,6"/>
+                        </Grid>
+
+                        <ListBox Grid.Row="1"
+                                 ItemsSource="{Binding Probe.ProbeLogs}"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 FontFamily="Consolas,Menlo,Monospace"
+                                 FontSize="12"
+                                 FlowDirection="LeftToRight">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                               Margin="0,1"/>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+
+        <!-- ADD SPACE DIALOG MODAL -->
+        <Border Grid.Row="0" Grid.RowSpan="2"
+                IsVisible="{Binding IsAddSpaceDialogOpen}"
+                Background="#80000000">
+            <Border Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource BorderStrongBrush}"
+                    BorderThickness="1"
+                    CornerRadius="{DynamicResource RadiusLarge}"
+                    Padding="24"
+                    Width="500"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                <StackPanel Spacing="16">
+                    <TextBlock Text="{Binding Localizer[Spaces.DialogTitle]}" FontSize="18" FontWeight="Bold"/>
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="{Binding Localizer[Spaces.DialogName]}" FontWeight="SemiBold" FontSize="12"/>
+                        <TextBox Text="{Binding NewSpaceName}" CornerRadius="{DynamicResource RadiusSmall}"/>
+                    </StackPanel>
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="{Binding Localizer[Spaces.DialogDesc]}" FontWeight="SemiBold" FontSize="12"/>
+                        <TextBox Text="{Binding NewSpaceDesc}" CornerRadius="{DynamicResource RadiusSmall}"/>
+                    </StackPanel>
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="{Binding Localizer[Spaces.DialogFolder]}" FontWeight="SemiBold" FontSize="12"/>
+                        <TextBox Text="{Binding NewSpaceFolder}" FontFamily="Consolas,Menlo,Monospace" FlowDirection="LeftToRight" CornerRadius="{DynamicResource RadiusSmall}"/>
+                    </StackPanel>
+
+                    <TextBlock Text="{Binding SpaceDialogError}" Foreground="{DynamicResource WarningBadgeFgBrush}" FontSize="12"/>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,10,0,0">
+                        <Button Content="{Binding Localizer[Action.Cancel]}"
+                                Command="{Binding CloseAddSpaceDialogCommand}"
+                                HotKey="Escape"
+                                CornerRadius="{DynamicResource RadiusSmall}" Padding="14,8"/>
+                        <Button Content="{Binding Localizer[Spaces.DialogConfirm]}"
+                                Command="{Binding ConfirmAddSpaceCommand}"
+                                HotKey="Enter"
+                                Background="{DynamicResource AccentPrimaryBrush}"
+                                Foreground="White"
+                                FontWeight="Bold"
+                                CornerRadius="{DynamicResource RadiusSmall}" Padding="16,8"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Border>
+
+        <!-- CREATE SPACE FROM TRIAGE MODAL -->
+        <Border Grid.Row="0" Grid.RowSpan="2"
+                IsVisible="{Binding IsCreateSpaceFromTriageOpen}"
+                Background="#80000000">
+            <Border Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource BorderStrongBrush}"
+                    BorderThickness="1"
+                    CornerRadius="{DynamicResource RadiusLarge}"
+                    Padding="24"
+                    Width="460"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                <StackPanel Spacing="14">
+                    <TextBlock Text="{Binding Localizer[Triage.NewSpaceModalTitle]}" FontSize="16" FontWeight="Bold"/>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="{Binding Localizer[Spaces.DialogName]}" FontWeight="SemiBold" FontSize="12"/>
+                        <TextBox Text="{Binding TriageNewSpaceName}" CornerRadius="{DynamicResource RadiusSmall}"/>
+                    </StackPanel>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="{Binding Localizer[Spaces.DialogDesc]}" FontWeight="SemiBold" FontSize="12"/>
+                        <TextBox Text="{Binding TriageNewSpaceDesc}" CornerRadius="{DynamicResource RadiusSmall}"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,8,0,0">
+                        <Button Content="{Binding Localizer[Action.Cancel]}"
+                                Command="{Binding CloseCreateSpaceFromTriageCommand}"
+                                HotKey="Escape"
+                                CornerRadius="{DynamicResource RadiusSmall}" Padding="12,6"/>
+                        <Button Content="{Binding Localizer[Triage.NewSpaceModalConfirm]}"
+                                Command="{Binding ConfirmCreateSpaceFromTriageCommand}"
+                                HotKey="Enter"
+                                Background="{DynamicResource AccentPrimaryBrush}" Foreground="White"
+                                FontWeight="Bold" CornerRadius="{DynamicResource RadiusSmall}" Padding="14,6"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Border>
+    </Grid>
+</UserControl>
