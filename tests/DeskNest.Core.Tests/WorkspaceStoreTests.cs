@@ -1,3 +1,4 @@
+using DeskNest.Core.Storage;
 using DeskNest.Core.Workspace;
 using Xunit;
 
@@ -89,6 +90,58 @@ public sealed class WorkspaceStoreTests
         await File.WriteAllTextAsync(path, future);
         await Assert.ThrowsAsync<InvalidDataException>(() => WorkspaceStore.OpenAsync(temp.Path));
         Assert.Equal(future, await File.ReadAllTextAsync(path));
+    }
+
+    [Fact]
+    public async Task ManualCoordinatorUpdatesMetadataOnlyAfterSuccessfulMove()
+    {
+        using var temp = new TemporaryDirectory();
+        string sourceFolder = Path.Combine(temp.Path, "source");
+        string targetFolder = Path.Combine(temp.Path, "target");
+        Directory.CreateDirectory(sourceFolder);
+        Directory.CreateDirectory(targetFolder);
+        string sourcePath = Path.Combine(sourceFolder, "source.txt");
+        await File.WriteAllTextAsync(sourcePath, "manual");
+        var sourceSpace = new WorkspaceSpace(Guid.NewGuid(), "Source", "", SpaceStorageMode.Managed, sourceFolder);
+        var targetSpace = new WorkspaceSpace(Guid.NewGuid(), "Target", "", SpaceStorageMode.Managed, targetFolder);
+        var file = new WorkspaceFile(Guid.NewGuid(), sourceSpace.Id, "source.txt", sourcePath, false);
+
+        await using var store = await WorkspaceStore.OpenAsync(temp.Path);
+        await store.UpdateAsync(state => state with { Spaces = [sourceSpace, targetSpace], Files = [file] });
+        var result = await new ManualOrganizationCoordinator(
+            store, new DesktopOrganizationTransaction(Path.Combine(temp.Path, "operation.json")))
+            .MoveFileAsync(file.Id, targetSpace.Id);
+
+        Assert.Equal(targetSpace.Id, result.TargetSpaceId);
+        Assert.False(File.Exists(sourcePath));
+        Assert.True(File.Exists(Path.Combine(targetFolder, "source.txt")));
+        Assert.Equal(targetSpace.Id, store.Snapshot.Files.Single().SpaceId);
+        Assert.Equal(Path.Combine(targetFolder, "source.txt"), store.Snapshot.Files.Single().Path);
+    }
+
+    [Fact]
+    public async Task ManualCoordinatorLeavesMetadataUnchangedWhenMoveIsRefused()
+    {
+        using var temp = new TemporaryDirectory();
+        string sourceFolder = Path.Combine(temp.Path, "source");
+        string targetFolder = Path.Combine(temp.Path, "target");
+        Directory.CreateDirectory(sourceFolder);
+        Directory.CreateDirectory(targetFolder);
+        string sourcePath = Path.Combine(sourceFolder, "source.txt");
+        await File.WriteAllTextAsync(sourcePath, "manual");
+        var sourceSpace = new WorkspaceSpace(Guid.NewGuid(), "Source", "", SpaceStorageMode.Managed, sourceFolder);
+        var targetSpace = new WorkspaceSpace(Guid.NewGuid(), "Target", "", SpaceStorageMode.Managed, targetFolder);
+        var file = new WorkspaceFile(Guid.NewGuid(), sourceSpace.Id, "source.txt", sourcePath, false);
+        await using var store = await WorkspaceStore.OpenAsync(temp.Path);
+        await store.UpdateAsync(state => state with { Spaces = [sourceSpace, targetSpace], Files = [file] });
+
+        await Assert.ThrowsAsync<IOException>(() => new ManualOrganizationCoordinator(
+            store, new DesktopOrganizationTransaction(Path.Combine(temp.Path, "operation.json"), _ => false))
+            .MoveFileAsync(file.Id, targetSpace.Id));
+
+        Assert.Equal(sourcePath, store.Snapshot.Files.Single().Path);
+        Assert.True(File.Exists(sourcePath));
+        Assert.False(File.Exists(Path.Combine(targetFolder, "source.txt")));
     }
 
     private sealed class TemporaryDirectory : IDisposable
