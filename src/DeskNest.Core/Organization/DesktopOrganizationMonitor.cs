@@ -64,11 +64,6 @@ public sealed class DesktopOrganizationMonitor : IAsyncDisposable
         var roots = NormalizeRoots(_options.Roots);
         var excluded = NormalizeRoots(_options.ExcludedFolders);
         var first = CaptureBaseline(roots, excluded);
-        await Task.Yield();
-        cancellationToken.ThrowIfCancellationRequested();
-        var second = CaptureBaseline(roots, excluded);
-        foreach (var path in second)
-            _baseline[path] = DateTimeOffset.UtcNow;
 
         foreach (var root in roots)
         {
@@ -85,6 +80,12 @@ public sealed class DesktopOrganizationMonitor : IAsyncDisposable
             watcher.Error += OnWatcherError;
             _watchers[root] = watcher;
         }
+
+        await Task.Yield();
+        cancellationToken.ThrowIfCancellationRequested();
+        var second = CaptureBaseline(roots, excluded);
+        foreach (var path in second)
+            _baseline[path] = DateTimeOffset.UtcNow;
 
         foreach (var path in second.Except(first, StringComparer.OrdinalIgnoreCase))
             Enqueue(path);
