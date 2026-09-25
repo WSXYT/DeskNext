@@ -204,5 +204,20 @@
   "Drop.CapsuleTargetHint": "Dateien oder Ordner hier ablegen, um sie an die Sortierwarteschlange zu senden",
   "Drop.UnsupportedPayload": "Nur Datei- und Ordnerablage wird unterstützt; andere Inhalte werden abgewiesen",
   "Drop.SpaceSuccessFormat": "Metadaten für {0} Element(e) im Bereich „{1}“ registriert",
-  "Drop.NoSpaceSelected": "Bitte wählen Sie zuerst einen Zielbereich aus, bevor Sie Dateien ablegen"
+  "Drop.NoSpaceSelected": "Bitte wählen Sie zuerst einen Zielbereich aus, bevor Sie Dateien ablegen",
+  "Operations.Title": "Vorgangsverlauf & Transaktionsprotokoll",
+  "Operations.Subtitle": "Persistierte Datei- und Transaktionszustände einsehen; Protokolle spiegeln den Core wahrheitsgemäß wider, ohne Scheingegenmaßnahmen",
+  "Operations.Empty": "Noch keine Vorgänge protokolliert. Bestätigte Dateiverschiebungen oder Transaktionen werden hier festgehalten.",
+  "Operations.StatusProposed": "Vorgeschlagen",
+  "Operations.StatusPendingUser": "Benutzeraktion ausstehend",
+  "Operations.StatusCompleted": "Abgeschlossen",
+  "Operations.StatusRecoveryRequired": "Wiederherstellung erforderlich",
+  "Operations.DescProposed": "Vorgang durch Modell oder Regel vorgeschlagen; noch keine physischen Änderungen durchgeführt.",
+  "Operations.DescPendingUser": "Transaktion wartet auf ausdrückliche Genehmigung oder manuelle Ausführung durch den Benutzer.",
+  "Operations.DescCompleted": "Physische Dateiverschiebung erfolgreich ausgeführt und mit Workspace-Metadaten synchronisiert.",
+  "Operations.DescRecoveryRequired": "Transaktion unterbrochen oder Anomalie erkannt; System im fehlersicheren Schutzmodus angehalten.",
+  "Operations.RecoveryRequiredAction": "[Handlung erforderlich] Physischer Commit unvollständig oder Journal beschädigt. Prüfen Sie das Wiederherstellungsprotokoll im Datenverzeichnis vor einem erneuten Versuch.",
+  "Operations.NoUndoNotice": "Prüfhinweis: Vorgänge bilden ein unveränderliches Protokoll. Zum Schutz der Daten existiert keine automatische Rückgängigmachung.",
+  "Operations.ManualMoveGatedNotice": "Manuelle Verschiebung blockiert: Core-Koordinator nicht verbunden; direktes File.Move ist unzulässig",
+  "Operations.ManualMoveReadyNotice": "Core-Koordinator verbunden; kontrollierte manuelle Verschiebung verfügbar"
 }

@@ -11,6 +11,7 @@ using CommunityToolkit.Mvvm.Input;
 using DeskNest.App.Localization;
 using DeskNest.App.Services;
 using DeskNest.App.Themes;
+using DeskNest.Core.Storage;
 using DeskNest.Core.Workspace;
 
 namespace DeskNest.App.ViewModels;
@@ -27,6 +28,7 @@ public enum StartupState
 public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 {
     private WorkspaceStore? _store;
+    private ManualOrganizationCoordinator? _manualCoordinator;
     private readonly bool _ownsStore;
     private string? _dataDirectory;
 
@@ -111,6 +113,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     public MainWindowViewModel(WorkspaceStore store, bool ownsStore = false)
     {
         _store = store;
+        _manualCoordinator = new ManualOrganizationCoordinator(
+            store, new DesktopOrganizationTransaction(
+                Path.Combine(store.DataDirectory, "organization-recovery.json")));
         _ownsStore = ownsStore;
         _selectedLanguage = Localizer.CurrentLanguageInfo;
         _selectedTheme = ThemeMgr.CurrentThemeMode;
@@ -154,6 +159,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         try
         {
             _store = await WorkspaceStore.OpenAsync(customDataDir);
+            _manualCoordinator = new ManualOrganizationCoordinator(
+                _store, new DesktopOrganizationTransaction(
+                    Path.Combine(_store.DataDirectory, "organization-recovery.json")));
             StartupState = StartupState.Ready;
             StartupErrorMessage = string.Empty;
             ApplySnapshot(_store.Snapshot);
@@ -239,12 +247,22 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             if (Studio == null)
             {
                 Studio = new StudioViewModel(state, UpdateStoreAsync);
+                Studio.AttachManualMoveExecutor(ExecuteManualMoveAsync);
             }
             else
             {
                 Studio.RefreshFromState(state);
+                Studio.AttachManualMoveExecutor(ExecuteManualMoveAsync);
             }
         }
+    }
+
+    private async Task ExecuteManualMoveAsync(Guid fileId, Guid targetSpaceId)
+    {
+        if (_manualCoordinator is null)
+            throw new InvalidOperationException("Manual organization is not initialized.");
+
+        await _manualCoordinator.MoveFileAsync(fileId, targetSpaceId).ConfigureAwait(false);
     }
 
     public async Task<WorkspaceState> UpdateStoreAsync(Func<WorkspaceState, WorkspaceState> update)

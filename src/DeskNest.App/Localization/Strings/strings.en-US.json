@@ -204,5 +204,20 @@
   "Drop.CapsuleTargetHint": "Drop files or directories to send to triage queue",
   "Drop.UnsupportedPayload": "Only file and directory drops are supported; non-file payload rejected",
   "Drop.SpaceSuccessFormat": "Registered metadata for {0} item(s) in space '{1}'",
-  "Drop.NoSpaceSelected": "Please select a target space before dropping files"
+  "Drop.NoSpaceSelected": "Please select a target space before dropping files",
+  "Operations.Title": "Operation History & Transaction Log",
+  "Operations.Subtitle": "Inspect persisted file movement and transaction lifecycle states; records reflect Core truthfully with no fake undo",
+  "Operations.Empty": "No operation records yet. Committed file movements or transactions will be recorded here truthfully.",
+  "Operations.StatusProposed": "Proposed",
+  "Operations.StatusPendingUser": "Pending User",
+  "Operations.StatusCompleted": "Completed",
+  "Operations.StatusRecoveryRequired": "Recovery Required",
+  "Operations.DescProposed": "Operation proposed by model or rule resolver; no physical file changes executed yet.",
+  "Operations.DescPendingUser": "Transaction is awaiting explicit user authorization or manual trigger.",
+  "Operations.DescCompleted": "Physical move transaction successfully executed and synchronized with workspace metadata.",
+  "Operations.DescRecoveryRequired": "Transaction interrupted or state anomaly detected; system halted in fail-closed safety state.",
+  "Operations.RecoveryRequiredAction": "[Action Required] Physical commit incomplete or journal corrupted. Inspect the recovery journal in data directory and verify filesystem state before retrying.",
+  "Operations.NoUndoNotice": "Audit Notice: Operations are an immutable transaction log. Automatic undo and blind reversal are not available to prevent data loss.",
+  "Operations.ManualMoveGatedNotice": "Manual move is gated: Core transaction coordinator not attached; direct File.Move is prohibited",
+  "Operations.ManualMoveReadyNotice": "Core transaction coordinator is attached; controlled manual move is available"
 }

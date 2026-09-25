@@ -57,6 +57,10 @@ public sealed class SmokeTestResult
     public bool DragDropCapsuleRoutingVerified { get; set; }
     public bool DragDropUnsupportedPayloadRejectedTruthfully { get; set; }
     public bool DragDropInjectableCallbackVerified { get; set; }
+    public bool OperationHistorySurfaceVerified { get; set; }
+    public bool OperationHistoryStatusesVerified { get; set; }
+    public bool OperationRecoveryRequiredActionWarningVerified { get; set; }
+    public bool ManualMoveGatedCallbackBoundaryVerified { get; set; }
     public string VirtualDpiStatus { get; set; } = "Unverified (Avalonia.Headless does not expose configurable per-window RenderScaling API; physical 100%/150%/200% DPI matrix remains open for physical display verification)";
     public double HeadlessScale { get; set; } = 1.0;
     public bool HeadlessOffscreenRenderRequested { get; set; }
@@ -1086,6 +1090,117 @@ public static class HeadlessSmokeRunner
 
                 result.DragDropCapsuleRoutingVerified = true;
 
+                // Regression Assertion 10: Truthful Operation History Surface, Lifecycle Statuses (Proposed, PendingUser, Completed, RecoveryRequired), Actionable Warning, and Gated Manual Move Boundary
+                mainVm.Studio.SelectedTabIndex = 3; // Switch to Settings tab
+                Dispatcher.UIThread.RunJobs();
+
+                var operationsListBox = window.GetVisualDescendants()
+                    .OfType<ListBox>()
+                    .FirstOrDefault(lb => lb.Name == "OperationsListBox");
+
+                // The production MainWindow is wired to the Core coordinator; verify that it is ready.
+                if (!mainVm.Studio.CanExecuteManualMove)
+                    throw new InvalidOperationException("MainWindow did not attach the Core manual organization coordinator.");
+                if (mainVm.Studio.ManualMoveStatusNotice != localizer["Operations.ManualMoveReadyNotice"])
+                    throw new InvalidOperationException($"Expected MainWindow manual move status to be ready, got '{mainVm.Studio.ManualMoveStatusNotice}'");
+
+                // Preserve the explicit gated boundary for a Studio instance without an executor.
+                var gatedStudio = new StudioViewModel(new WorkspaceState(), _ =>
+                    Task.FromResult(new WorkspaceState()));
+                if (gatedStudio.CanExecuteManualMove)
+                    throw new InvalidOperationException("An unattached StudioViewModel must keep manual moves gated.");
+                if (gatedStudio.ManualMoveStatusNotice != localizer["Operations.ManualMoveGatedNotice"])
+                    throw new InvalidOperationException("Unattached StudioViewModel did not report the gated manual move status.");
+
+                // Test the callback boundary independently without performing a filesystem mutation.
+                Guid? manualMoveFileTarget = null;
+                Guid? manualMoveSpaceTarget = null;
+                gatedStudio.OnExecuteManualMove = (fId, sId) =>
+                {
+                    manualMoveFileTarget = fId;
+                    manualMoveSpaceTarget = sId;
+                    return Task.CompletedTask;
+                };
+
+                if (!gatedStudio.CanExecuteManualMove)
+                    throw new InvalidOperationException("CanExecuteManualMove should be true when a callback is attached.");
+
+                var dummyFileId = Guid.NewGuid();
+                var dummySpaceId = Guid.NewGuid();
+                Task.Run(async () => await gatedStudio.ExecuteManualMoveAsync((dummyFileId, dummySpaceId))).GetAwaiter().GetResult();
+                if (manualMoveFileTarget != dummyFileId || manualMoveSpaceTarget != dummySpaceId)
+                    throw new InvalidOperationException("OnExecuteManualMove callback boundary did not receive expected arguments.");
+
+                result.ManualMoveGatedCallbackBoundaryVerified = true;
+
+                // Test Operation History statuses: Proposed, PendingUser, Completed, RecoveryRequired
+                var testOpFile = mainVm.Studio.SelectedSpace?.Files.FirstOrDefault()
+                    ?? new WorkspaceFileItemViewModel(Guid.NewGuid(), mainVm.Studio.SelectedSpace?.Id ?? Guid.NewGuid(), "history_test.txt", Path.Combine(oobeDir.Path, "history_test.txt"), false);
+
+                var opProposed = new ProposedOperation(Guid.NewGuid(), testOpFile.Id, mainVm.Studio.SelectedSpace?.Id, ProposedOperationStatus.Proposed, DateTimeOffset.UtcNow.AddMinutes(-40))
+                {
+                    SourcePath = testOpFile.Path,
+                    DestinationPath = Path.Combine(oobeDir.Path, "Dest1", testOpFile.Name)
+                };
+                var opPendingUser = new ProposedOperation(Guid.NewGuid(), testOpFile.Id, mainVm.Studio.SelectedSpace?.Id, ProposedOperationStatus.PendingUser, DateTimeOffset.UtcNow.AddMinutes(-30))
+                {
+                    SourcePath = testOpFile.Path,
+                    DestinationPath = Path.Combine(oobeDir.Path, "Dest2", testOpFile.Name)
+                };
+                var opCompleted = new ProposedOperation(Guid.NewGuid(), testOpFile.Id, mainVm.Studio.SelectedSpace?.Id, ProposedOperationStatus.Completed, DateTimeOffset.UtcNow.AddMinutes(-20))
+                {
+                    SourcePath = testOpFile.Path,
+                    DestinationPath = Path.Combine(oobeDir.Path, "Dest3", testOpFile.Name)
+                };
+                var opRecoveryRequired = new ProposedOperation(Guid.NewGuid(), testOpFile.Id, mainVm.Studio.SelectedSpace?.Id, ProposedOperationStatus.RecoveryRequired, DateTimeOffset.UtcNow.AddMinutes(-10))
+                {
+                    SourcePath = testOpFile.Path,
+                    DestinationPath = Path.Combine(oobeDir.Path, "Dest4", testOpFile.Name)
+                };
+
+                var stateWithOps = new WorkspaceState
+                {
+                    OnboardingComplete = true,
+                    OnboardingStep = 5,
+                    Spaces = [.. mainVm.Studio.AllSpaces.Select(s => new WorkspaceSpace(s.Id, s.Name, s.Description, s.Mode, s.Folder))],
+                    Files = [new WorkspaceFile(testOpFile.Id, mainVm.Studio.SelectedSpace?.Id ?? Guid.NewGuid(), testOpFile.Name, testOpFile.Path, false)],
+                    Operations = [opProposed, opPendingUser, opCompleted, opRecoveryRequired]
+                };
+
+                mainVm.Studio.RefreshFromState(stateWithOps);
+                Dispatcher.UIThread.RunJobs();
+
+                if (mainVm.Studio.OperationHistoryCount != 4)
+                    throw new InvalidOperationException($"Expected 4 operation history items, got {mainVm.Studio.OperationHistoryCount}");
+                if (!mainVm.Studio.HasOperationHistory)
+                    throw new InvalidOperationException("HasOperationHistory is false despite having 4 items.");
+
+                var itemProposed = mainVm.Studio.OperationHistory.FirstOrDefault(o => o.Id == opProposed.Id);
+                var itemPendingUser = mainVm.Studio.OperationHistory.FirstOrDefault(o => o.Id == opPendingUser.Id);
+                var itemCompleted = mainVm.Studio.OperationHistory.FirstOrDefault(o => o.Id == opCompleted.Id);
+                var itemRecoveryRequired = mainVm.Studio.OperationHistory.FirstOrDefault(o => o.Id == opRecoveryRequired.Id);
+
+                if (itemProposed == null || !itemProposed.IsProposed || itemProposed.StatusLocalized != localizer["Operations.StatusProposed"])
+                    throw new InvalidOperationException("Proposed status rendering/localization failed.");
+                if (itemPendingUser == null || !itemPendingUser.IsPendingUser || itemPendingUser.StatusLocalized != localizer["Operations.StatusPendingUser"])
+                    throw new InvalidOperationException("PendingUser status rendering/localization failed.");
+                if (itemCompleted == null || !itemCompleted.IsCompleted || itemCompleted.StatusLocalized != localizer["Operations.StatusCompleted"])
+                    throw new InvalidOperationException("Completed status rendering/localization failed.");
+                if (itemRecoveryRequired == null || !itemRecoveryRequired.IsRecoveryRequired || itemRecoveryRequired.StatusLocalized != localizer["Operations.StatusRecoveryRequired"])
+                    throw new InvalidOperationException("RecoveryRequired status rendering/localization failed.");
+
+                result.OperationHistoryStatusesVerified = true;
+
+                // Verify that RecoveryRequired displays actionable warning text, NEVER as success
+                if (string.IsNullOrWhiteSpace(itemRecoveryRequired.RecoveryActionPrompt) ||
+                    itemRecoveryRequired.RecoveryActionPrompt != localizer["Operations.RecoveryRequiredAction"])
+                    throw new InvalidOperationException("RecoveryRequired did not produce expected actionable warning text.");
+                if (itemRecoveryRequired.IsCompleted)
+                    throw new InvalidOperationException("RecoveryRequired was erroneously marked as completed!");
+
+                result.OperationRecoveryRequiredActionWarningVerified = true;
+                result.OperationHistorySurfaceVerified = true;
+
                 // Reset tab to 0
                 mainVm.Studio.SelectedTabIndex = 0;
                 Dispatcher.UIThread.RunJobs();
@@ -1248,6 +1363,9 @@ public static class HeadlessSmokeRunner
                 Console.WriteLine("  ✓ Explicit visual target states (IsDragOverSpaceSurface / IsDragOverCapsule) verified.");
                 Console.WriteLine("  ✓ Non-file / unsupported payloads rejected with truthful localized status.");
                 Console.WriteLine("  ✓ Absolute paths routed to injectable callbacks and metadata enrollment (P2 boundary).");
+                Console.WriteLine("  ✓ Truthful operation history surface & lifecycle statuses (Proposed/PendingUser/Completed/RecoveryRequired) verified.");
+                Console.WriteLine("  ✓ RecoveryRequired rendered as actionable warning text, never as success; zero fake undo claimed.");
+                Console.WriteLine("  ✓ Manual move gated status and callback boundary verified without direct File.Move.");
                 Console.WriteLine("  ✓ Large-window layout sizing (1920x1140 and 2560x1520) verified.");
                 Console.WriteLine($"  ✓ Headless Virtual Scale: {result.HeadlessScale:F2} (HeadlessScale)");
                 Console.WriteLine($"  ⚠ Virtual DPI Scaling: {result.VirtualDpiStatus}");

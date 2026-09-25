@@ -204,5 +204,20 @@
   "Drop.CapsuleTargetHint": "放開以將檔案或資料夾送入待處理分揀",
   "Drop.UnsupportedPayload": "僅支援拖入檔案或資料夾，不支援其他格式的內容",
   "Drop.SpaceSuccessFormat": "已登記 {0} 個項目的元數據至空間【{1}】",
-  "Drop.NoSpaceSelected": "請先選擇目標分類空間，再拖入檔案"
+  "Drop.NoSpaceSelected": "請先選擇目標分類空間，再拖入檔案",
+  "Operations.Title": "操作歷史與交易記錄",
+  "Operations.Subtitle": "檢視持久化的檔案移動與整理交易狀態；所有記錄均真實反映 Core 狀態，不支援虛假復原",
+  "Operations.Empty": "暫無操作記錄。檔案移動或整理交易提交後將在此如實記錄。",
+  "Operations.StatusProposed": "已提議",
+  "Operations.StatusPendingUser": "等待使用者",
+  "Operations.StatusCompleted": "已完成",
+  "Operations.StatusRecoveryRequired": "需要故障復原",
+  "Operations.DescProposed": "操作方案已由模型或規則產生，尚未執行實體變更。",
+  "Operations.DescPendingUser": "交易正在等待使用者明確核准或手動觸發執行。",
+  "Operations.DescCompleted": "實體移動交易已成功提交，檔案與工作區元數據已完成同步。",
+  "Operations.DescRecoveryRequired": "交易執行中斷或檢測到狀態異常，系統已進入防護中斷狀態。",
+  "Operations.RecoveryRequiredAction": "【需要人工核對】檔案未完成實體提交或日誌異常。請檢查資料目錄中的復原日誌，確認檔案實體位置後再重試，切勿重複強制移動。",
+  "Operations.NoUndoNotice": "審計說明：本記錄為不可變的實體操作歷史，系統不提供自動復原或反向盲移功能，以確保檔案安全。",
+  "Operations.ManualMoveGatedNotice": "手動移動已閘控：核心交易協調器未連接，禁止直接呼叫 File.Move",
+  "Operations.ManualMoveReadyNotice": "核心交易協調器已連接，可執行受控手動移動"
 }

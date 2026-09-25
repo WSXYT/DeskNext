@@ -9,6 +9,7 @@
     <StreamGeometry x:Key="IconFolder">M2,4 C2,2.895 2.895,2 4,2 L7.586,2 C8.116,2 8.625,2.211 9,2.586 L10.414,4 L18,4 C19.105,4 20,4.895 20,6 L20,16 C20,17.105 19.105,18 18,18 L4,18 C2.895,18 2,17.105 2,16 Z</StreamGeometry>
     <StreamGeometry x:Key="IconFile">M4,2 C2.895,2 2,2.895 2,4 L2,18 C2,19.105 2.895,20 4,20 L16,20 C17.105,20 18,19.105 18,18 L18,7 L13,2 Z M12,3.5 L16.5,8 L12,8 Z</StreamGeometry>
     <StreamGeometry x:Key="IconCheck">M6.5,12.5 L3,9 L4.4,7.6 L6.5,9.7 L11.6,4.6 L13,6 Z</StreamGeometry>
+    <StreamGeometry x:Key="IconAlert">M12,2 L1,21 L23,21 Z M12,8 L12,13 M12,16 L12,18</StreamGeometry>
 
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Key="Dark">

@@ -204,5 +204,20 @@
   "Drop.CapsuleTargetHint": "أفلت الملفات أو المجلدات لإرسالها إلى قائمة الفرز",
   "Drop.UnsupportedPayload": "يتم دعم إفلات الملفات والمجلدات فقط؛ تم رفض المحتوى الآخر",
   "Drop.SpaceSuccessFormat": "تم تسجيل البيانات الوصفية لـ {0} عنصر في المساحة '{1}'",
-  "Drop.NoSpaceSelected": "يرجى تحديد مساحة الوجهة قبل إفلات الملفات"
+  "Drop.NoSpaceSelected": "يرجى تحديد مساحة الوجهة قبل إفلات الملفات",
+  "Operations.Title": "سجل العمليات ومعاملات النظام",
+  "Operations.Subtitle": "فحص الحالات الدائمة لنقل الملفات ودورة حياة المعاملات؛ السجلات تعكس بدقة حالة النواة دون تراجع وهمي",
+  "Operations.Empty": "لا توجد سجلات عمليات حتى الآن. سيتم تسجيل معاملات نقل الملفات المؤكدة هنا بصدق.",
+  "Operations.StatusProposed": "مقترح",
+  "Operations.StatusPendingUser": "في انتظار المستخدم",
+  "Operations.StatusCompleted": "مكتمل",
+  "Operations.StatusRecoveryRequired": "مطلوب الاسترداد",
+  "Operations.DescProposed": "تم اقتراح العملية بواسطة النموذج أو القاعدة؛ لم يتم تنفيذ أي تغييرات فعلية بعد.",
+  "Operations.DescPendingUser": "المعاملة في انتظار موافقة صريحة من المستخدم أو بدء يدوي.",
+  "Operations.DescCompleted": "تم تنفيذ معاملة النقل الفعلي بنجاح ومزامنتها مع بيانات مساحة العمل.",
+  "Operations.DescRecoveryRequired": "توقفت المعاملة أو تم اكتشاف خلل؛ تم إيقاف النظام في وضع أمان محكم الإغلاق.",
+  "Operations.RecoveryRequiredAction": "[إجراء مطلوب] لم يكتمل الالتزام الفعلي أو أن السجل تالف. افحص سجل الاسترداد في دليل البيانات وتحقق من حالة الملفات قبل إعادة المحاولة.",
+  "Operations.NoUndoNotice": "إشعار تدقيق: العمليات سجل معاملات غير قابل للتغيير. لا يتوفر تراجع تلقائي لمنع فقدان البيانات.",
+  "Operations.ManualMoveGatedNotice": "النقل اليدوي محظور: منسق المعاملات غير متصل؛ يُمنع استخدام File.Move المباشر",
+  "Operations.ManualMoveReadyNotice": "منسق المعاملات متصل؛ النقل اليدوي الخاضع للرقابة متاح"
 }

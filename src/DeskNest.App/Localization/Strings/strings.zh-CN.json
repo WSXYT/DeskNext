@@ -204,5 +204,20 @@
   "Drop.CapsuleTargetHint": "释放以将文件或文件夹送入分拣待处理",
   "Drop.UnsupportedPayload": "仅支持拖入文件或文件夹，不支持其他格式的内容",
   "Drop.SpaceSuccessFormat": "已登记 {0} 个项目的元数据至空间【{1}】",
-  "Drop.NoSpaceSelected": "请先选择目标分类空间，再拖入文件"
+  "Drop.NoSpaceSelected": "请先选择目标分类空间，再拖入文件",
+  "Operations.Title": "操作历史与事务日志",
+  "Operations.Subtitle": "查看持久化的文件移动与整理事务状态；所有记录均真实反映 Core 状态，不支持虚假撤销",
+  "Operations.Empty": "暂无操作记录。文件移动或整理事务提交后将在此如实记录。",
+  "Operations.StatusProposed": "已提议",
+  "Operations.StatusPendingUser": "等待用户",
+  "Operations.StatusCompleted": "已完成",
+  "Operations.StatusRecoveryRequired": "需要故障恢复",
+  "Operations.DescProposed": "操作方案已由模型或规则生成，尚未执行物理变更。",
+  "Operations.DescPendingUser": "事务正在等待用户明确核准或手动触发执行。",
+  "Operations.DescCompleted": "物理移动事务已成功提交，文件与工作区元数据已完成同步。",
+  "Operations.DescRecoveryRequired": "事务执行中断或检测到状态异常，系统已进入防护中断状态。",
+  "Operations.RecoveryRequiredAction": "【需要人工核对】文件未完成物理提交或日志异常。请检查数据目录中的恢复日志，确认文件物理位置后再重试，切勿重复强制移动。",
+  "Operations.NoUndoNotice": "审计说明：本记录为不可变的物理操作历史，系统不提供自动撤销或反向盲移功能，以确保文件安全。",
+  "Operations.ManualMoveGatedNotice": "手动移动已门控：核心事务协调器未连接，禁止直接调用 File.Move",
+  "Operations.ManualMoveReadyNotice": "核心事务协调器已连接，可执行受控手动移动"
 }

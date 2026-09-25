@@ -204,5 +204,20 @@
   "Drop.CapsuleTargetHint": "Suelte archivos o carpetas para enviar a la cola de clasificación",
   "Drop.UnsupportedPayload": "Solo se admite arrastrar archivos y carpetas; se rechaza otro contenido",
   "Drop.SpaceSuccessFormat": "Metadatos registrados para {0} elemento(s) en el espacio '{1}'",
-  "Drop.NoSpaceSelected": "Seleccione un espacio de destino antes de soltar archivos"
+  "Drop.NoSpaceSelected": "Seleccione un espacio de destino antes de soltar archivos",
+  "Operations.Title": "Historial de operaciones y registro de transacciones",
+  "Operations.Subtitle": "Inspeccione los estados persistentes de movimiento y transacciones; registros reales de Core sin falso deshacer",
+  "Operations.Empty": "Aún no hay registros de operaciones. Los movimientos o transacciones confirmados se registrarán aquí fielmente.",
+  "Operations.StatusProposed": "Propuesto",
+  "Operations.StatusPendingUser": "Pendiente del usuario",
+  "Operations.StatusCompleted": "Completado",
+  "Operations.StatusRecoveryRequired": "Recuperación requerida",
+  "Operations.DescProposed": "Operación propuesta por modelo o regla; aún no se han aplicado cambios físicos.",
+  "Operations.DescPendingUser": "Transacción a la espera de autorización explícita del usuario o ejecución manual.",
+  "Operations.DescCompleted": "Transacción de movimiento físico confirmada con éxito y sincronizada con los metadatos.",
+  "Operations.DescRecoveryRequired": "Transacción interrumpida o anomalía detectada; sistema detenido en estado seguro contra fallos.",
+  "Operations.RecoveryRequiredAction": "[Acción requerida] Confirmación física incompleta o diario dañado. Inspeccione el diario de recuperación en el directorio de datos antes de reintentar.",
+  "Operations.NoUndoNotice": "Aviso de auditoría: Las operaciones forman un registro inmutable. No existe deshacer automático para evitar pérdida de datos.",
+  "Operations.ManualMoveGatedNotice": "Movimiento manual bloqueado: Coordinador del Core no conectado; prohibido usar File.Move directo",
+  "Operations.ManualMoveReadyNotice": "Coordinador del Core conectado; movimiento manual controlado disponible"
 }

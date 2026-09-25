@@ -204,5 +204,20 @@
   "Drop.CapsuleTargetHint": "Déposez des fichiers ou dossiers pour les envoyer dans la file de tri",
   "Drop.UnsupportedPayload": "Seuls les fichiers et dossiers sont acceptés ; contenu non pris en charge",
   "Drop.SpaceSuccessFormat": "Métadonnées enregistrées pour {0} élément(s) dans l'espace « {1} »",
-  "Drop.NoSpaceSelected": "Veuillez sélectionner un espace cible avant de déposer des fichiers"
+  "Drop.NoSpaceSelected": "Veuillez sélectionner un espace cible avant de déposer des fichiers",
+  "Operations.Title": "Historique des opérations et journal des transactions",
+  "Operations.Subtitle": "Consultez les états persistants de déplacement et de transaction ; reflète fidèlement le Core sans fausse annulation",
+  "Operations.Empty": "Aucun historique d'opération pour l'instant. Les déplacements ou transactions confirmés apparaîtront ici.",
+  "Operations.StatusProposed": "Proposé",
+  "Operations.StatusPendingUser": "En attente de l'utilisateur",
+  "Operations.StatusCompleted": "Terminé",
+  "Operations.StatusRecoveryRequired": "Récupération requise",
+  "Operations.DescProposed": "Opération proposée par le modèle ou les règles ; aucune modification physique effectuée.",
+  "Operations.DescPendingUser": "Transaction en attente de validation explicite de l'utilisateur ou de déclenchement manuel.",
+  "Operations.DescCompleted": "Déplacement physique exécuté avec succès et synchronisé avec les métadonnées de l'espace.",
+  "Operations.DescRecoveryRequired": "Transaction interrompue ou anomalie détectée ; système arrêté en mode de sécurité hermétique.",
+  "Operations.RecoveryRequiredAction": "[Action requise] Validation physique incomplète ou journal endommagé. Inspectez le journal de récupération dans le dossier de données avant de réessayer.",
+  "Operations.NoUndoNotice": "Avis d'audit : Les opérations constituent un journal immuable. Aucune annulation automatique n'est fournie pour préserver les données.",
+  "Operations.ManualMoveGatedNotice": "Déplacement manuel restreint : Coordinateur Core non connecté ; File.Move direct est interdit",
+  "Operations.ManualMoveReadyNotice": "Coordinateur Core connecté ; déplacement manuel contrôlé disponible"
 }

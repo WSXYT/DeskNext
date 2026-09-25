@@ -125,6 +125,28 @@ public sealed partial class StudioViewModel : ViewModelBase
     public Func<IReadOnlyList<string>, Task>? OnFilesDroppedOnCapsule { get; set; }
 
     // ==========================================
+    // OPERATION HISTORY & MANUAL MOVE BOUNDARY (P3)
+    // ==========================================
+    public ObservableCollection<OperationItemViewModel> OperationHistory { get; } = new();
+
+    public int OperationHistoryCount => OperationHistory.Count;
+    public bool HasOperationHistory => OperationHistoryCount > 0;
+
+    // Injectable callback boundary for manual move execution (P3)
+    public Func<Guid, Guid, Task>? OnExecuteManualMove { get; set; }
+    public bool CanExecuteManualMove => OnExecuteManualMove != null;
+    public string ManualMoveStatusNotice => CanExecuteManualMove
+        ? Localizer["Operations.ManualMoveReadyNotice"]
+        : Localizer["Operations.ManualMoveGatedNotice"];
+
+    public void AttachManualMoveExecutor(Func<Guid, Guid, Task> executor)
+    {
+        OnExecuteManualMove = executor ?? throw new ArgumentNullException(nameof(executor));
+        OnPropertyChanged(nameof(CanExecuteManualMove));
+        OnPropertyChanged(nameof(ManualMoveStatusNotice));
+    }
+
+    // ==========================================
     // DROP CAPSULE ENTRYPOINT
     // ==========================================
     [ObservableProperty]
@@ -214,6 +236,11 @@ public sealed partial class StudioViewModel : ViewModelBase
             SettingsMonitoredFolders.Add(m);
         foreach (var e in state.Settings.ExcludedFolders)
             SettingsExcludedFolders.Add(e);
+
+        Localizer.LanguageChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(ManualMoveStatusNotice));
+        };
 
         // Load spaces and files
         RefreshFromState(state);
@@ -337,6 +364,23 @@ public sealed partial class StudioViewModel : ViewModelBase
         SelectedPendingItem = prevPendingId.HasValue
             ? PendingItems.FirstOrDefault(p => p.Id == prevPendingId.Value)
             : null;
+
+        // Load Operation History
+        OperationHistory.Clear();
+        foreach (var op in state.Operations.OrderByDescending(o => o.CreatedAt))
+        {
+            var file = state.Files.FirstOrDefault(f => f.Id == op.FileId);
+            string fileName = file?.Name ?? (!string.IsNullOrEmpty(op.SourcePath) ? Path.GetFileName(op.SourcePath) : op.FileId.ToString());
+            string? spaceName = op.TargetSpaceId.HasValue && spacesDict.TryGetValue(op.TargetSpaceId.Value, out var targetSpace)
+                ? targetSpace.Name
+                : (op.TargetSpaceId.HasValue ? state.Spaces.FirstOrDefault(s => s.Id == op.TargetSpaceId.Value)?.Name : null);
+            OperationHistory.Add(new OperationItemViewModel(op, fileName, spaceName));
+        }
+
+        OnPropertyChanged(nameof(OperationHistoryCount));
+        OnPropertyChanged(nameof(HasOperationHistory));
+        OnPropertyChanged(nameof(ManualMoveStatusNotice));
+        OnPropertyChanged(nameof(CanExecuteManualMove));
 
         OnPropertyChanged(nameof(PendingCount));
         OnPropertyChanged(nameof(HasPendingItems));
@@ -776,6 +820,26 @@ public sealed partial class StudioViewModel : ViewModelBase
     partial void OnSettingsThemeChanged(AppThemeMode value)
     {
         ThemeMgr.CurrentThemeMode = value;
+    }
+
+    [RelayCommand]
+    public async Task ExecuteManualMoveAsync(object? parameter)
+    {
+        if (OnExecuteManualMove == null)
+        {
+            OnPropertyChanged(nameof(CanExecuteManualMove));
+            OnPropertyChanged(nameof(ManualMoveStatusNotice));
+            return;
+        }
+
+        if (parameter is ValueTuple<Guid, Guid> pair)
+        {
+            await OnExecuteManualMove(pair.Item1, pair.Item2);
+        }
+        else if (parameter is (Guid fileId, Guid targetSpaceId))
+        {
+            await OnExecuteManualMove(fileId, targetSpaceId);
+        }
     }
 
     [RelayCommand]

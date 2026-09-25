@@ -24,6 +24,9 @@ public sealed class WorkspaceStore : IAsyncDisposable
         current = state;
     }
 
+    public string DataDirectory => Path.GetDirectoryName(path)
+        ?? throw new InvalidOperationException("Workspace store path has no parent directory.");
+
     public static string DefaultDataDirectory()
     {
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);

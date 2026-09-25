@@ -204,5 +204,20 @@
   "Drop.CapsuleTargetHint": "Solte arquivos ou pastas para enviar à fila de triagem",
   "Drop.UnsupportedPayload": "Apenas arquivos e pastas são suportados; outros formatos foram rejeitados",
   "Drop.SpaceSuccessFormat": "Metadados registrados para {0} item(ns) no espaço '{1}'",
-  "Drop.NoSpaceSelected": "Por favor, selecione um espaço de destino antes de soltar arquivos"
+  "Drop.NoSpaceSelected": "Por favor, selecione um espaço de destino antes de soltar arquivos",
+  "Operations.Title": "Histórico de Operações e Registro de Transações",
+  "Operations.Subtitle": "Inspecione estados persistidos de movimentação e transações; registros refletem o Core sem falso desfazer",
+  "Operations.Empty": "Nenhum registro de operação ainda. Movimentações de arquivos ou transações confirmadas serão registradas aqui.",
+  "Operations.StatusProposed": "Proposto",
+  "Operations.StatusPendingUser": "Aguardando Usuário",
+  "Operations.StatusCompleted": "Concluído",
+  "Operations.StatusRecoveryRequired": "Recuperação Necessária",
+  "Operations.DescProposed": "Operação proposta pelo modelo ou regras; nenhuma alteração física executada ainda.",
+  "Operations.DescPendingUser": "Transação aguardando autorização explícita do usuário ou execução manual.",
+  "Operations.DescCompleted": "Transação de movimentação física executada com sucesso e sincronizada com metadados do espaço.",
+  "Operations.DescRecoveryRequired": "Transação interrompida ou anomalia detectada; sistema retido em estado de proteção seguro.",
+  "Operations.RecoveryRequiredAction": "[Ação Necessária] Confirmação física incompleta ou registro corrompido. Inspecione o diário de recuperação no diretório de dados antes de tentar novamente.",
+  "Operations.NoUndoNotice": "Aviso de Auditoria: Operações formam um registro imutável. Desfazer automático não está disponível para prevenir perda de dados.",
+  "Operations.ManualMoveGatedNotice": "Movimentação manual bloqueada: Coordenador do Core não conectado; File.Move direto é proibido",
+  "Operations.ManualMoveReadyNotice": "Coordenador do Core conectado; movimentação manual controlada disponível"
 }

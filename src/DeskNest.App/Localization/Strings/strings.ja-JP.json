@@ -204,5 +204,20 @@
   "Drop.CapsuleTargetHint": "ドロップしてトリアージキューに送る",
   "Drop.UnsupportedPayload": "ファイルおよびフォルダーのドロップのみサポートされています",
   "Drop.SpaceSuccessFormat": "{0} 件の項目的メタデータをスペース「{1}」に登録しました",
-  "Drop.NoSpaceSelected": "ファイルをドロップする前にターゲットスペースを選択してください"
+  "Drop.NoSpaceSelected": "ファイルをドロップする前にターゲットスペースを選択してください",
+  "Operations.Title": "操作履歴とトランザクションログ",
+  "Operations.Subtitle": "永続化されたファイル移動とトランザクション状態を表示；Coreの状態を忠実に反映し、虚偽の取り消しは行いません",
+  "Operations.Empty": "操作履歴はまだありません。確定したファイル移動やトランザクションはここに忠実に記録されます。",
+  "Operations.StatusProposed": "提案中",
+  "Operations.StatusPendingUser": "ユーザー確認待ち",
+  "Operations.StatusCompleted": "完了",
+  "Operations.StatusRecoveryRequired": "リカバリが必要",
+  "Operations.DescProposed": "モデルまたはルールにより提案されましたが、まだ物理変更は実行されていません。",
+  "Operations.DescPendingUser": "トランザクションはユーザーの明示的な承認または手動実行を待機しています。",
+  "Operations.DescCompleted": "物理ファイル移動トランザクションが正常にコミットされ、メタデータと同期されました。",
+  "Operations.DescRecoveryRequired": "トランザクションの中断または異常を検知しました。安全のためフェイルクローズド状態で停止しています。",
+  "Operations.RecoveryRequiredAction": "【要確認】物理コミットが不完全か、ジャーナルに異常があります。データディレクトリの復旧ログを確認し、ファイルの実位置を確かめてから再試行してください。",
+  "Operations.NoUndoNotice": "監査注記: 操作履歴は不変のトランザクションログです。ファイルの安全を確保するため、自動取り消しや逆移動は提供していません。",
+  "Operations.ManualMoveGatedNotice": "手動移動はゲート制限中: コアコーディネーターが未接続のため直接の File.Move は禁止されています",
+  "Operations.ManualMoveReadyNotice": "コアコーディネーターが接続されており、制御された手動移動が可能です"
 }
