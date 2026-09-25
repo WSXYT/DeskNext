@@ -46,7 +46,7 @@ public sealed class SmokeTestResult
     public bool RtlMonospacePathIsolationVerified { get; set; }
     public bool Resolutions1280x720And1600x900Verified { get; set; }
     public bool ModalHotKeyAcceleratorsConfigured { get; set; }
-    public bool InteractiveControlsFocusableVerified { get; set; }
+    public bool KeyboardKeyInjectionAndNavigationVerified { get; set; }
     public bool HeadlessOffscreenRenderRequested { get; set; }
     public string? HeadlessOffscreenRenderPath { get; set; }
     public string NativePhysicalDpiStatus { get; set; } = "Unverified (P2 gate remains open for physical 100%/150%/200% display and real-window hardware testing)";
@@ -725,26 +725,45 @@ public static class HeadlessSmokeRunner
                 if (cancelBtn == null || confirmBtn == null)
                     throw new InvalidOperationException("HotKey Escape or Enter accelerator binding missing in dialog visual tree.");
 
-                cancelBtn.Command?.Execute(null);
+                // Test headless key injection
+                window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+                window.KeyRelease(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
                 Dispatcher.UIThread.RunJobs();
                 if (mainVm.Studio.IsAddSpaceDialogOpen)
                     throw new InvalidOperationException("Cancel command failed to dismiss AddSpaceDialog.");
 
+                // Test Enter key injection submits dialog
                 mainVm.Studio.OpenAddSpaceDialog();
                 mainVm.Studio.NewSpaceName = "KbdTestSpace";
-                confirmBtn.Command?.Execute(null);
+                window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+                window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
                 Dispatcher.UIThread.RunJobs();
                 if (mainVm.Studio.IsAddSpaceDialogOpen)
-                    throw new InvalidOperationException("Confirm command failed to submit AddSpaceDialog.");
+                    throw new InvalidOperationException("Enter key injection failed to submit AddSpaceDialog.");
                 if (!mainVm.Studio.AllSpaces.Any(s => s.Name == "KbdTestSpace"))
-                    throw new InvalidOperationException("KbdTestSpace was not created via confirm command.");
+                    throw new InvalidOperationException("KbdTestSpace was not created via Enter key injection.");
 
-                var focusableElements = window.GetVisualDescendants().OfType<InputElement>().Where(e => e.Focusable && KeyboardNavigation.GetIsTabStop(e)).ToList();
-                if (focusableElements.Count < 5)
-                    throw new InvalidOperationException($"Insufficient tab-focusable elements ({focusableElements.Count}) found for keyboard navigation.");
+                // Test Tab key navigation moves focus between interactive elements
+                var focusManager = TopLevel.GetTopLevel(window)?.FocusManager;
+                var focusableElements = window.GetVisualDescendants().OfType<InputElement>().Where(e => e.Focusable && e.IsEffectivelyVisible && KeyboardNavigation.GetIsTabStop(e)).ToList();
+                if (focusableElements.Count < 2)
+                    throw new InvalidOperationException($"Insufficient focusable elements ({focusableElements.Count}) found for Tab navigation.");
+
+                focusableElements[0].Focus();
+                Dispatcher.UIThread.RunJobs();
+                var focusedBefore = focusManager?.GetFocusedElement();
+
+                window.KeyPress(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
+                window.KeyRelease(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
+                Dispatcher.UIThread.RunJobs();
+
+                var focusedAfter = focusManager?.GetFocusedElement();
+                bool tabFocusChanged = focusedAfter != null && !ReferenceEquals(focusedBefore, focusedAfter);
+                if (!tabFocusChanged)
+                    throw new InvalidOperationException("Tab key injection failed to navigate focus to another interactive element.");
 
                 result.ModalHotKeyAcceleratorsConfigured = true;
-                result.InteractiveControlsFocusableVerified = true;
+                result.KeyboardKeyInjectionAndNavigationVerified = true;
 
                 // Large window sizing verification (1920x1140 and 2560x1520) in headless mode
                 window.Measure(new Size(1920, 1140));
@@ -761,14 +780,96 @@ public static class HeadlessSmokeRunner
                     try
                     {
                         Directory.CreateDirectory(requestedRenderPngDir);
-                        var rtbMain = new RenderTargetBitmap(new PixelSize(1280, 760), new Vector(96, 96));
-                        rtbMain.Render(window);
-                        var mainPng = Path.Combine(requestedRenderPngDir, "headless-offscreen-mainwindow-1280x760.png");
-                        rtbMain.Save(mainPng);
 
+                        void RenderHeadlessWindow(Window win, int width, int height, string fileName)
+                        {
+                            win.Width = width;
+                            win.Height = height;
+                            win.Show();
+                            win.Measure(new Size(width, height));
+                            win.Arrange(new Rect(0, 0, width, height));
+                            Dispatcher.UIThread.RunJobs();
+
+                            using var rtb = new RenderTargetBitmap(new PixelSize(width, height), new Vector(96, 96));
+                            rtb.Render(win);
+                            var fullPath = Path.Combine(requestedRenderPngDir, fileName);
+                            using var stream = File.Create(fullPath);
+#pragma warning disable CS0618
+                            rtb.Save(stream);
+#pragma warning restore CS0618
+                            win.Close();
+                        }
+
+                        // Isolated synthetic fixture state (zero user home strings, zero default-user state writes)
+                        var fixtureRoot = Path.Combine(oobeDir.Path, "FixtureSpaces");
+                        var fixtureSpaces = new List<WorkspaceSpace>
+                        {
+                            new(Guid.NewGuid(), "Office", "Business contracts and reports", SpaceStorageMode.Managed, Path.Combine(fixtureRoot, "Office")),
+                            new(Guid.NewGuid(), "Development", "Source code and technical specs", SpaceStorageMode.Managed, Path.Combine(fixtureRoot, "Dev")),
+                            new(Guid.NewGuid(), "Assets", "Mapped external media archive", SpaceStorageMode.Mapped, Path.Combine(fixtureRoot, "Assets"))
+                        };
+
+                        var fixtureState = activeStore.Snapshot with
+                        {
+                            OnboardingComplete = true,
+                            OnboardingStep = 5,
+                            Settings = activeStore.Snapshot.Settings with
+                            {
+                                ManagedRoot = fixtureRoot,
+                                MonitoredFolders = [],
+                                ExcludedFolders = []
+                            },
+                            Spaces = fixtureSpaces,
+                            Files =
+                            [
+                                new(Guid.NewGuid(), fixtureSpaces[0].Id, "QuarterlyReport.pdf", Path.Combine(fixtureSpaces[0].Folder, "QuarterlyReport.pdf"), false),
+                                new(Guid.NewGuid(), fixtureSpaces[1].Id, "Architecture.md", Path.Combine(fixtureSpaces[1].Folder, "Architecture.md"), false)
+                            ]
+                        };
+
+                        var fixtureOobeState = fixtureState with
+                        {
+                            OnboardingComplete = false,
+                            OnboardingStep = 1
+                        };
+
+                        // Render actual OOBE and Studio across target resolutions and locales
+                        foreach (var (loc, suffix) in new[] { ("en-US", "en"), ("de-DE", "de"), ("ar-SA", "ar") })
+                        {
+                            localizer.CurrentLanguage = loc;
+
+                            // OOBE at 1280x720
+                            var oobeVm = new OnboardingViewModel(fixtureOobeState, u => Task.FromResult(u(fixtureOobeState)));
+                            var oobeWin = new Window
+                            {
+                                Content = new OnboardingView { DataContext = oobeVm },
+                                FlowDirection = localizer.FlowDirectionValue
+                            };
+                            RenderHeadlessWindow(oobeWin, 1280, 720, $"oobe-1280x720-{suffix}.png");
+
+                            // Studio at 1280x720
+                            var studioVm1280 = new StudioViewModel(fixtureState, u => Task.FromResult(u(fixtureState)));
+                            var studioWin1280 = new Window
+                            {
+                                Content = new StudioView { DataContext = studioVm1280 },
+                                FlowDirection = localizer.FlowDirectionValue
+                            };
+                            RenderHeadlessWindow(studioWin1280, 1280, 720, $"studio-1280x720-{suffix}.png");
+
+                            // Studio at 1600x900
+                            var studioVm1600 = new StudioViewModel(fixtureState, u => Task.FromResult(u(fixtureState)));
+                            var studioWin1600 = new Window
+                            {
+                                Content = new StudioView { DataContext = studioVm1600 },
+                                FlowDirection = localizer.FlowDirectionValue
+                            };
+                            RenderHeadlessWindow(studioWin1600, 1600, 900, $"studio-1600x900-{suffix}.png");
+                        }
+
+                        localizer.CurrentLanguage = origLang;
                         result.HeadlessOffscreenRenderRequested = true;
-                        result.HeadlessOffscreenRenderPath = mainPng;
-                        Console.WriteLine($"  ✓ Headless offscreen Skia rasterization saved to: {mainPng}");
+                        result.HeadlessOffscreenRenderPath = requestedRenderPngDir;
+                        Console.WriteLine($"  ✓ Headless offscreen Skia rasterizations (OOBE & Studio in en/de/ar at 1280x720 & 1600x900) saved to: {requestedRenderPngDir}");
                     }
                     catch (Exception ex)
                     {
@@ -791,7 +892,7 @@ public static class HeadlessSmokeRunner
                 Console.WriteLine("  ✓ Localized Mode badges, summary strings, empty state and error indicators verified.");
                 Console.WriteLine("  ✓ Long text layout in de-DE & ru-RU (150-char space, 750-char desc) at 1280x720 and 1600x900 did not throw.");
                 Console.WriteLine("  ✓ Arabic RTL layout mirroring and LTR visible monospace TextBlocks path isolation verified.");
-                Console.WriteLine("  ✓ Modal HotKey bindings (Escape, Enter) and Tab focusable elements verified.");
+                Console.WriteLine("  ✓ Modal HotKey bindings (Escape, Enter) and Tab focus navigation verified via key injection.");
                 Console.WriteLine("  ✓ Large-window layout sizing (1920x1140 and 2560x1520) verified.");
                 Console.WriteLine($"  ⚠ Native Physical DPI: {result.NativePhysicalDpiStatus}");
                 Console.WriteLine($"  ⚠ Native Real Window: {result.NativeRealWindowStatus}");
