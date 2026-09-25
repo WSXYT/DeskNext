@@ -87,6 +87,51 @@ public sealed class DesktopOrganizationTransactionTests
     }
 
     [Fact]
+    public async Task ExecuteAndRecoverMovesDirectoryOnlyWhenManifestIsUnchanged()
+    {
+        using var root = new TempDirectory();
+        string source = Path.Combine(root.Path, "source-dir");
+        string destination = Path.Combine(root.Path, "destination-dir");
+        string journal = Path.Combine(root.Path, "operation.json");
+        Directory.CreateDirectory(Path.Combine(source, "nested"));
+        await File.WriteAllTextAsync(Path.Combine(source, "nested", "item.txt"), "item");
+
+        var transaction = new DesktopOrganizationTransaction(journal);
+        var result = await transaction.ExecuteDirectoriesAsync([
+            new OrganizationDirectoryMove(source, destination)]);
+
+        Assert.Equal(OrganizationTransactionStatus.Completed, result.Status);
+        Assert.False(Directory.Exists(source));
+        Assert.Equal("item", await File.ReadAllTextAsync(Path.Combine(destination, "nested", "item.txt")));
+        Assert.False(File.Exists(journal));
+
+        var identity = FileIdentity.Capture(Path.Combine(destination, "nested", "item.txt"));
+        var recoveryJournal = new OrganizationRecoveryJournal(
+            Guid.NewGuid(), "RecoveryRequired", [], DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+            [new OrganizationDirectoryMoveReceipt(
+                source, destination,
+                [new DirectoryFileReceipt(Path.Combine("nested", "item.txt"), identity)], true)]);
+        await File.WriteAllTextAsync(journal, JsonSerializer.Serialize(recoveryJournal));
+        var restored = await new DesktopOrganizationTransaction(journal).RecoverAsync();
+
+        Assert.Equal(OrganizationTransactionStatus.Completed, restored.Status);
+        Assert.True(File.Exists(Path.Combine(source, "nested", "item.txt")));
+        Assert.False(Directory.Exists(destination));
+    }
+
+    [Fact]
+    public async Task ExecuteDirectoriesRejectsDestinationInsideSource()
+    {
+        using var root = new TempDirectory();
+        string source = Path.Combine(root.Path, "source-dir");
+        Directory.CreateDirectory(source);
+        var transaction = new DesktopOrganizationTransaction(Path.Combine(root.Path, "operation.json"));
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => transaction.ExecuteDirectoriesAsync([
+            new OrganizationDirectoryMove(source, Path.Combine(source, "nested"))]));
+    }
+
+    [Fact]
     public async Task ExecuteRejectsDuplicateSourceBeforeMovingAnything()
     {
         using var root = new TempDirectory();

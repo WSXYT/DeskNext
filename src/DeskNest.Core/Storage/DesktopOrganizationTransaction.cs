@@ -41,12 +41,23 @@ public sealed record OrganizationMoveReceipt(
     FileIdentity Identity,
     bool Completed);
 
+public sealed record OrganizationDirectoryMove(string SourcePath, string DestinationPath);
+
+public sealed record DirectoryFileReceipt(string RelativePath, FileIdentity Identity);
+
+public sealed record OrganizationDirectoryMoveReceipt(
+    string SourcePath,
+    string DestinationPath,
+    IReadOnlyList<DirectoryFileReceipt> Files,
+    bool Completed);
+
 public sealed record OrganizationRecoveryJournal(
     Guid OperationId,
     string Status,
     IReadOnlyList<OrganizationMoveReceipt> Moves,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    IReadOnlyList<OrganizationDirectoryMoveReceipt>? DirectoryMoves = null);
 
 public enum OrganizationTransactionStatus
 {
@@ -57,7 +68,8 @@ public enum OrganizationTransactionStatus
 public sealed record OrganizationTransactionResult(
     Guid OperationId,
     OrganizationTransactionStatus Status,
-    IReadOnlyList<OrganizationMoveReceipt> Receipts);
+    IReadOnlyList<OrganizationMoveReceipt> Receipts,
+    IReadOnlyList<OrganizationDirectoryMoveReceipt>? DirectoryReceipts = null);
 
 /// <summary>
 /// Fail-closed, journaled moves for the P3 manual-organization boundary.
@@ -156,6 +168,62 @@ public sealed class DesktopOrganizationTransaction
         }
     }
 
+    public async Task<OrganizationTransactionResult> ExecuteDirectoriesAsync(
+        IReadOnlyList<OrganizationDirectoryMove> requestedMoves,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(requestedMoves);
+        if (requestedMoves.Count == 0)
+            throw new ArgumentException("At least one directory move is required.", nameof(requestedMoves));
+
+        await _operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            using var processLock = AcquireProcessLock();
+            if (File.Exists(_journalPath))
+                throw new InvalidOperationException("A recovery journal exists; recover it before starting another operation.");
+
+            var prepared = PrepareDirectories(requestedMoves);
+            var operationId = Guid.NewGuid();
+            var journal = new OrganizationRecoveryJournal(
+                operationId, "Prepared", [], DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, prepared);
+            await SaveJournalAsync(journal, cancellationToken).ConfigureAwait(false);
+            var completed = new List<OrganizationDirectoryMoveReceipt>();
+            try
+            {
+                foreach (var move in prepared)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    MoveDirectoryOne(move);
+                    completed.Add(move with { Completed = true });
+                    await SaveJournalAsync(journal with
+                    {
+                        Status = "Moving",
+                        DirectoryMoves = completed.Concat(prepared.Skip(completed.Count)).ToArray(),
+                        UpdatedAt = DateTimeOffset.UtcNow
+                    }, cancellationToken).ConfigureAwait(false);
+                }
+
+                DeleteJournalFiles();
+                return new OrganizationTransactionResult(operationId, OrganizationTransactionStatus.Completed, [], completed);
+            }
+            catch
+            {
+                await SaveJournalAsync(journal with
+                {
+                    Status = "RecoveryRequired",
+                    DirectoryMoves = completed.Concat(prepared.Skip(completed.Count)).ToArray(),
+                    UpdatedAt = DateTimeOffset.UtcNow
+                }, CancellationToken.None).ConfigureAwait(false);
+                throw;
+            }
+        }
+        finally
+        {
+            _operationGate.Release();
+        }
+    }
+
     public async Task<OrganizationTransactionResult> RecoverAsync(
         CancellationToken cancellationToken = default)
     {
@@ -167,6 +235,21 @@ public sealed class DesktopOrganizationTransaction
                 ?? throw new FileNotFoundException("No recovery journal exists.", _journalPath);
 
             var restored = new List<OrganizationMoveReceipt>();
+            var restoredDirectories = new List<OrganizationDirectoryMoveReceipt>();
+            foreach (var move in journal.DirectoryMoves?.Where(m => m.Completed).Reverse()
+                         ?? Enumerable.Empty<OrganizationDirectoryMoveReceipt>())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!Directory.Exists(move.DestinationPath) || Directory.Exists(move.SourcePath) || File.Exists(move.SourcePath))
+                    throw new IOException($"Directory recovery paths are not safe: {move.DestinationPath}");
+                var actual = CaptureDirectoryManifest(move.DestinationPath);
+                if (!actual.SequenceEqual(move.Files))
+                    throw new IOException($"Directory recovery refused because the destination changed: {move.DestinationPath}");
+                Directory.CreateDirectory(Path.GetDirectoryName(move.SourcePath)!);
+                Directory.Move(move.DestinationPath, move.SourcePath);
+                restoredDirectories.Add(move);
+            }
+
             foreach (var move in journal.Moves.Where(m => m.Completed).Reverse())
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -197,12 +280,84 @@ public sealed class DesktopOrganizationTransaction
             return new OrganizationTransactionResult(
                 journal.OperationId,
                 OrganizationTransactionStatus.Completed,
-                restored);
+                restored,
+                restoredDirectories);
         }
         finally
         {
             _operationGate.Release();
         }
+    }
+
+    private static List<OrganizationDirectoryMoveReceipt> PrepareDirectories(
+        IReadOnlyList<OrganizationDirectoryMove> requestedMoves)
+    {
+        var result = new List<OrganizationDirectoryMoveReceipt>(requestedMoves.Count);
+        var sources = new HashSet<string>(GetPathComparer());
+        var destinations = new HashSet<string>(GetPathComparer());
+        foreach (var move in requestedMoves)
+        {
+            string source = Normalize(move.SourcePath);
+            string destination = Normalize(move.DestinationPath);
+            if (!Directory.Exists(source) || File.Exists(source))
+                throw new DirectoryNotFoundException(source);
+            if (source == destination || !sources.Add(source) || !destinations.Add(destination))
+                throw new InvalidDataException("Directory move sources and destinations must be unique.");
+            if (File.Exists(destination) || Directory.Exists(destination))
+                throw new IOException($"Destination already exists: {destination}");
+            if (IsPathInside(destination, source))
+                throw new InvalidDataException("A directory cannot be moved inside itself.");
+            var sourceRoot = Path.GetPathRoot(source);
+            var destinationRoot = Path.GetPathRoot(destination);
+            if (!string.Equals(sourceRoot, destinationRoot,
+                    OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+                throw new IOException("Cross-volume directory moves require a copy-and-verify adapter.");
+
+            result.Add(new OrganizationDirectoryMoveReceipt(
+                source, destination, CaptureDirectoryManifest(source), false));
+        }
+        return result;
+    }
+
+    private static IReadOnlyList<DirectoryFileReceipt> CaptureDirectoryManifest(string root)
+    {
+        var rootInfo = new DirectoryInfo(root);
+        if ((rootInfo.Attributes & FileAttributes.ReparsePoint) != 0)
+            throw new IOException($"Reparse-point directory is not eligible: {root}");
+
+        var files = new List<DirectoryFileReceipt>();
+        foreach (string directory in Directory.EnumerateDirectories(root, "*", SearchOption.AllDirectories))
+        {
+            if ((new DirectoryInfo(directory).Attributes & FileAttributes.ReparsePoint) != 0)
+                throw new IOException($"Reparse-point directory member is not eligible: {directory}");
+        }
+
+        foreach (string path in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+        {
+            var info = new FileInfo(path);
+            if ((info.Attributes & FileAttributes.ReparsePoint) != 0)
+                throw new IOException($"Reparse-point directory member is not eligible: {path}");
+            files.Add(new DirectoryFileReceipt(Path.GetRelativePath(root, path), FileIdentity.Capture(path)));
+        }
+        return files;
+    }
+
+    private static void MoveDirectoryOne(OrganizationDirectoryMoveReceipt move)
+    {
+        if (Directory.Exists(move.DestinationPath) || File.Exists(move.DestinationPath))
+            throw new IOException($"Destination appeared during directory move: {move.DestinationPath}");
+        var current = CaptureDirectoryManifest(move.SourcePath);
+        if (!current.SequenceEqual(move.Files))
+            throw new IOException($"Directory changed before move: {move.SourcePath}");
+        Directory.CreateDirectory(Path.GetDirectoryName(move.DestinationPath)!);
+        Directory.Move(move.SourcePath, move.DestinationPath);
+    }
+
+    private static bool IsPathInside(string candidate, string root)
+    {
+        string prefix = Path.TrimEndingDirectorySeparator(root) + Path.DirectorySeparatorChar;
+        return candidate.StartsWith(prefix,
+            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
     }
 
     private static List<OrganizationMoveReceipt> Prepare(IReadOnlyList<OrganizationMove> requestedMoves)

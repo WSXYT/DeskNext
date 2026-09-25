@@ -6,6 +6,6 @@
 - Preserve DeskBox/Pogget/Laya provenance in `docs/upstream.md`; development Python/models stay in ignored `artifacts/`.
 - UI views/themes/text/diagnostics belong to Gemini-3.8-flash-high; parent owns contracts, integration and acceptance. Use serial builds and independent safety review.
 - Core alone owns persistence/file operations. P2 decisions are metadata-only and fail-closed. P3 transaction work must keep desktop takeover disabled until recovery/fault-injection gates pass.
-- P3 `DesktopOrganizationTransaction` is regular-file-only, journaled, identity-checked and fail-closed; directory/reparse/cross-volume behavior is unimplemented until tested. Its unit tests are not a complete P3 organizer.
+- P3 transaction core now supports regular-file moves and same-volume directory manifests with reparse-point rejection and identity-checked recovery. Cross-volume copy, full watcher integration and desktop takeover remain unimplemented until tested.
 - End-user inference requires no Python; P4 quality/install/GPU gates remain in `docs/planning/inference-validation.md`. Use resource keys for 12-language UI and track F01–F13 honestly.
 <!-- pi-agents-md:end -->
