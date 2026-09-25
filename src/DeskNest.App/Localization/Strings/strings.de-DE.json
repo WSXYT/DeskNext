@@ -199,5 +199,10 @@
   "Preset.Creative.Fonts.Name": "Typografie",
   "Preset.Creative.Fonts.Desc": "Schriftarten und Stil-Vorlagen",
   "Preset.Custom.Scratchpad.Name": "Ablage",
-  "Preset.Custom.Scratchpad.Desc": "Temporäre Downloads und Entwürfe"
+  "Preset.Custom.Scratchpad.Desc": "Temporäre Downloads und Entwürfe",
+  "Drop.SpaceTargetHint": "Dateien oder Ordner hier ablegen, um sie diesem Bereich zuzuordnen",
+  "Drop.CapsuleTargetHint": "Dateien oder Ordner hier ablegen, um sie an die Sortierwarteschlange zu senden",
+  "Drop.UnsupportedPayload": "Nur Datei- und Ordnerablage wird unterstützt; andere Inhalte werden abgewiesen",
+  "Drop.SpaceSuccessFormat": "Metadaten für {0} Element(e) im Bereich „{1}“ registriert",
+  "Drop.NoSpaceSelected": "Bitte wählen Sie zuerst einen Zielbereich aus, bevor Sie Dateien ablegen"
 }

@@ -51,6 +51,12 @@ public sealed class SmokeTestResult
     public bool KeyboardTabAndShiftTabVerified { get; set; }
     public bool KeyboardArrowSelectionVerified { get; set; }
     public bool KeyboardNavTabActivationVerified { get; set; }
+    public bool DragDropAllowDropVerified { get; set; }
+    public bool DragDropVisualStateVerified { get; set; }
+    public bool DragDropSpaceSurfaceRoutingVerified { get; set; }
+    public bool DragDropCapsuleRoutingVerified { get; set; }
+    public bool DragDropUnsupportedPayloadRejectedTruthfully { get; set; }
+    public bool DragDropInjectableCallbackVerified { get; set; }
     public string VirtualDpiStatus { get; set; } = "Unverified (Avalonia.Headless does not expose configurable per-window RenderScaling API; physical 100%/150%/200% DPI matrix remains open for physical display verification)";
     public double HeadlessScale { get; set; } = 1.0;
     public bool HeadlessOffscreenRenderRequested { get; set; }
@@ -918,6 +924,172 @@ public static class HeadlessSmokeRunner
                 result.ModalHotKeyAcceleratorsConfigured = true;
                 result.KeyboardKeyInjectionAndNavigationVerified = true;
 
+                // Regression Assertion 9: Real Drag-and-Drop Event Wiring, Visual States, Absolute Path Routing & Non-File Rejection
+                mainVm.Studio.SelectedTabIndex = 0;
+                Dispatcher.UIThread.RunJobs();
+
+                var spaceSurface = window.GetVisualDescendants()
+                    .OfType<Border>()
+                    .FirstOrDefault(b => b.Name == "SpaceDetailSurface");
+
+                if (spaceSurface == null)
+                    throw new InvalidOperationException("SpaceDetailSurface Border not found in StudioView visual tree.");
+
+                if (!DragDrop.GetAllowDrop(spaceSurface))
+                    throw new InvalidOperationException("DragDrop.AllowDrop is not true on SpaceDetailSurface.");
+
+                // Test unsupported non-file payload DragOver on space surface
+                var nonFileData = new DataTransfer();
+                nonFileData.Add(DataTransferItem.CreateText("sample non-file payload"));
+
+                var nonFileOverArgs = new DragEventArgs(DragDrop.DragOverEvent, nonFileData, spaceSurface, new Point(10, 10), KeyModifiers.None);
+                spaceSurface.RaiseEvent(nonFileOverArgs);
+                Dispatcher.UIThread.RunJobs();
+
+                if (nonFileOverArgs.DragEffects != DragDropEffects.None)
+                    throw new InvalidOperationException($"Expected DragDropEffects.None on unsupported drop, got {nonFileOverArgs.DragEffects}");
+                if (mainVm.Studio.IsDragOverSpaceSurface)
+                    throw new InvalidOperationException("IsDragOverSpaceSurface was true for unsupported non-file drag.");
+                if (mainVm.Studio.SpaceDropNotice != localizer["Drop.UnsupportedPayload"])
+                    throw new InvalidOperationException($"Expected SpaceDropNotice to be '{localizer["Drop.UnsupportedPayload"]}', got '{mainVm.Studio.SpaceDropNotice}'");
+
+                result.DragDropUnsupportedPayloadRejectedTruthfully = true;
+
+                // Test file payload DragOver on space surface
+                var testDropFile = Path.Combine(oobeDir.Path, "drag_test_file.txt");
+                File.WriteAllText(testDropFile, "sample drop content");
+
+                var topLevel = TopLevel.GetTopLevel(window);
+                var storageItem = Task.Run(async () => await topLevel!.StorageProvider.TryGetFileFromPathAsync(new Uri(Path.GetFullPath(testDropFile)))).GetAwaiter().GetResult();
+                if (storageItem == null)
+                    throw new InvalidOperationException($"Failed to obtain IStorageItem for test file '{testDropFile}' via StorageProvider.");
+
+                var fileData = new DataTransfer();
+                fileData.Add(DataTransferItem.CreateFile(storageItem));
+
+                var fileOverArgs = new DragEventArgs(DragDrop.DragOverEvent, fileData, spaceSurface, new Point(10, 10), KeyModifiers.None);
+                spaceSurface.RaiseEvent(fileOverArgs);
+                Dispatcher.UIThread.RunJobs();
+
+                if (fileOverArgs.DragEffects != DragDropEffects.Copy)
+                    throw new InvalidOperationException($"Expected DragDropEffects.Copy on valid file drag, got {fileOverArgs.DragEffects}");
+                if (!mainVm.Studio.IsDragOverSpaceSurface)
+                    throw new InvalidOperationException("IsDragOverSpaceSurface was not true during valid file DragOver.");
+
+                // Test DragLeave restores visual state
+                var fileLeaveArgs = new DragEventArgs(DragDrop.DragLeaveEvent, fileData, spaceSurface, new Point(10, 10), KeyModifiers.None);
+                spaceSurface.RaiseEvent(fileLeaveArgs);
+                Dispatcher.UIThread.RunJobs();
+
+                if (mainVm.Studio.IsDragOverSpaceSurface)
+                    throw new InvalidOperationException("IsDragOverSpaceSurface remained true after DragLeave.");
+
+                result.DragDropVisualStateVerified = true;
+
+                // Test Drop with injectable callback
+                List<string>? droppedPathsReceived = null;
+                SpaceItemViewModel? targetSpaceReceived = null;
+                mainVm.Studio.OnFilesDroppedOnSpace = (paths, space) =>
+                {
+                    droppedPathsReceived = paths.ToList();
+                    targetSpaceReceived = space;
+                    return Task.CompletedTask;
+                };
+
+                var dropCallbackArgs = new DragEventArgs(DragDrop.DropEvent, fileData, spaceSurface, new Point(10, 10), KeyModifiers.None);
+                spaceSurface.RaiseEvent(dropCallbackArgs);
+                Dispatcher.UIThread.RunJobs();
+
+                if (droppedPathsReceived == null || droppedPathsReceived.Count != 1 || droppedPathsReceived[0] != testDropFile)
+                    throw new InvalidOperationException("Injectable OnFilesDroppedOnSpace callback was not invoked with correct absolute path.");
+                if (targetSpaceReceived?.Id != mainVm.Studio.SelectedSpace?.Id)
+                    throw new InvalidOperationException("Injectable OnFilesDroppedOnSpace callback did not receive correct SelectedSpace.");
+
+                mainVm.Studio.OnFilesDroppedOnSpace = null;
+                result.DragDropInjectableCallbackVerified = true;
+
+                // Test Drop with default metadata enrollment (no moving files directly, P2 boundary)
+                var secondDropFile = Path.Combine(oobeDir.Path, "drag_test_metadata.txt");
+                File.WriteAllText(secondDropFile, "metadata enrollment test content");
+                var secondStorageItem = Task.Run(async () => await topLevel!.StorageProvider.TryGetFileFromPathAsync(new Uri(Path.GetFullPath(secondDropFile)))).GetAwaiter().GetResult();
+                var secondFileData = new DataTransfer();
+                secondFileData.Add(DataTransferItem.CreateFile(secondStorageItem!));
+
+                var defaultDropArgs = new DragEventArgs(DragDrop.DropEvent, secondFileData, spaceSurface, new Point(10, 10), KeyModifiers.None);
+                spaceSurface.RaiseEvent(defaultDropArgs);
+                Dispatcher.UIThread.RunJobs();
+
+                if (!File.Exists(secondDropFile))
+                    throw new InvalidOperationException("Source file was moved or deleted! Expected metadata enrollment only (P2 boundary).");
+                if (mainVm.Studio.SelectedSpace?.Files.Any(f => f.Path == secondDropFile) != true)
+                    throw new InvalidOperationException("Dropped file was not enrolled into SelectedSpace metadata.");
+                if (string.IsNullOrWhiteSpace(mainVm.Studio.SpaceDropNotice))
+                    throw new InvalidOperationException("SpaceDropNotice was empty after successful drop enrollment.");
+
+                result.DragDropSpaceSurfaceRoutingVerified = true;
+
+                // Test Drop Capsule wiring on Tab 2
+                mainVm.Studio.SelectedTabIndex = 2; // Capsule tab
+                Dispatcher.UIThread.RunJobs();
+
+                var capsuleBorder = window.GetVisualDescendants()
+                    .OfType<Border>()
+                    .FirstOrDefault(b => b.Name == "DropCapsuleBorder");
+
+                if (capsuleBorder == null)
+                    throw new InvalidOperationException("DropCapsuleBorder not found in visual tree.");
+
+                if (!DragDrop.GetAllowDrop(capsuleBorder))
+                    throw new InvalidOperationException("DragDrop.AllowDrop is not true on DropCapsuleBorder.");
+
+                result.DragDropAllowDropVerified = true;
+
+                // Test unsupported non-file DragOver on capsule
+                var capNonFileArgs = new DragEventArgs(DragDrop.DragOverEvent, nonFileData, capsuleBorder, new Point(10, 10), KeyModifiers.None);
+                capsuleBorder.RaiseEvent(capNonFileArgs);
+                Dispatcher.UIThread.RunJobs();
+
+                if (capNonFileArgs.DragEffects != DragDropEffects.None)
+                    throw new InvalidOperationException($"Expected DragDropEffects.None on capsule for non-file, got {capNonFileArgs.DragEffects}");
+                if (mainVm.Studio.IsDragOverCapsule)
+                    throw new InvalidOperationException("IsDragOverCapsule was true for non-file drag.");
+                if (mainVm.Studio.CapsuleNotice != localizer["Drop.UnsupportedPayload"])
+                    throw new InvalidOperationException($"Expected CapsuleNotice to be '{localizer["Drop.UnsupportedPayload"]}', got '{mainVm.Studio.CapsuleNotice}'");
+
+                // Test valid file DragOver on capsule
+                var capFileArgs = new DragEventArgs(DragDrop.DragOverEvent, fileData, capsuleBorder, new Point(10, 10), KeyModifiers.None);
+                capsuleBorder.RaiseEvent(capFileArgs);
+                Dispatcher.UIThread.RunJobs();
+
+                if (capFileArgs.DragEffects != DragDropEffects.Copy)
+                    throw new InvalidOperationException($"Expected DragDropEffects.Copy on capsule for valid file, got {capFileArgs.DragEffects}");
+                if (!mainVm.Studio.IsDragOverCapsule)
+                    throw new InvalidOperationException("IsDragOverCapsule was not true during file DragOver.");
+
+                // Test capsule Drop with default triage enrollment
+                var capsuleTriageFile = Path.Combine(oobeDir.Path, "capsule_triage_test.txt");
+                File.WriteAllText(capsuleTriageFile, "triage drop test");
+                var capStorageItem = Task.Run(async () => await topLevel!.StorageProvider.TryGetFileFromPathAsync(new Uri(Path.GetFullPath(capsuleTriageFile)))).GetAwaiter().GetResult();
+                var capTriageData = new DataTransfer();
+                capTriageData.Add(DataTransferItem.CreateFile(capStorageItem!));
+
+                var capDropArgs = new DragEventArgs(DragDrop.DropEvent, capTriageData, capsuleBorder, new Point(10, 10), KeyModifiers.None);
+                capsuleBorder.RaiseEvent(capDropArgs);
+                Dispatcher.UIThread.RunJobs();
+
+                if (!File.Exists(capsuleTriageFile))
+                    throw new InvalidOperationException("Capsule source file was moved or deleted! Expected triage metadata only.");
+                if (!mainVm.Studio.PendingItems.Any(p => p.Path == capsuleTriageFile))
+                    throw new InvalidOperationException("Capsule dropped file was not registered into Pending triage items.");
+                if (mainVm.Studio.CapsuleNotice != localizer["Triage.P2Notice"])
+                    throw new InvalidOperationException($"Expected CapsuleNotice to be '{localizer["Triage.P2Notice"]}', got '{mainVm.Studio.CapsuleNotice}'");
+
+                result.DragDropCapsuleRoutingVerified = true;
+
+                // Reset tab to 0
+                mainVm.Studio.SelectedTabIndex = 0;
+                Dispatcher.UIThread.RunJobs();
+
                 // Large window sizing verification (1920x1140 and 2560x1520) in headless mode
                 window.Measure(new Size(1920, 1140));
                 window.Arrange(new Rect(0, 0, 1920, 1140));
@@ -1072,6 +1244,10 @@ public static class HeadlessSmokeRunner
                 Console.WriteLine("  ✓ Long text layout & visual bounds verified in de-DE & ru-RU at 1280x720 and 1600x900.");
                 Console.WriteLine("  ✓ Arabic RTL layout mirroring and LTR visible monospace TextBlocks path isolation verified.");
                 Console.WriteLine("  ✓ Keyboard navigation verified: Hotkeys (Esc/Enter), Tab/Shift+Tab, Arrow list selection, Tab buttons.");
+                Console.WriteLine("  ✓ DragDrop.AllowDrop, DragOver and Drop event wiring verified on Space surface & Capsule.");
+                Console.WriteLine("  ✓ Explicit visual target states (IsDragOverSpaceSurface / IsDragOverCapsule) verified.");
+                Console.WriteLine("  ✓ Non-file / unsupported payloads rejected with truthful localized status.");
+                Console.WriteLine("  ✓ Absolute paths routed to injectable callbacks and metadata enrollment (P2 boundary).");
                 Console.WriteLine("  ✓ Large-window layout sizing (1920x1140 and 2560x1520) verified.");
                 Console.WriteLine($"  ✓ Headless Virtual Scale: {result.HeadlessScale:F2} (HeadlessScale)");
                 Console.WriteLine($"  ⚠ Virtual DPI Scaling: {result.VirtualDpiStatus}");

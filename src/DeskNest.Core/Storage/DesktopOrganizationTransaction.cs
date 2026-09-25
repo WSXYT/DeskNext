@@ -99,6 +99,7 @@ public sealed class DesktopOrganizationTransaction
         await _operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            using var processLock = AcquireProcessLock();
             if (File.Exists(_journalPath))
             {
                 throw new InvalidOperationException(
@@ -161,6 +162,7 @@ public sealed class DesktopOrganizationTransaction
         await _operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            using var processLock = AcquireProcessLock();
             var journal = await LoadJournalAsync(cancellationToken).ConfigureAwait(false)
                 ?? throw new FileNotFoundException("No recovery journal exists.", _journalPath);
 
@@ -206,12 +208,13 @@ public sealed class DesktopOrganizationTransaction
     private static List<OrganizationMoveReceipt> Prepare(IReadOnlyList<OrganizationMove> requestedMoves)
     {
         var result = new List<OrganizationMoveReceipt>(requestedMoves.Count);
+        var sources = new HashSet<string>(GetPathComparer());
         var destinations = new HashSet<string>(GetPathComparer());
         foreach (var move in requestedMoves)
         {
             string source = Normalize(move.SourcePath);
             string destination = Normalize(move.DestinationPath);
-            if (source == destination || !destinations.Add(destination))
+            if (source == destination || !sources.Add(source) || !destinations.Add(destination))
             {
                 throw new InvalidDataException("Move sources and destinations must be unique.");
             }
@@ -226,8 +229,7 @@ public sealed class DesktopOrganizationTransaction
                 throw new IOException($"Destination already exists: {destination}");
             }
 
-            string? parent = Path.GetDirectoryName(destination);
-            if (parent is null)
+            if (Path.GetDirectoryName(destination) is null)
             {
                 throw new IOException($"Destination has no parent directory: {destination}");
             }
@@ -273,12 +275,20 @@ public sealed class DesktopOrganizationTransaction
             return null;
         }
 
-        return await ResilientJsonStore.LoadAsync(
+        var loaded = await ResilientJsonStore.LoadWithResultAsync(
             _journalPath,
             json => JsonSerializer.Deserialize<OrganizationRecoveryJournal>(json, JsonOptions)
                 ?? throw new InvalidDataException("Recovery journal is empty."),
             () => throw new InvalidDataException("Recovery journal is missing."),
             "organization-recovery").WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        if (loaded.Source == ResilientJsonLoadSource.DefaultAfterFailure)
+        {
+            throw new InvalidDataException(
+                "Recovery journal and backup are both corrupt; manual recovery is required.");
+        }
+
+        return loaded.Value;
     }
 
     private static string Normalize(string path)
@@ -293,6 +303,13 @@ public sealed class DesktopOrganizationTransaction
 
     private static StringComparer GetPathComparer() =>
         OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+
+    private FileStream AcquireProcessLock()
+    {
+        string lockPath = $"{_journalPath}.lock";
+        Directory.CreateDirectory(Path.GetDirectoryName(lockPath)!);
+        return new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+    }
 
     private void DeleteJournalFiles()
     {

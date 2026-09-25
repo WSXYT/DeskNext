@@ -172,10 +172,12 @@
                 </Border>
 
                 <!-- Right: Selected Space Detail & Open Catalog Canvas -->
-                <Border Grid.Column="1"
+                <Border x:Name="SpaceDetailSurface"
+                        Grid.Column="1"
+                        DragDrop.AllowDrop="True"
                         Background="{DynamicResource WindowBackgroundBrush}"
                         Padding="24,18,24,18">
-                    <Grid RowDefinitions="Auto,Auto,Auto,*">
+                    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*">
                         <!-- Space Header Info -->
                         <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
                             <StackPanel Grid.Column="0" Spacing="4">
@@ -212,12 +214,37 @@
                             </Grid>
                         </Border>
 
+                        <!-- Drop Target Banner & Status Notice -->
+                        <StackPanel Grid.Row="2" Margin="0,0,0,8" Spacing="6">
+                            <!-- Visual target state banner when dragged over -->
+                            <Border x:Name="SpaceDropActiveBanner"
+                                    IsVisible="{Binding IsDragOverSpaceSurface}"
+                                    Background="{DynamicResource AccentSubtleBrush}"
+                                    BorderBrush="{DynamicResource AccentPrimaryBrush}"
+                                    BorderThickness="2"
+                                    CornerRadius="{DynamicResource RadiusPrimary}"
+                                    Padding="14,10">
+                                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                                    <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14"
+                                              Foreground="{DynamicResource AccentPrimaryBrush}"/>
+                                    <TextBlock Text="{Binding Localizer[Drop.SpaceTargetHint]}"
+                                               FontWeight="SemiBold" FontSize="12"
+                                               Foreground="{DynamicResource AccentTextBrush}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Truthful Status Notice for dropped or unsupported files -->
+                            <TextBlock Text="{Binding SpaceDropNotice}"
+                                       IsVisible="{Binding HasSpaceDropNotice}"
+                                       FontSize="11" Foreground="{DynamicResource AccentTextBrush}"/>
+                        </StackPanel>
+
                         <!-- Section Title -->
-                        <TextBlock Grid.Row="2" Text="{Binding Localizer[Spaces.FilesTitle]}"
+                        <TextBlock Grid.Row="3" Text="{Binding Localizer[Spaces.FilesTitle]}"
                                    FontWeight="SemiBold" FontSize="13" Margin="0,4,0,8"/>
 
                         <!-- Virtualized File List or Empty State (Mutually Exclusive) -->
-                        <Grid Grid.Row="3">
+                        <Grid Grid.Row="4">
                             <!-- Empty State: Visible only when space is empty -->
                             <Border IsVisible="{Binding SelectedSpace.IsEmpty}"
                                     HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -410,13 +437,32 @@
 
                     <!-- Drop Capsule Pill Card with Native Drop Capability -->
                     <Border x:Name="DropCapsuleBorder"
+                            DragDrop.AllowDrop="True"
                             CornerRadius="{DynamicResource RadiusLarge}"
                             Background="{DynamicResource SurfaceBrush}"
                             BorderBrush="{DynamicResource AccentBorderBrush}"
                             BorderThickness="2"
                             Padding="24">
                         <StackPanel Spacing="14">
-                            <TextBlock Text="{Binding Localizer[Capsule.Instruction]}" FontWeight="SemiBold" FontSize="14" HorizontalAlignment="Center"/>
+                            <!-- Visual target state banner when dragged over -->
+                            <Border IsVisible="{Binding IsDragOverCapsule}"
+                                    Background="{DynamicResource AccentSubtleBrush}"
+                                    BorderBrush="{DynamicResource AccentPrimaryBrush}"
+                                    BorderThickness="2"
+                                    CornerRadius="{DynamicResource RadiusPrimary}"
+                                    Padding="14,10">
+                                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                                    <PathIcon Data="{StaticResource IconFile}" Width="14" Height="14"
+                                              Foreground="{DynamicResource AccentPrimaryBrush}"/>
+                                    <TextBlock Text="{Binding Localizer[Drop.CapsuleTargetHint]}"
+                                               FontWeight="Bold" FontSize="13"
+                                               Foreground="{DynamicResource AccentTextBrush}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock Text="{Binding Localizer[Capsule.Instruction]}"
+                                       IsVisible="{Binding !IsDragOverCapsule}"
+                                       FontWeight="SemiBold" FontSize="14" HorizontalAlignment="Center"/>
 
                             <Grid ColumnDefinitions="*,8,Auto">
                                 <TextBox Grid.Column="0"

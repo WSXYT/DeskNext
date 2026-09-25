@@ -199,5 +199,10 @@
   "Preset.Creative.Fonts.Name": "フォント",
   "Preset.Creative.Fonts.Desc": "フォントパッケージ、タイポグラフィ",
   "Preset.Custom.Scratchpad.Name": "一時保存",
-  "Preset.Custom.Scratchpad.Desc": "一時ダウンロード、下書き"
+  "Preset.Custom.Scratchpad.Desc": "一時ダウンロード、下書き",
+  "Drop.SpaceTargetHint": "ドロップしてこのスペースにファイルまたはフォルダーを登録",
+  "Drop.CapsuleTargetHint": "ドロップしてトリアージキューに送る",
+  "Drop.UnsupportedPayload": "ファイルおよびフォルダーのドロップのみサポートされています",
+  "Drop.SpaceSuccessFormat": "{0} 件の項目的メタデータをスペース「{1}」に登録しました",
+  "Drop.NoSpaceSelected": "ファイルをドロップする前にターゲットスペースを選択してください"
 }

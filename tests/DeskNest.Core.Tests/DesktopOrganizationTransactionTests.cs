@@ -86,6 +86,23 @@ public sealed class DesktopOrganizationTransactionTests
         Assert.Equal("existing", await File.ReadAllTextAsync(destination));
     }
 
+    [Fact]
+    public async Task ExecuteRejectsDuplicateSourceBeforeMovingAnything()
+    {
+        using var root = new TempDirectory();
+        string source = Path.Combine(root.Path, "source.txt");
+        await File.WriteAllTextAsync(source, "source");
+        string journal = Path.Combine(root.Path, "operation.json");
+
+        await Assert.ThrowsAsync<InvalidDataException>(() =>
+            new DesktopOrganizationTransaction(journal).ExecuteAsync([
+                new OrganizationMove(source, Path.Combine(root.Path, "one.txt")),
+                new OrganizationMove(source, Path.Combine(root.Path, "two.txt"))]));
+
+        Assert.True(File.Exists(source));
+        Assert.False(File.Exists(journal));
+    }
+
     private sealed class TempDirectory : IDisposable
     {
         public string Path { get; } = Directory.CreateDirectory(System.IO.Path.Combine(

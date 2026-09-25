@@ -102,6 +102,29 @@ public sealed partial class StudioViewModel : ViewModelBase
     private string? _spaceDialogError;
 
     // ==========================================
+    // DRAG-AND-DROP SURFACE & CAPSULE STATE
+    // ==========================================
+    [ObservableProperty]
+    private bool _isDragOverSpaceSurface;
+
+    [ObservableProperty]
+    private string? _spaceDropNotice;
+
+    public bool HasSpaceDropNotice => !string.IsNullOrWhiteSpace(SpaceDropNotice);
+
+    partial void OnSpaceDropNoticeChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HasSpaceDropNotice));
+    }
+
+    [ObservableProperty]
+    private bool _isDragOverCapsule;
+
+    // Injectable callbacks for drag-and-drop routing without direct file moves
+    public Func<IReadOnlyList<string>, SpaceItemViewModel?, Task>? OnFilesDroppedOnSpace { get; set; }
+    public Func<IReadOnlyList<string>, Task>? OnFilesDroppedOnCapsule { get; set; }
+
+    // ==========================================
     // DROP CAPSULE ENTRYPOINT
     // ==========================================
     [ObservableProperty]
@@ -486,9 +509,81 @@ public sealed partial class StudioViewModel : ViewModelBase
         }
     }
 
+    [RelayCommand]
+    public async Task DropPathsOnSpaceAsync(IReadOnlyList<string>? paths)
+    {
+        if (paths == null || paths.Count == 0)
+        {
+            SpaceDropNotice = Localizer["Drop.UnsupportedPayload"];
+            return;
+        }
+
+        if (SelectedSpace == null)
+        {
+            SpaceDropNotice = Localizer["Drop.NoSpaceSelected"];
+            return;
+        }
+
+        if (OnFilesDroppedOnSpace != null)
+        {
+            await OnFilesDroppedOnSpace(paths, SelectedSpace);
+            return;
+        }
+
+        int registered = 0;
+        foreach (var p in paths)
+        {
+            if (Path.IsPathFullyQualified(p) && (File.Exists(p) || Directory.Exists(p)))
+            {
+                await EnrollUserFileMetadataAsync(p);
+                registered++;
+            }
+        }
+
+        if (registered > 0)
+        {
+            SpaceDropNotice = Localizer.GetString("Drop.SpaceSuccessFormat", registered, SelectedSpace.Name);
+        }
+        else
+        {
+            SpaceDropNotice = Localizer["Validation.FileNotFound"];
+        }
+    }
+
     // ==========================================
     // DROP CAPSULE LOGIC
     // ==========================================
+    [RelayCommand]
+    public async Task DropPathsOnCapsuleAsync(IReadOnlyList<string>? paths)
+    {
+        if (paths == null || paths.Count == 0)
+        {
+            CapsuleNotice = Localizer["Drop.UnsupportedPayload"];
+            return;
+        }
+
+        if (OnFilesDroppedOnCapsule != null)
+        {
+            await OnFilesDroppedOnCapsule(paths);
+            return;
+        }
+
+        int registered = 0;
+        foreach (var p in paths)
+        {
+            if (Path.IsPathFullyQualified(p) && (File.Exists(p) || Directory.Exists(p)))
+            {
+                await RegisterPathToTriageAsync(p);
+                registered++;
+            }
+        }
+
+        if (registered == 0)
+        {
+            CapsuleNotice = Localizer["Validation.FileNotFound"];
+        }
+    }
+
     [RelayCommand]
     public async Task SubmitCapsuleAsync()
     {

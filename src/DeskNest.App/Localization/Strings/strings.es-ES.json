@@ -199,5 +199,10 @@
   "Preset.Creative.Fonts.Name": "Typography",
   "Preset.Creative.Fonts.Desc": "Font packages and typography style sheets",
   "Preset.Custom.Scratchpad.Name": "Scratchpad",
-  "Preset.Custom.Scratchpad.Desc": "Temporary drafts and incoming files"
+  "Preset.Custom.Scratchpad.Desc": "Temporary drafts and incoming files",
+  "Drop.SpaceTargetHint": "Suelte archivos o carpetas para registrar en este espacio",
+  "Drop.CapsuleTargetHint": "Suelte archivos o carpetas para enviar a la cola de clasificación",
+  "Drop.UnsupportedPayload": "Solo se admite arrastrar archivos y carpetas; se rechaza otro contenido",
+  "Drop.SpaceSuccessFormat": "Metadatos registrados para {0} elemento(s) en el espacio '{1}'",
+  "Drop.NoSpaceSelected": "Seleccione un espacio de destino antes de soltar archivos"
 }

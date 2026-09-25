@@ -199,5 +199,10 @@
   "Preset.Creative.Fonts.Name": "字型字形",
   "Preset.Creative.Fonts.Desc": "品牌字型安裝套件與排版字形規範",
   "Preset.Custom.Scratchpad.Name": "隨手暫存",
-  "Preset.Custom.Scratchpad.Desc": "臨時下載與待整理草稿"
+  "Preset.Custom.Scratchpad.Desc": "臨時下載與待整理草稿",
+  "Drop.SpaceTargetHint": "放開以將檔案或資料夾納入此空間",
+  "Drop.CapsuleTargetHint": "放開以將檔案或資料夾送入待處理分揀",
+  "Drop.UnsupportedPayload": "僅支援拖入檔案或資料夾，不支援其他格式的內容",
+  "Drop.SpaceSuccessFormat": "已登記 {0} 個項目的元數據至空間【{1}】",
+  "Drop.NoSpaceSelected": "請先選擇目標分類空間，再拖入檔案"
 }

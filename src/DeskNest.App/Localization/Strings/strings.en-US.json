@@ -199,5 +199,10 @@
   "Preset.Creative.Fonts.Name": "Typography",
   "Preset.Creative.Fonts.Desc": "Font packages and typography style sheets",
   "Preset.Custom.Scratchpad.Name": "Scratchpad",
-  "Preset.Custom.Scratchpad.Desc": "Temporary drafts and incoming files"
+  "Preset.Custom.Scratchpad.Desc": "Temporary drafts and incoming files",
+  "Drop.SpaceTargetHint": "Drop files or directories to register in this space",
+  "Drop.CapsuleTargetHint": "Drop files or directories to send to triage queue",
+  "Drop.UnsupportedPayload": "Only file and directory drops are supported; non-file payload rejected",
+  "Drop.SpaceSuccessFormat": "Registered metadata for {0} item(s) in space '{1}'",
+  "Drop.NoSpaceSelected": "Please select a target space before dropping files"
 }

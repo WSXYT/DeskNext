@@ -199,5 +199,10 @@
   "Preset.Creative.Fonts.Name": "Typography",
   "Preset.Creative.Fonts.Desc": "Font packages and typography style sheets",
   "Preset.Custom.Scratchpad.Name": "Scratchpad",
-  "Preset.Custom.Scratchpad.Desc": "Temporary drafts and incoming files"
+  "Preset.Custom.Scratchpad.Desc": "Temporary drafts and incoming files",
+  "Drop.SpaceTargetHint": "أفلت الملفات أو المجلدات لتسجيلها في هذه المساحة",
+  "Drop.CapsuleTargetHint": "أفلت الملفات أو المجلدات لإرسالها إلى قائمة الفرز",
+  "Drop.UnsupportedPayload": "يتم دعم إفلات الملفات والمجلدات فقط؛ تم رفض المحتوى الآخر",
+  "Drop.SpaceSuccessFormat": "تم تسجيل البيانات الوصفية لـ {0} عنصر في المساحة '{1}'",
+  "Drop.NoSpaceSelected": "يرجى تحديد مساحة الوجهة قبل إفلات الملفات"
 }

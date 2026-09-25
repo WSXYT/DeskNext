@@ -199,5 +199,10 @@
   "Preset.Creative.Fonts.Name": "Typography",
   "Preset.Creative.Fonts.Desc": "Font packages and typography style sheets",
   "Preset.Custom.Scratchpad.Name": "Scratchpad",
-  "Preset.Custom.Scratchpad.Desc": "Temporary drafts and incoming files"
+  "Preset.Custom.Scratchpad.Desc": "Temporary drafts and incoming files",
+  "Drop.SpaceTargetHint": "Перетащите файлы или папки для регистрации в этом пространстве",
+  "Drop.CapsuleTargetHint": "Перетащите файлы или папки для отправки в очередь сортировки",
+  "Drop.UnsupportedPayload": "Поддерживается только перетаскивание файлов и папок; остальные форматы отклонены",
+  "Drop.SpaceSuccessFormat": "Зарегистрированы метаданные для {0} элементов в пространстве «{1}»",
+  "Drop.NoSpaceSelected": "Пожалуйста, выберите целевое пространство перед перетаскиванием файлов"
 }

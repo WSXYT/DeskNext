@@ -199,5 +199,10 @@
   "Preset.Creative.Fonts.Name": "Typography",
   "Preset.Creative.Fonts.Desc": "Font packages and typography style sheets",
   "Preset.Custom.Scratchpad.Name": "Scratchpad",
-  "Preset.Custom.Scratchpad.Desc": "Temporary drafts and incoming files"
+  "Preset.Custom.Scratchpad.Desc": "Temporary drafts and incoming files",
+  "Drop.SpaceTargetHint": "এই স্পেসে নিবন্ধন করতে ফাইল বা ফোল্ডার এখানে ড্রপ করুন",
+  "Drop.CapsuleTargetHint": "বাছাই সারিতে পাঠাতে ফাইল বা ফোল্ডার এখানে ড্রপ করুন",
+  "Drop.UnsupportedPayload": "কেবল ফাইল এবং ফোল্ডার ড্রপ সমর্থিত; অন্য কোনো সামগ্রী প্রত্যাখ্যাত",
+  "Drop.SpaceSuccessFormat": "স্পেস '{1}'-এ {0}টি আইটেমের মেটাডেটা নিবন্ধিত হয়েছে",
+  "Drop.NoSpaceSelected": "ফাইল ড্রপ করার আগে দয়া করে একটি লক্ষ্য স্পেস নির্বাচন করুন"
 }
