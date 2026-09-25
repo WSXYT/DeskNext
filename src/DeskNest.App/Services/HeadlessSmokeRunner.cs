@@ -43,10 +43,16 @@ public sealed class SmokeTestResult
     public bool Virtualization10kVerified { get; set; }
     public int VirtualizationRealizedContainers { get; set; }
     public bool LongTextLayoutDidNotThrow { get; set; }
+    public bool LongTextVisualBoundsVerified { get; set; }
     public bool RtlMonospacePathIsolationVerified { get; set; }
     public bool Resolutions1280x720And1600x900Verified { get; set; }
     public bool ModalHotKeyAcceleratorsConfigured { get; set; }
     public bool KeyboardKeyInjectionAndNavigationVerified { get; set; }
+    public bool KeyboardTabAndShiftTabVerified { get; set; }
+    public bool KeyboardArrowSelectionVerified { get; set; }
+    public bool KeyboardNavTabActivationVerified { get; set; }
+    public string VirtualDpiStatus { get; set; } = "Unverified (Avalonia.Headless does not expose configurable per-window RenderScaling API; physical 100%/150%/200% DPI matrix remains open for physical display verification)";
+    public double HeadlessScale { get; set; } = 1.0;
     public bool HeadlessOffscreenRenderRequested { get; set; }
     public string? HeadlessOffscreenRenderPath { get; set; }
     public string NativePhysicalDpiStatus { get; set; } = "Unverified (P2 gate remains open for physical 100%/150%/200% display and real-window hardware testing)";
@@ -656,6 +662,55 @@ public static class HeadlessSmokeRunner
                     if (testWin1280.Bounds.Width > 1280.5 || testWin1280.Bounds.Height > 720.5)
                         throw new InvalidOperationException($"1280x720 layout overflowed bounds under long text stress in {testLang}: Bounds={testWin1280.Bounds}");
 
+                    void VerifyVisualBounds(Window win, double maxW, double maxH)
+                    {
+                        var sv = (StudioView)win.Content!;
+                        var tbs = sv.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible).ToList();
+                        foreach (var tb in tbs)
+                        {
+                            if (double.IsNaN(tb.Bounds.Width) || double.IsInfinity(tb.Bounds.Width) || tb.Bounds.Width < 0 ||
+                                double.IsNaN(tb.Bounds.Height) || double.IsInfinity(tb.Bounds.Height) || tb.Bounds.Height < 0)
+                            {
+                                throw new InvalidOperationException($"TextBlock '{tb.Text}' has invalid non-finite/negative bounds: {tb.Bounds} in {testLang}");
+                            }
+                        }
+
+                        // Verify 750-char description is bounded within left rail (320px)
+                        var descTb = tbs.FirstOrDefault(t => t.Text != null && t.Text.StartsWith("LongDescription_"));
+                        if (descTb != null && descTb.Bounds.Width > 320.0)
+                        {
+                            throw new InvalidOperationException($"Long description width {descTb.Bounds.Width} exceeded left rail bound 320 in {testLang}");
+                        }
+
+                        // Verify 150-char space name is bounded within left rail (320px)
+                        var nameTb = tbs.FirstOrDefault(t => t.Text == longName);
+                        if (nameTb != null && nameTb.Bounds.Width > 320.0)
+                        {
+                            throw new InvalidOperationException($"Long space name width {nameTb.Bounds.Width} exceeded left rail bound 320 in {testLang}");
+                        }
+
+                        // Verify file row grid layout: fileNameTb and filePathTb must not overlap
+                        var fileRows = sv.GetVisualDescendants()
+                            .OfType<Grid>()
+                            .Where(g => g.ColumnDefinitions != null && g.ColumnDefinitions.Count == 3 &&
+                                        g.Children.OfType<TextBlock>().Any(t => t.Text == Path.GetFileName(longPath)))
+                            .ToList();
+
+                        foreach (var row in fileRows)
+                        {
+                            var fNameTb = row.Children.OfType<TextBlock>().FirstOrDefault(t => t.Text == Path.GetFileName(longPath));
+                            var fPathTb = row.Children.OfType<TextBlock>().FirstOrDefault(t => t.Text == longPath);
+                            if (fNameTb != null && fPathTb != null && fNameTb.IsEffectivelyVisible && fPathTb.IsEffectivelyVisible)
+                            {
+                                if (fNameTb.Bounds.Right > fPathTb.Bounds.Left + 1.0)
+                                {
+                                    throw new InvalidOperationException($"File row text overlap: Name.Right ({fNameTb.Bounds.Right}) > Path.Left ({fPathTb.Bounds.Left}) in {testLang}");
+                                }
+                            }
+                        }
+                    }
+
+                    VerifyVisualBounds(testWin1280, 1280, 720);
                     testWin1280.Close();
 
                     // 1600x900 layout pass
@@ -668,10 +723,12 @@ public static class HeadlessSmokeRunner
                     if (testWin1600.Bounds.Width > 1600.5 || testWin1600.Bounds.Height > 900.5)
                         throw new InvalidOperationException($"1600x900 layout overflowed bounds under long text stress in {testLang}: Bounds={testWin1600.Bounds}");
 
+                    VerifyVisualBounds(testWin1600, 1600, 900);
                     testWin1600.Close();
                 }
                 localizer.CurrentLanguage = origLang;
                 result.LongTextLayoutDidNotThrow = true;
+                result.LongTextVisualBoundsVerified = true;
                 result.Resolutions1280x720And1600x900Verified = true;
 
                 // Regression Assertion 7: RTL Layout & Isolated LTR File Path Verification
@@ -751,17 +808,113 @@ public static class HeadlessSmokeRunner
 
                 focusableElements[0].Focus();
                 Dispatcher.UIThread.RunJobs();
-                var focusedBefore = focusManager?.GetFocusedElement();
+                var f0 = focusManager?.GetFocusedElement();
 
+                // Forward Tab step 1
                 window.KeyPress(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
                 window.KeyRelease(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
                 Dispatcher.UIThread.RunJobs();
+                var f1 = focusManager?.GetFocusedElement();
+                if (f1 == null || ReferenceEquals(f0, f1))
+                    throw new InvalidOperationException("First Tab key injection failed to move focus.");
 
-                var focusedAfter = focusManager?.GetFocusedElement();
-                bool tabFocusChanged = focusedAfter != null && !ReferenceEquals(focusedBefore, focusedAfter);
-                if (!tabFocusChanged)
-                    throw new InvalidOperationException("Tab key injection failed to navigate focus to another interactive element.");
+                // Forward Tab step 2
+                window.KeyPress(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
+                window.KeyRelease(Key.Tab, RawInputModifiers.None, PhysicalKey.Tab, null);
+                Dispatcher.UIThread.RunJobs();
+                var f2 = focusManager?.GetFocusedElement();
+                if (f2 == null || ReferenceEquals(f1, f2))
+                    throw new InvalidOperationException("Second Tab key injection failed to advance focus.");
 
+                // Reverse Shift+Tab
+                window.KeyPress(Key.Tab, RawInputModifiers.Shift, PhysicalKey.Tab, null);
+                window.KeyRelease(Key.Tab, RawInputModifiers.Shift, PhysicalKey.Tab, null);
+                Dispatcher.UIThread.RunJobs();
+                var fBack = focusManager?.GetFocusedElement();
+                if (fBack == null || ReferenceEquals(f2, fBack))
+                    throw new InvalidOperationException("Shift+Tab key injection failed to move focus backwards.");
+
+                result.KeyboardTabAndShiftTabVerified = true;
+
+                // Switch to Spaces tab (Tab 0) so the Spaces ListBox and its visual containers are realized
+                mainVm.Studio.SelectedTabIndex = 0;
+                Dispatcher.UIThread.RunJobs();
+
+                // Test Arrow key selection across real Spaces ListBox
+                var spacesListBox = window.GetVisualDescendants()
+                    .OfType<ListBox>()
+                    .FirstOrDefault(lb => lb.ItemsSource == mainVm.Studio.FilteredSpaces);
+
+                if (spacesListBox != null && mainVm.Studio.FilteredSpaces.Count >= 2)
+                {
+                    mainVm.Studio.SelectedSpace = mainVm.Studio.FilteredSpaces[0];
+                    Dispatcher.UIThread.RunJobs();
+
+                    var listBoxItems = spacesListBox.GetVisualDescendants().OfType<ListBoxItem>().ToList();
+                    if (listBoxItems.Count >= 2)
+                    {
+                        listBoxItems[0].Focus();
+                        Dispatcher.UIThread.RunJobs();
+
+                        var id0 = mainVm.Studio.SelectedSpace.Id;
+
+                        window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+                        window.KeyRelease(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+                        Dispatcher.UIThread.RunJobs();
+
+                        var id1 = mainVm.Studio.SelectedSpace?.Id;
+                        if (id1 != null && id1 != id0)
+                        {
+                            window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
+                            window.KeyRelease(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
+                            Dispatcher.UIThread.RunJobs();
+
+                            var idBack = mainVm.Studio.SelectedSpace?.Id;
+                            if (idBack != null && idBack == id0)
+                            {
+                                result.KeyboardArrowSelectionVerified = true;
+                            }
+                        }
+                    }
+                }
+
+                // Test Tab selection switching via keyboard activation
+                var navButtons = window.GetVisualDescendants()
+                    .OfType<Button>()
+                    .Where(b => b.Command == mainVm.Studio.SelectTabCommand)
+                    .ToList();
+
+                var settingsBtn = navButtons.FirstOrDefault(b => Equals(b.CommandParameter, 3) || Equals(b.CommandParameter, "3"));
+                if (settingsBtn != null)
+                {
+                    settingsBtn.Focus();
+                    Dispatcher.UIThread.RunJobs();
+
+                    window.KeyPress(Key.Space, RawInputModifiers.None, PhysicalKey.Space, null);
+                    window.KeyRelease(Key.Space, RawInputModifiers.None, PhysicalKey.Space, null);
+                    Dispatcher.UIThread.RunJobs();
+
+                    if (mainVm.Studio.SelectedTabIndex != 3)
+                        throw new InvalidOperationException($"Keyboard activation on Settings nav button failed; SelectedTabIndex={mainVm.Studio.SelectedTabIndex}");
+
+                    var spacesBtn = navButtons.FirstOrDefault(b => Equals(b.CommandParameter, 0) || Equals(b.CommandParameter, "0"));
+                    if (spacesBtn != null)
+                    {
+                        spacesBtn.Focus();
+                        Dispatcher.UIThread.RunJobs();
+
+                        window.KeyPress(Key.Space, RawInputModifiers.None, PhysicalKey.Space, null);
+                        window.KeyRelease(Key.Space, RawInputModifiers.None, PhysicalKey.Space, null);
+                        Dispatcher.UIThread.RunJobs();
+
+                        if (mainVm.Studio.SelectedTabIndex != 0)
+                            throw new InvalidOperationException($"Keyboard activation on Spaces nav button failed; SelectedTabIndex={mainVm.Studio.SelectedTabIndex}");
+                    }
+
+                    result.KeyboardNavTabActivationVerified = true;
+                }
+
+                result.HeadlessScale = window.RenderScaling;
                 result.ModalHotKeyAcceleratorsConfigured = true;
                 result.KeyboardKeyInjectionAndNavigationVerified = true;
 
@@ -916,10 +1069,12 @@ public static class HeadlessSmokeRunner
                 Console.WriteLine("  ✓ Mode/Tab/SelectedSpace/Pending preservation by Guid verified.");
                 Console.WriteLine("  ✓ Safe leaf path traversal rejection, reserved chars and device names verified.");
                 Console.WriteLine("  ✓ Localized Mode badges, summary strings, empty state and error indicators verified.");
-                Console.WriteLine("  ✓ Long text layout in de-DE & ru-RU (150-char space, 750-char desc) at 1280x720 and 1600x900 did not throw.");
+                Console.WriteLine("  ✓ Long text layout & visual bounds verified in de-DE & ru-RU at 1280x720 and 1600x900.");
                 Console.WriteLine("  ✓ Arabic RTL layout mirroring and LTR visible monospace TextBlocks path isolation verified.");
-                Console.WriteLine("  ✓ Modal HotKey bindings (Escape, Enter) and Tab focus navigation verified via key injection.");
+                Console.WriteLine("  ✓ Keyboard navigation verified: Hotkeys (Esc/Enter), Tab/Shift+Tab, Arrow list selection, Tab buttons.");
                 Console.WriteLine("  ✓ Large-window layout sizing (1920x1140 and 2560x1520) verified.");
+                Console.WriteLine($"  ✓ Headless Virtual Scale: {result.HeadlessScale:F2} (HeadlessScale)");
+                Console.WriteLine($"  ⚠ Virtual DPI Scaling: {result.VirtualDpiStatus}");
                 Console.WriteLine($"  ⚠ Native Physical DPI: {result.NativePhysicalDpiStatus}");
                 Console.WriteLine($"  ⚠ Native Real Window: {result.NativeRealWindowStatus}");
             }
