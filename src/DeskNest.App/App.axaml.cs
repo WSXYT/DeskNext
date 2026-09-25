@@ -16,7 +16,17 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = new MainWindow();
+            if (Services.NativeWindowSmokeRunner.IsActive && Services.NativeWindowSmokeRunner.ActiveTempStore != null)
+            {
+                var vm = new ViewModels.MainWindowViewModel(Services.NativeWindowSmokeRunner.ActiveTempStore, ownsStore: false);
+                var win = new MainWindow(vm);
+                Services.NativeWindowSmokeRunner.AttachAutoClose(desktop, win);
+                desktop.MainWindow = win;
+            }
+            else
+            {
+                desktop.MainWindow = new MainWindow();
+            }
         }
 
         base.OnFrameworkInitializationCompleted();

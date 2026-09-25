@@ -1,4 +1,4 @@
-name: P1 native and Avalonia probes
+name: P1/P2 native and Avalonia probes
 
 on:
   workflow_dispatch:
@@ -47,3 +47,20 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         run: ./artifacts/publish-ui/DeskNest.App --headless-smoke --native-library ./artifacts/native-ci/libdesknest_pogget.dylib
+      - name: Start real Windows window with isolated state (P2)
+        if: runner.os == 'Windows'
+        timeout-minutes: 2
+        shell: pwsh
+        run: '& "./artifacts/publish-ui/DeskNest.App.exe" --native-window-smoke'
+      - name: Start X11 window under Xvfb with isolated state (P2)
+        if: runner.os == 'Linux'
+        timeout-minutes: 2
+        shell: bash
+        run: >-
+          xvfb-run -a -s '-screen 0 1600x900x24'
+          timeout 60s ./artifacts/publish-ui/DeskNest.App --native-window-smoke
+      - name: Start macOS window with isolated state (P2)
+        if: runner.os == 'macOS'
+        timeout-minutes: 2
+        shell: bash
+        run: ./artifacts/publish-ui/DeskNest.App --native-window-smoke

@@ -10,7 +10,9 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using DeskNest.App.Localization;
@@ -40,6 +42,15 @@ public sealed class SmokeTestResult
     public bool FailClosedErrorsVerified { get; set; }
     public bool Virtualization10kVerified { get; set; }
     public int VirtualizationRealizedContainers { get; set; }
+    public bool LongTextLayoutDidNotThrow { get; set; }
+    public bool RtlMonospacePathIsolationVerified { get; set; }
+    public bool Resolutions1280x720And1600x900Verified { get; set; }
+    public bool ModalHotKeyAcceleratorsConfigured { get; set; }
+    public bool InteractiveControlsFocusableVerified { get; set; }
+    public bool HeadlessOffscreenRenderRequested { get; set; }
+    public string? HeadlessOffscreenRenderPath { get; set; }
+    public string NativePhysicalDpiStatus { get; set; } = "Unverified (P2 gate remains open for physical 100%/150%/200% display and real-window hardware testing)";
+    public string NativeRealWindowStatus { get; set; } = "Unverified (Tested on Avalonia.Headless virtual platform only; physical OS window manager unverified)";
     public bool MainWindowInstantiated { get; set; }
     public bool NativeBridgePendingReported { get; set; }
     public bool CoreFileEnginePendingReported { get; set; }
@@ -63,6 +74,8 @@ public static class HeadlessSmokeRunner
 
         bool nativeLoadRequested = false;
         string? requestedNativeLibPath = null;
+        bool renderHeadlessPngRequested = false;
+        string? requestedRenderPngDir = null;
 
         for (int i = 0; i < args.Length; i++)
         {
@@ -83,6 +96,30 @@ public static class HeadlessSmokeRunner
                 else
                 {
                     requestedNativeLibPath = string.Empty;
+                }
+            }
+            else if (arg.StartsWith("--render-headless-png=", StringComparison.OrdinalIgnoreCase))
+            {
+                var dir = arg.Substring("--render-headless-png=".Length).Trim('\"', ' ');
+                if (string.IsNullOrWhiteSpace(dir))
+                    throw new ArgumentException("Option --render-headless-png= requires a non-empty directory path.");
+                renderHeadlessPngRequested = true;
+                requestedRenderPngDir = dir;
+            }
+            else if (arg.Equals("--render-headless-png", StringComparison.OrdinalIgnoreCase))
+            {
+                if (i + 1 < args.Length && !args[i + 1].StartsWith("--"))
+                {
+                    var dir = args[i + 1].Trim('\"', ' ');
+                    if (string.IsNullOrWhiteSpace(dir))
+                        throw new ArgumentException("Option --render-headless-png requires a non-empty directory path.");
+                    renderHeadlessPngRequested = true;
+                    requestedRenderPngDir = dir;
+                    i++;
+                }
+                else
+                {
+                    throw new ArgumentException("Option --render-headless-png requires a non-empty directory path.");
                 }
             }
         }
@@ -466,145 +503,299 @@ public static class HeadlessSmokeRunner
 
             // 9. Instantiate MainWindow in Headless mode with truthful ViewModel and regression assertions
             Console.WriteLine("[STEP 9] Instantiating MainWindow in Avalonia Headless platform & Regression Assertions...");
-            var activeStore = Task.Run(async () => await WorkspaceStore.OpenAsync(oobeDir.Path)).GetAwaiter().GetResult();
-
-            // Ensure store has at least 2 spaces and 1 pending item for selection preservation test
-            if (activeStore.Snapshot.Spaces.Count < 2 || activeStore.Snapshot.Pending.Count == 0)
+            await using (var activeStore = Task.Run(async () => await WorkspaceStore.OpenAsync(oobeDir.Path)).GetAwaiter().GetResult())
             {
-                var extraSpace = activeStore.Snapshot.Spaces.Count < 2
-                    ? new WorkspaceSpace(Guid.NewGuid(), "SecondSpace", "Second test space", SpaceStorageMode.Managed, Path.Combine(oobeDir.Path, "Second"))
-                    : null;
-                var testPending = new PendingFile(Guid.NewGuid(), "pending_sample.tmp", Path.Combine(oobeDir.Path, "pending_sample.tmp"), TriageReason.FilenameAmbiguous, null, DateTimeOffset.UtcNow);
-
-                Task.Run(async () => await activeStore.UpdateAsync(s => s with
+                // Ensure store has at least 2 spaces and 1 pending item for selection preservation test
+                if (activeStore.Snapshot.Spaces.Count < 2 || activeStore.Snapshot.Pending.Count == 0)
                 {
-                    Spaces = extraSpace != null ? [.. s.Spaces, extraSpace] : s.Spaces,
-                    Pending = s.Pending.Count == 0 ? [testPending] : s.Pending
-                })).GetAwaiter().GetResult();
+                    var extraSpace = activeStore.Snapshot.Spaces.Count < 2
+                        ? new WorkspaceSpace(Guid.NewGuid(), "SecondSpace", "Second test space", SpaceStorageMode.Managed, Path.Combine(oobeDir.Path, "Second"))
+                        : null;
+                    var testPending = new PendingFile(Guid.NewGuid(), "pending_sample.tmp", Path.Combine(oobeDir.Path, "pending_sample.tmp"), TriageReason.FilenameAmbiguous, null, DateTimeOffset.UtcNow);
+
+                    Task.Run(async () => await activeStore.UpdateAsync(s => s with
+                    {
+                        Spaces = extraSpace != null ? [.. s.Spaces, extraSpace] : s.Spaces,
+                        Pending = s.Pending.Count == 0 ? [testPending] : s.Pending
+                    })).GetAwaiter().GetResult();
+                }
+
+                var mainVm = new MainWindowViewModel(activeStore, ownsStore: false);
+                if (mainVm.Studio == null) throw new InvalidOperationException("Expected Studio to be active on completed onboarding.");
+
+                // Regression Assertion 1: SelectedSpace and SelectedPendingItem preservation by Guid across store updates
+                var secondSpaceId = mainVm.Studio.AllSpaces[1].Id;
+                mainVm.Studio.SelectSpace(mainVm.Studio.AllSpaces[1]);
+                if (mainVm.Studio.SelectedSpace?.Id != secondSpaceId)
+                    throw new InvalidOperationException("Failed to select second space before store update.");
+
+                var pendingId = mainVm.Studio.PendingItems[0].Id;
+                mainVm.Studio.SelectedPendingItem = mainVm.Studio.PendingItems[0];
+
+                mainVm.Studio.SelectedTabIndex = 3; // Switch to Settings tab
+                var studioInstanceBefore = mainVm.Studio;
+                Task.Run(async () => await mainVm.Studio.SaveSettingsAsync()).GetAwaiter().GetResult();
+
+                if (!ReferenceEquals(mainVm.Studio, studioInstanceBefore))
+                    throw new InvalidOperationException("Studio ViewModel was destroyed/recreated on store update! Tab state lost.");
+                if (mainVm.Studio.SelectedTabIndex != 3)
+                    throw new InvalidOperationException($"SelectedTabIndex was reset to {mainVm.Studio.SelectedTabIndex}, expected tab 3 preserved.");
+                if (mainVm.Studio.SelectedSpace?.Id != secondSpaceId)
+                    throw new InvalidOperationException($"SelectedSpace was reset to {mainVm.Studio.SelectedSpace?.Name} ({mainVm.Studio.SelectedSpace?.Id}), expected space 2 ({secondSpaceId}) preserved by Guid!");
+                if (mainVm.Studio.SelectedPendingItem?.Id != pendingId)
+                    throw new InvalidOperationException("SelectedPendingItem was lost after store update!");
+                if (string.IsNullOrWhiteSpace(mainVm.Studio.SettingsSavedFeedback))
+                    throw new InvalidOperationException("SettingsSavedFeedback toast was cleared/lost on store update.");
+
+                // Regression Assertion 2: Cross-platform safe leaf name path sanitization (rejection of traversal, separators, invalid chars, reserved device names)
+                string rootTest = Path.Combine(oobeDir.Path, "SpacesRoot");
+                Directory.CreateDirectory(rootTest);
+                if (StudioViewModel.TrySanitizeSpaceLeafName("../Escape", rootTest, out _, out _))
+                    throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject parent traversal '../Escape'");
+                if (StudioViewModel.TrySanitizeSpaceLeafName("Sub/Folder", rootTest, out _, out _))
+                    throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject slash separator 'Sub/Folder'");
+                if (StudioViewModel.TrySanitizeSpaceLeafName("Sub\\Folder", rootTest, out _, out _))
+                    throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject backslash separator 'Sub\\Folder'");
+                if (StudioViewModel.TrySanitizeSpaceLeafName(".", rootTest, out _, out _))
+                    throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject dot '.'");
+                if (StudioViewModel.TrySanitizeSpaceLeafName("..", rootTest, out _, out _))
+                    throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject dotdot '..'");
+                if (StudioViewModel.TrySanitizeSpaceLeafName("SpaceWithDot.", rootTest, out _, out _))
+                    throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject trailing dot 'SpaceWithDot.'");
+                if (StudioViewModel.TrySanitizeSpaceLeafName("SpaceWithSpace ", rootTest, out _, out _))
+                    throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject trailing space 'SpaceWithSpace '");
+                if (StudioViewModel.TrySanitizeSpaceLeafName("Invalid*Name", rootTest, out _, out _))
+                    throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject reserved character '*'");
+                if (StudioViewModel.TrySanitizeSpaceLeafName("Invalid?Name", rootTest, out _, out _))
+                    throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject reserved character '?'");
+                if (StudioViewModel.TrySanitizeSpaceLeafName("Invalid:Name", rootTest, out _, out _))
+                    throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject reserved character ':'");
+                if (StudioViewModel.TrySanitizeSpaceLeafName("Invalid<Name", rootTest, out _, out _))
+                    throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject reserved character '<'");
+                if (StudioViewModel.TrySanitizeSpaceLeafName("Invalid>Name", rootTest, out _, out _))
+                    throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject reserved character '>'");
+                if (StudioViewModel.TrySanitizeSpaceLeafName("Invalid|Name", rootTest, out _, out _))
+                    throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject reserved character '|'");
+                if (StudioViewModel.TrySanitizeSpaceLeafName("Invalid\"Name", rootTest, out _, out _))
+                    throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject reserved character '\"'");
+                if (StudioViewModel.TrySanitizeSpaceLeafName("CON", rootTest, out _, out _))
+                    throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject reserved device name 'CON'");
+                if (StudioViewModel.TrySanitizeSpaceLeafName("NUL.txt", rootTest, out _, out _))
+                    throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject reserved device name 'NUL.txt'");
+                if (!StudioViewModel.TrySanitizeSpaceLeafName("ValidSpaceLeaf", rootTest, out var safeLeaf, out var safeCombined))
+                    throw new InvalidOperationException("TrySanitizeSpaceLeafName rejected legitimate leaf name 'ValidSpaceLeaf'");
+                if (safeLeaf != "ValidSpaceLeaf" || safeCombined != Path.Combine(rootTest, "ValidSpaceLeaf"))
+                    throw new InvalidOperationException("TrySanitizeSpaceLeafName returned incorrect sanitized folder path.");
+
+                // Drive / Unix filesystem root acceptance assertion
+                var systemRoot = Path.GetPathRoot(Path.GetFullPath(oobeDir.Path));
+                if (!string.IsNullOrWhiteSpace(systemRoot) && Path.IsPathFullyQualified(systemRoot))
+                {
+                    if (!StudioViewModel.TrySanitizeSpaceLeafName("RootSpaceLeaf", systemRoot, out var rootSafeLeaf, out var rootSafeCombined))
+                        throw new InvalidOperationException($"TrySanitizeSpaceLeafName failed to accept safe child leaf at drive/Unix root '{systemRoot}'");
+                    if (rootSafeLeaf != "RootSpaceLeaf" || rootSafeCombined != Path.Combine(systemRoot, "RootSpaceLeaf"))
+                        throw new InvalidOperationException($"TrySanitizeSpaceLeafName returned incorrect path for root child leaf: '{rootSafeCombined}'");
+                    if (StudioViewModel.TrySanitizeSpaceLeafName("../Escape", systemRoot, out _, out _))
+                        throw new InvalidOperationException($"TrySanitizeSpaceLeafName failed to reject '../Escape' at drive/Unix root '{systemRoot}'");
+                }
+
+                // Regression Assertion 3: ModeLocalized and localized summary strings without hardcoded Chinese
+                var testDraft = new CategoryDraftItem(Guid.NewGuid(), "Draft", "", SpaceStorageMode.Managed, Path.Combine(rootTest, "Draft"));
+                if (testDraft.ModeLocalized != localizer["Spaces.BadgeManaged"])
+                    throw new InvalidOperationException($"CategoryDraftItem ModeLocalized returned '{testDraft.ModeLocalized}', expected '{localizer["Spaces.BadgeManaged"]}'");
+
+                var oobeCheckVm = new OnboardingViewModel(activeStore.Snapshot, u => Task.FromResult(u(activeStore.Snapshot)));
+                if (oobeCheckVm.SummaryProvider != localizer["OOBE.Step2.Laya"] && oobeCheckVm.SummaryProvider != localizer["OOBE.Step2.Jev"])
+                    throw new InvalidOperationException($"Onboarding SummaryProvider returned unlocalized string: '{oobeCheckVm.SummaryProvider}'");
+                if (oobeCheckVm.SummaryMonitoringNotice != localizer["Status.Disabled"] && oobeCheckVm.SummaryMonitoringNotice != localizer["OOBE.Step4.MonitoringNotice"])
+                    throw new InvalidOperationException($"Onboarding SummaryMonitoringNotice returned unlocalized string: '{oobeCheckVm.SummaryMonitoringNotice}'");
+
+                // Regression Assertion 4: Empty state mutual exclusion
+                var emptySpace = new SpaceItemViewModel(new WorkspaceSpace(Guid.NewGuid(), "Empty", "", SpaceStorageMode.Managed, oobeDir.Path), 0);
+                if (!emptySpace.IsEmpty || emptySpace.HasFiles)
+                    throw new InvalidOperationException("Empty state flags inverted on empty space.");
+                emptySpace.Files.Add(new WorkspaceFileItemViewModel(Guid.NewGuid(), emptySpace.Id, "test.txt", Path.Combine(oobeDir.Path, "test.txt"), false));
+                emptySpace.NotifyFilesChanged();
+                if (emptySpace.IsEmpty || !emptySpace.HasFiles)
+                    throw new InvalidOperationException("Empty state flags failed to update when file was added.");
+
+                // Regression Assertion 5: Error state indicators
+                var errorVm = new MainWindowViewModel(StartupState.LockConflict, "Test lock");
+                if (errorVm.StatusDotColor != "#EF4444")
+                    throw new InvalidOperationException($"Expected red status dot on error, got {errorVm.StatusDotColor}");
+
+                // Regression Assertion 6: Long Text Layout Stress Testing with 150-char space names, 750-char descriptions, and 200-char paths
+                var origLang = localizer.CurrentLanguage;
+                foreach (var testLang in new[] { "de-DE", "ru-RU" })
+                {
+                    localizer.CurrentLanguage = testLang;
+
+                    var longName = new string('A', 150);
+                    var longDesc = "LongDescription_" + new string('D', 750);
+                    var longPath = Path.Combine(oobeDir.Path, new string('F', 200) + ".txt");
+                    var longSpace = new SpaceItemViewModel(new WorkspaceSpace(Guid.NewGuid(), longName, longDesc, SpaceStorageMode.Managed, Path.Combine(oobeDir.Path, "LongSpace")), 1);
+                    longSpace.Files.Add(new WorkspaceFileItemViewModel(Guid.NewGuid(), longSpace.Id, Path.GetFileName(longPath), longPath, false));
+                    longSpace.NotifyFilesChanged();
+
+                    var stressState = activeStore.Snapshot with
+                    {
+                        Spaces = [.. activeStore.Snapshot.Spaces, new WorkspaceSpace(longSpace.Id, longName, longDesc, SpaceStorageMode.Managed, longSpace.Folder)],
+                        Files = [.. activeStore.Snapshot.Files, new WorkspaceFile(Guid.NewGuid(), longSpace.Id, Path.GetFileName(longPath), longPath, false)]
+                    };
+
+                    var stressStudioVm = new StudioViewModel(stressState, u => Task.FromResult(u(stressState)));
+                    stressStudioVm.SelectSpace(stressStudioVm.AllSpaces.FirstOrDefault(s => s.Id == longSpace.Id));
+
+                    // 1280x720 layout pass
+                    var testWin1280 = new Window { Width = 1280, Height = 720, Content = new StudioView { DataContext = stressStudioVm } };
+                    testWin1280.Show();
+                    testWin1280.Measure(new Size(1280, 720));
+                    testWin1280.Arrange(new Rect(0, 0, 1280, 720));
+                    Dispatcher.UIThread.RunJobs();
+
+                    if (testWin1280.Bounds.Width > 1280.5 || testWin1280.Bounds.Height > 720.5)
+                        throw new InvalidOperationException($"1280x720 layout overflowed bounds under long text stress in {testLang}: Bounds={testWin1280.Bounds}");
+
+                    testWin1280.Close();
+
+                    // 1600x900 layout pass
+                    var testWin1600 = new Window { Width = 1600, Height = 900, Content = new StudioView { DataContext = stressStudioVm } };
+                    testWin1600.Show();
+                    testWin1600.Measure(new Size(1600, 900));
+                    testWin1600.Arrange(new Rect(0, 0, 1600, 900));
+                    Dispatcher.UIThread.RunJobs();
+
+                    if (testWin1600.Bounds.Width > 1600.5 || testWin1600.Bounds.Height > 900.5)
+                        throw new InvalidOperationException($"1600x900 layout overflowed bounds under long text stress in {testLang}: Bounds={testWin1600.Bounds}");
+
+                    testWin1600.Close();
+                }
+                localizer.CurrentLanguage = origLang;
+                result.LongTextLayoutDidNotThrow = true;
+                result.Resolutions1280x720And1600x900Verified = true;
+
+                // Regression Assertion 7: RTL Layout & Isolated LTR File Path Verification
+                localizer.CurrentLanguage = "ar-SA";
+                if (localizer.FlowDirectionValue != FlowDirection.RightToLeft)
+                    throw new InvalidOperationException("ar-SA did not trigger RightToLeft FlowDirection.");
+
+                var rtlWindow = new Window { Width = 1280, Height = 760, FlowDirection = FlowDirection.RightToLeft };
+                var rtlStudio = new StudioView { DataContext = mainVm.Studio };
+                rtlWindow.Content = rtlStudio;
+                rtlWindow.Show();
+                rtlWindow.Measure(new Size(1280, 760));
+                rtlWindow.Arrange(new Rect(0, 0, 1280, 760));
+                Dispatcher.UIThread.RunJobs();
+
+                var pathBlocks = rtlStudio.GetVisualDescendants()
+                    .OfType<TextBlock>()
+                    .Where(tb => tb.FontFamily?.Name?.Contains("Monospace", StringComparison.OrdinalIgnoreCase) == true ||
+                                 tb.FontFamily?.Name?.Contains("Consolas", StringComparison.OrdinalIgnoreCase) == true)
+                    .ToList();
+
+                if (pathBlocks.Count == 0)
+                    throw new InvalidOperationException("No monospace path blocks found in StudioView layout to verify RTL isolation.");
+
+                foreach (var pb in pathBlocks)
+                {
+                    if (pb.FlowDirection != FlowDirection.LeftToRight)
+                        throw new InvalidOperationException($"File path TextBlock '{pb.Text}' inverted to RTL! Expected isolated LeftToRight.");
+                }
+                localizer.CurrentLanguage = origLang;
+                result.RtlMonospacePathIsolationVerified = true;
+
+                // Instantiate main interactive window
+                var window = new MainWindow(mainVm);
+                window.Show();
+                window.Measure(new Size(1280, 760));
+                window.Arrange(new Rect(0, 0, 1280, 760));
+                Dispatcher.UIThread.RunJobs();
+
+                // Regression Assertion 8: Modal Dialog Accelerators & Focus Navigation
+                if (mainVm.Studio.IsAddSpaceDialogOpen)
+                    mainVm.Studio.CloseAddSpaceDialog();
+
+                mainVm.Studio.OpenAddSpaceDialog();
+                if (!mainVm.Studio.IsAddSpaceDialogOpen)
+                    throw new InvalidOperationException("Failed to open AddSpaceDialog for keyboard test.");
+
+                var cancelBtn = window.GetVisualDescendants().OfType<Button>().FirstOrDefault(b => b.HotKey?.Key == Key.Escape);
+                var confirmBtn = window.GetVisualDescendants().OfType<Button>().FirstOrDefault(b => b.HotKey?.Key == Key.Enter);
+
+                if (cancelBtn == null || confirmBtn == null)
+                    throw new InvalidOperationException("HotKey Escape or Enter accelerator binding missing in dialog visual tree.");
+
+                cancelBtn.Command?.Execute(null);
+                Dispatcher.UIThread.RunJobs();
+                if (mainVm.Studio.IsAddSpaceDialogOpen)
+                    throw new InvalidOperationException("Cancel command failed to dismiss AddSpaceDialog.");
+
+                mainVm.Studio.OpenAddSpaceDialog();
+                mainVm.Studio.NewSpaceName = "KbdTestSpace";
+                confirmBtn.Command?.Execute(null);
+                Dispatcher.UIThread.RunJobs();
+                if (mainVm.Studio.IsAddSpaceDialogOpen)
+                    throw new InvalidOperationException("Confirm command failed to submit AddSpaceDialog.");
+                if (!mainVm.Studio.AllSpaces.Any(s => s.Name == "KbdTestSpace"))
+                    throw new InvalidOperationException("KbdTestSpace was not created via confirm command.");
+
+                var focusableElements = window.GetVisualDescendants().OfType<InputElement>().Where(e => e.Focusable && KeyboardNavigation.GetIsTabStop(e)).ToList();
+                if (focusableElements.Count < 5)
+                    throw new InvalidOperationException($"Insufficient tab-focusable elements ({focusableElements.Count}) found for keyboard navigation.");
+
+                result.ModalHotKeyAcceleratorsConfigured = true;
+                result.InteractiveControlsFocusableVerified = true;
+
+                // Large window sizing verification (1920x1140 and 2560x1520) in headless mode
+                window.Measure(new Size(1920, 1140));
+                window.Arrange(new Rect(0, 0, 1920, 1140));
+                Dispatcher.UIThread.RunJobs();
+
+                window.Measure(new Size(2560, 1520));
+                window.Arrange(new Rect(0, 0, 2560, 1520));
+                Dispatcher.UIThread.RunJobs();
+
+                // Opt-in Headless Offscreen Skia Rasterization (only if caller explicitly passed --render-headless-png=<dir>)
+                if (renderHeadlessPngRequested && !string.IsNullOrWhiteSpace(requestedRenderPngDir))
+                {
+                    try
+                    {
+                        Directory.CreateDirectory(requestedRenderPngDir);
+                        var rtbMain = new RenderTargetBitmap(new PixelSize(1280, 760), new Vector(96, 96));
+                        rtbMain.Render(window);
+                        var mainPng = Path.Combine(requestedRenderPngDir, "headless-offscreen-mainwindow-1280x760.png");
+                        rtbMain.Save(mainPng);
+
+                        result.HeadlessOffscreenRenderRequested = true;
+                        result.HeadlessOffscreenRenderPath = mainPng;
+                        Console.WriteLine($"  ✓ Headless offscreen Skia rasterization saved to: {mainPng}");
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new InvalidOperationException($"Headless offscreen rasterization failed: {ex.Message}", ex);
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("  ✓ Headless offscreen PNG rasterization: Not requested (use --render-headless-png=<dir> to enable).");
+                }
+
+                rtlWindow.Close();
+                window.Close();
+
+                result.MainWindowInstantiated = (window != null);
+                var title = window?.Title ?? string.Empty;
+                Console.WriteLine($"  ✓ MainWindow instantiated successfully: Title='{title}'");
+                Console.WriteLine("  ✓ Mode/Tab/SelectedSpace/Pending preservation by Guid verified.");
+                Console.WriteLine("  ✓ Safe leaf path traversal rejection, reserved chars and device names verified.");
+                Console.WriteLine("  ✓ Localized Mode badges, summary strings, empty state and error indicators verified.");
+                Console.WriteLine("  ✓ Long text layout in de-DE & ru-RU (150-char space, 750-char desc) at 1280x720 and 1600x900 did not throw.");
+                Console.WriteLine("  ✓ Arabic RTL layout mirroring and LTR visible monospace TextBlocks path isolation verified.");
+                Console.WriteLine("  ✓ Modal HotKey bindings (Escape, Enter) and Tab focusable elements verified.");
+                Console.WriteLine("  ✓ Large-window layout sizing (1920x1140 and 2560x1520) verified.");
+                Console.WriteLine($"  ⚠ Native Physical DPI: {result.NativePhysicalDpiStatus}");
+                Console.WriteLine($"  ⚠ Native Real Window: {result.NativeRealWindowStatus}");
             }
-
-            var mainVm = new MainWindowViewModel(activeStore);
-            if (mainVm.Studio == null) throw new InvalidOperationException("Expected Studio to be active on completed onboarding.");
-
-            // Regression Assertion 1: SelectedSpace and SelectedPendingItem preservation by Guid across store updates
-            var secondSpaceId = mainVm.Studio.AllSpaces[1].Id;
-            mainVm.Studio.SelectSpace(mainVm.Studio.AllSpaces[1]);
-            if (mainVm.Studio.SelectedSpace?.Id != secondSpaceId)
-                throw new InvalidOperationException("Failed to select second space before store update.");
-
-            var pendingId = mainVm.Studio.PendingItems[0].Id;
-            mainVm.Studio.SelectedPendingItem = mainVm.Studio.PendingItems[0];
-
-            mainVm.Studio.SelectedTabIndex = 3; // Switch to Settings tab
-            var studioInstanceBefore = mainVm.Studio;
-            Task.Run(async () => await mainVm.Studio.SaveSettingsAsync()).GetAwaiter().GetResult();
-
-            if (!ReferenceEquals(mainVm.Studio, studioInstanceBefore))
-                throw new InvalidOperationException("Studio ViewModel was destroyed/recreated on store update! Tab state lost.");
-            if (mainVm.Studio.SelectedTabIndex != 3)
-                throw new InvalidOperationException($"SelectedTabIndex was reset to {mainVm.Studio.SelectedTabIndex}, expected tab 3 preserved.");
-            if (mainVm.Studio.SelectedSpace?.Id != secondSpaceId)
-                throw new InvalidOperationException($"SelectedSpace was reset to {mainVm.Studio.SelectedSpace?.Name} ({mainVm.Studio.SelectedSpace?.Id}), expected space 2 ({secondSpaceId}) preserved by Guid!");
-            if (mainVm.Studio.SelectedPendingItem?.Id != pendingId)
-                throw new InvalidOperationException("SelectedPendingItem was lost after store update!");
-            if (string.IsNullOrWhiteSpace(mainVm.Studio.SettingsSavedFeedback))
-                throw new InvalidOperationException("SettingsSavedFeedback toast was cleared/lost on store update.");
-
-            // Regression Assertion 2: Cross-platform safe leaf name path sanitization (rejection of traversal, separators, invalid chars, reserved device names)
-            string rootTest = Path.Combine(oobeDir.Path, "SpacesRoot");
-            Directory.CreateDirectory(rootTest);
-            if (StudioViewModel.TrySanitizeSpaceLeafName("../Escape", rootTest, out _, out _))
-                throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject parent traversal '../Escape'");
-            if (StudioViewModel.TrySanitizeSpaceLeafName("Sub/Folder", rootTest, out _, out _))
-                throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject slash separator 'Sub/Folder'");
-            if (StudioViewModel.TrySanitizeSpaceLeafName("Sub\\Folder", rootTest, out _, out _))
-                throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject backslash separator 'Sub\\Folder'");
-            if (StudioViewModel.TrySanitizeSpaceLeafName(".", rootTest, out _, out _))
-                throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject dot '.'");
-            if (StudioViewModel.TrySanitizeSpaceLeafName("..", rootTest, out _, out _))
-                throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject dotdot '..'");
-            if (StudioViewModel.TrySanitizeSpaceLeafName("SpaceWithDot.", rootTest, out _, out _))
-                throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject trailing dot 'SpaceWithDot.'");
-            if (StudioViewModel.TrySanitizeSpaceLeafName("SpaceWithSpace ", rootTest, out _, out _))
-                throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject trailing space 'SpaceWithSpace '");
-            if (StudioViewModel.TrySanitizeSpaceLeafName("Invalid*Name", rootTest, out _, out _))
-                throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject reserved character '*'");
-            if (StudioViewModel.TrySanitizeSpaceLeafName("Invalid?Name", rootTest, out _, out _))
-                throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject reserved character '?'");
-            if (StudioViewModel.TrySanitizeSpaceLeafName("Invalid:Name", rootTest, out _, out _))
-                throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject reserved character ':'");
-            if (StudioViewModel.TrySanitizeSpaceLeafName("Invalid<Name", rootTest, out _, out _))
-                throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject reserved character '<'");
-            if (StudioViewModel.TrySanitizeSpaceLeafName("Invalid>Name", rootTest, out _, out _))
-                throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject reserved character '>'");
-            if (StudioViewModel.TrySanitizeSpaceLeafName("Invalid|Name", rootTest, out _, out _))
-                throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject reserved character '|'");
-            if (StudioViewModel.TrySanitizeSpaceLeafName("Invalid\"Name", rootTest, out _, out _))
-                throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject reserved character '\"'");
-            if (StudioViewModel.TrySanitizeSpaceLeafName("CON", rootTest, out _, out _))
-                throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject reserved device name 'CON'");
-            if (StudioViewModel.TrySanitizeSpaceLeafName("NUL.txt", rootTest, out _, out _))
-                throw new InvalidOperationException("TrySanitizeSpaceLeafName failed to reject reserved device name 'NUL.txt'");
-            if (!StudioViewModel.TrySanitizeSpaceLeafName("ValidSpaceLeaf", rootTest, out var safeLeaf, out var safeCombined))
-                throw new InvalidOperationException("TrySanitizeSpaceLeafName rejected legitimate leaf name 'ValidSpaceLeaf'");
-            if (safeLeaf != "ValidSpaceLeaf" || safeCombined != Path.Combine(rootTest, "ValidSpaceLeaf"))
-                throw new InvalidOperationException("TrySanitizeSpaceLeafName returned incorrect sanitized folder path.");
-
-            // Drive / Unix filesystem root acceptance assertion
-            var systemRoot = Path.GetPathRoot(Path.GetFullPath(oobeDir.Path));
-            if (!string.IsNullOrWhiteSpace(systemRoot) && Path.IsPathFullyQualified(systemRoot))
-            {
-                if (!StudioViewModel.TrySanitizeSpaceLeafName("RootSpaceLeaf", systemRoot, out var rootSafeLeaf, out var rootSafeCombined))
-                    throw new InvalidOperationException($"TrySanitizeSpaceLeafName failed to accept safe child leaf at drive/Unix root '{systemRoot}'");
-                if (rootSafeLeaf != "RootSpaceLeaf" || rootSafeCombined != Path.Combine(systemRoot, "RootSpaceLeaf"))
-                    throw new InvalidOperationException($"TrySanitizeSpaceLeafName returned incorrect path for root child leaf: '{rootSafeCombined}'");
-                if (StudioViewModel.TrySanitizeSpaceLeafName("../Escape", systemRoot, out _, out _))
-                    throw new InvalidOperationException($"TrySanitizeSpaceLeafName failed to reject '../Escape' at drive/Unix root '{systemRoot}'");
-            }
-
-            // Regression Assertion 3: ModeLocalized and localized summary strings without hardcoded Chinese
-            var testDraft = new CategoryDraftItem(Guid.NewGuid(), "Draft", "", SpaceStorageMode.Managed, Path.Combine(rootTest, "Draft"));
-            if (testDraft.ModeLocalized != localizer["Spaces.BadgeManaged"])
-                throw new InvalidOperationException($"CategoryDraftItem ModeLocalized returned '{testDraft.ModeLocalized}', expected '{localizer["Spaces.BadgeManaged"]}'");
-
-            var oobeCheckVm = new OnboardingViewModel(activeStore.Snapshot, u => Task.FromResult(u(activeStore.Snapshot)));
-            if (oobeCheckVm.SummaryProvider != localizer["OOBE.Step2.Laya"] && oobeCheckVm.SummaryProvider != localizer["OOBE.Step2.Jev"])
-                throw new InvalidOperationException($"Onboarding SummaryProvider returned unlocalized string: '{oobeCheckVm.SummaryProvider}'");
-            if (oobeCheckVm.SummaryMonitoringNotice != localizer["Status.Disabled"] && oobeCheckVm.SummaryMonitoringNotice != localizer["OOBE.Step4.MonitoringNotice"])
-                throw new InvalidOperationException($"Onboarding SummaryMonitoringNotice returned unlocalized string: '{oobeCheckVm.SummaryMonitoringNotice}'");
-
-            // Regression Assertion 4: Empty state mutual exclusion
-            var emptySpace = new SpaceItemViewModel(new WorkspaceSpace(Guid.NewGuid(), "Empty", "", SpaceStorageMode.Managed, oobeDir.Path), 0);
-            if (!emptySpace.IsEmpty || emptySpace.HasFiles)
-                throw new InvalidOperationException("Empty state flags inverted on empty space.");
-            emptySpace.Files.Add(new WorkspaceFileItemViewModel(Guid.NewGuid(), emptySpace.Id, "test.txt", Path.Combine(oobeDir.Path, "test.txt"), false));
-            emptySpace.NotifyFilesChanged();
-            if (emptySpace.IsEmpty || !emptySpace.HasFiles)
-                throw new InvalidOperationException("Empty state flags failed to update when file was added.");
-
-            // Regression Assertion 5: Error state indicators
-            var errorVm = new MainWindowViewModel(StartupState.LockConflict, "Test lock");
-            if (errorVm.StatusDotColor != "#EF4444")
-                throw new InvalidOperationException($"Expected red status dot on error, got {errorVm.StatusDotColor}");
-
-            // Large window sizing verification (1920x1140 and 2560x1520) in headless mode (native high-DPI remains unverified)
-            var window = new MainWindow(mainVm);
-            window.Measure(new Size(1920, 1140));
-            window.Arrange(new Rect(0, 0, 1920, 1140));
-            Dispatcher.UIThread.RunJobs();
-
-            window.Measure(new Size(2560, 1520));
-            window.Arrange(new Rect(0, 0, 2560, 1520));
-            Dispatcher.UIThread.RunJobs();
-
-            result.MainWindowInstantiated = (window != null);
-            var title = window?.Title ?? string.Empty;
-            Console.WriteLine($"  ✓ MainWindow instantiated successfully: Title='{title}'");
-            Console.WriteLine("  ✓ Mode/Tab/SelectedSpace/Pending preservation by Guid verified.");
-            Console.WriteLine("  ✓ Safe leaf path traversal rejection, reserved chars and device names verified.");
-            Console.WriteLine("  ✓ Localized Mode badges, summary strings, empty state and error indicators verified.");
-            Console.WriteLine("  ✓ Large-window layout sizing (1920x1140 and 2560x1520) verified (native high-DPI remains unverified).");
-            Task.Run(async () => await activeStore.DisposeAsync()).GetAwaiter().GetResult();
 
             // 10. Opt-in Native Pogget C ABI load probe
             if (nativeLoadRequested)

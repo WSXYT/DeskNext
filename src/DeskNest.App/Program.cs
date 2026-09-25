@@ -14,6 +14,12 @@ public static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        // Support opt-in native OS desktop window smoke test
+        if (args.Any(a => a.Equals("--native-window-smoke", StringComparison.OrdinalIgnoreCase)))
+        {
+            return NativeWindowSmokeRunner.Run(args);
+        }
+
         // Support headless smoke and probe diagnostics from CLI
         if (args.Any(a => a.Equals("--headless-smoke", StringComparison.OrdinalIgnoreCase) ||
                           a.Equals("--smoke", StringComparison.OrdinalIgnoreCase) ||

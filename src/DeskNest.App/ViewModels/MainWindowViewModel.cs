@@ -27,6 +27,7 @@ public enum StartupState
 public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 {
     private WorkspaceStore? _store;
+    private readonly bool _ownsStore;
     private string? _dataDirectory;
 
     public LocalizationManager Localizer => LocalizationManager.Instance;
@@ -83,6 +84,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     /// </summary>
     public MainWindowViewModel()
     {
+        _ownsStore = true;
         _selectedLanguage = Localizer.CurrentLanguageInfo;
         _selectedTheme = ThemeMgr.CurrentThemeMode;
         Probe = new SystemProbeViewModel();
@@ -106,9 +108,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     /// <summary>
     /// Test or direct injection constructor with an explicit WorkspaceStore.
     /// </summary>
-    public MainWindowViewModel(WorkspaceStore store)
+    public MainWindowViewModel(WorkspaceStore store, bool ownsStore = false)
     {
         _store = store;
+        _ownsStore = ownsStore;
         _selectedLanguage = Localizer.CurrentLanguageInfo;
         _selectedTheme = ThemeMgr.CurrentThemeMode;
         Probe = new SystemProbeViewModel();
@@ -303,10 +306,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
 
     public async ValueTask DisposeAsync()
     {
-        if (_store != null)
+        if (_ownsStore && _store != null)
         {
-            await _store.DisposeAsync();
+            var s = _store;
             _store = null;
+            await s.DisposeAsync();
         }
     }
 
