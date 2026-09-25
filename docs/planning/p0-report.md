@@ -1,0 +1,11 @@
+# P0 baseline — 2026-09-25
+
+**Scope completed**: product name「栖格 · DeskNest」; assembly prefix `DeskNest`, provisional app ID `app.desknest.desktop`, OS-specific file/config/model directory contract ([architecture](../architecture.md)); four .NET 10 projects and `DeskNest.sln`; full GPL-3.0 license text from GNU; import/version ledger and F01–F13 user-entrypoint/behavior/test/platform inventory ([feature tracker](feature-tracker.md)). `source-review.md` lists S01–S16 source gaps with regression targets. No upstream source was copied into the skeleton.
+
+**Fixed inputs** (queried GitHub commit/tree endpoints and checked license headers): DeskBox `44e7a0d48769f8dbfb6d107715e0508918fc7d87`, PoggetCore `0b9d19f37a4f6dfc0e85fdd5e5d409f9b22dcce9`, Laya `970dc8c5f63d7b886a68409493f37d569424f933`; HF multilingual checkpoint repository revision `55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851`. See [upstream](../upstream.md) for trees and terms. HF weight/tokenizer individual hashes must be verified when downloaded in P1.
+
+**Environment**: SDK `10.0.103`; Visual Studio Community 2026 `18.3.11512.155` has `VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/cl.exe`, bundled CMake and Ninja. These programs are not on the current Git Bash PATH; no native bridge has been built.
+
+**Run**: `dotnet restore DeskNest.sln --disable-parallel` and `dotnet build DeskNest.sln --no-restore` with local proxy for NuGet: **build succeeds with 0 warnings / 0 errors**. Projects are intentionally empty (Avalonia package restored but no executable or UI); this demonstrates scaffold consistency, **not** any F01–F13 behavior or P1 probe. A first `--no-restore` build failed with NETSDK1004 as expected on a fresh tree and was resolved by restoring packages. The existing untracked `NUL` file predated initialization and was not removed.
+
+**Next gate**: P1 extracts/test-runs DeskBox logic without WinUI, independently compiles native Pogget, proves A–D CPU inference on locked artifacts, and runs platform-specific UI/native probes. A Windows-only build must not be reported as macOS/Linux validation. Brand/tagline design still needs Gemini UI review; application identifier collision must be checked before public release.

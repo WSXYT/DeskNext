@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- UI code/entrypoint belongs to the Gemini UI subagent in P1/P2; this initial project is a library. -->
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.3" />
+    <ProjectReference Include="../DeskNest.Core/DeskNest.Core.csproj" />
+    <ProjectReference Include="../DeskNest.Platform/DeskNest.Platform.csproj" />
+    <ProjectReference Include="../DeskNest.Inference/DeskNest.Inference.csproj" />
+  </ItemGroup>
+</Project>

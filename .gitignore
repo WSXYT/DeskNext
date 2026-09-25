@@ -1,0 +1,15 @@
+**/bin/
+**/obj/
+.vs/
+.idea/
+*.user
+*.suo
+TestResults/
+artifacts/
+*.log
+# Model bundles must never be checked into source control.
+models/
+*.onnx
+*.safetensors
+# Pre-existing Windows reserved-name artifact; leave untouched.
+/NUL
