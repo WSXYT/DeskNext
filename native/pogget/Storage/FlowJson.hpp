@@ -3,7 +3,10 @@
 #include <charconv>
 #include <cmath>
 #include <cstdint>
+#include <iomanip>
 #include <limits>
+#include <locale>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -405,11 +408,20 @@ namespace PoggetCore::Storage::FlowJson {
                 }
 
                 double decimal = 0.0;
+#if defined(__APPLE__)
+                // Apple libc++ does not yet provide floating-point from_chars.
+                std::istringstream stream{std::string(token)};
+                stream.imbue(std::locale::classic());
+                stream >> std::noskipws >> decimal;
+                if (!stream || !stream.eof() || !std::isfinite(decimal))
+                    return Fail("JSON number is outside the finite double range", error);
+#else
                 const auto parsed = std::from_chars(token.data(), token.data() + token.size(),
                     decimal, std::chars_format::general);
                 if (parsed.ec != std::errc{} || parsed.ptr != token.data() + token.size() ||
                     !std::isfinite(decimal))
                     return Fail("JSON number is outside the finite double range", error);
+#endif
                 output = Value(decimal);
                 return true;
             }
@@ -453,6 +465,17 @@ namespace PoggetCore::Storage::FlowJson {
                     error.message = "JSON cannot encode a non-finite number";
                     return false;
                 }
+#if defined(__APPLE__)
+                // Classic locale prevents user locale decimal commas in JSON.
+                std::ostringstream stream;
+                stream.imbue(std::locale::classic());
+                stream << std::setprecision(std::numeric_limits<double>::max_digits10) << *decimal;
+                if (!stream) {
+                    error.message = "could not encode JSON number";
+                    return false;
+                }
+                const std::string token = stream.str();
+#else
                 char buffer[64]{};
                 const auto result = std::to_chars(buffer, buffer + sizeof(buffer), *decimal,
                     std::chars_format::general);
@@ -462,6 +485,7 @@ namespace PoggetCore::Storage::FlowJson {
                 }
                 const std::string_view token(buffer,
                     static_cast<std::size_t>(result.ptr - buffer));
+#endif
                 output.append(token);
                 if (token.find_first_of(".eE") == std::string_view::npos) output += ".0";
             }

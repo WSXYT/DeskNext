@@ -78,6 +78,14 @@ int main() {
     CHECK(!dn_layout(&config, duplicate, 2, &result));
     const auto doc = document(std::string(F::TriggerManual), std::string(F::InteractionTip));
     std::string json;
+    S::FlowJson::Value decimal;
+    S::FlowJson::Error decimalError;
+    CHECK(S::FlowJson::Parse("1.25e-2", decimal, decimalError));
+    CHECK(decimal.get_if<double>() && *decimal.get_if<double>() == 0.0125);
+    CHECK(S::FlowJson::Stringify(decimal, json, decimalError));
+    CHECK(S::FlowJson::Parse(json, decimal, decimalError));
+    CHECK(decimal.get_if<double>() && *decimal.get_if<double>() == 0.0125);
+    CHECK(!S::FlowJson::Parse("1.0e9999", decimal, decimalError));
     CHECK(S::SerializeFlowJson(doc, json));
     CHECK(dn_flow_validate(json.c_str()));
     CHECK(!dn_flow_validate("{\"actions\":[]}"));

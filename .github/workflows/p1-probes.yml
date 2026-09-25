@@ -28,7 +28,7 @@ jobs:
       - name: Compile native bridge and tests
         run: cmake --build artifacts/native-ci --config Debug --parallel 1
       - name: Exercise native ABI and Flow
-        run: ctest --test-dir artifacts/native-ci --config Debug --output-on-failure --repeat until-fail:5
+        run: ctest --test-dir artifacts/native-ci -C Debug --output-on-failure --repeat until-fail:5
       - name: Publish self-contained UI
         run: dotnet publish src/DeskNest.App/DeskNest.App.csproj -c Release -r ${{ matrix.rid }} --self-contained true -m:1 -p:UseSharedCompilation=false -o artifacts/publish-ui
       - name: Run UI + native load (Windows)

@@ -79,14 +79,14 @@ namespace PoggetCore::Flow {
     public:
         explicit FlowRuntime(std::filesystem::path root = {}, RuntimeAdapters adapters = {})
             : root_(std::move(root)), adapters_(std::move(adapters)),
-            worker_([this](std::stop_token stop) { WorkerLoop(stop); }) {}
+            worker_([this]() { WorkerLoop(); }) {}
 
         ~FlowRuntime() { Stop(); }
 
         void Cancel() noexcept { cancelled_.store(true); condition_.notify_all(); }
         void Stop() {
             Cancel();
-            worker_.request_stop();
+            stopRequested_.store(true);
             condition_.notify_all();
             if (worker_.joinable()) worker_.join();
         }
@@ -547,8 +547,8 @@ namespace PoggetCore::Flow {
             return true;
         }
 
-        void WorkerLoop(std::stop_token stop) {
-            while (!stop.stop_requested()) {
+        void WorkerLoop() {
+            while (!stopRequested_.load()) {
                 bool runTick = false;
                 bool resetMonitoring = false;
                 std::vector<Storage::FlowDocument> manual;
@@ -558,11 +558,11 @@ namespace PoggetCore::Flow {
                 std::unordered_map<std::string, std::vector<std::filesystem::path>> containers;
                 {
                     std::unique_lock lock(mutex_);
-                    condition_.wait(lock, stop, [this]() {
-                        return resetMonitoringPending_ || tickPending_ ||
-                            !manualQueue_.empty();
+                    condition_.wait(lock, [this]() {
+                        return stopRequested_.load() || resetMonitoringPending_ ||
+                            tickPending_ || !manualQueue_.empty();
                     });
-                    if (stop.stop_requested()) break;
+                    if (stopRequested_.load()) break;
                     resetMonitoring = std::exchange(resetMonitoringPending_, false);
                     runTick = std::exchange(tickPending_, false);
                     manual.swap(manualQueue_);
@@ -582,7 +582,7 @@ namespace PoggetCore::Flow {
                 }
                 if (runTick && !cancelled_) RunAutomaticTick(documents, containers);
                 for (const auto& document : manual) {
-                    if (cancelled_ || stop.stop_requested()) break;
+                    if (cancelled_ || stopRequested_.load()) break;
                     Execute(document, std::nullopt);
                 }
                 activeAdapters_ = {};
@@ -1210,11 +1210,12 @@ namespace PoggetCore::Flow {
         std::vector<Storage::FlowDocument> manualQueue_;
         std::vector<Storage::FlowDocument> documents_;
         std::atomic_bool cancelled_{false};
+        std::atomic_bool stopRequested_{false};
         bool tickPending_ = false;
         bool resetMonitoringPending_ = false;
         bool busy_ = false;
 		std::atomic_bool needsContainerSnapshots_{ false };
-        std::jthread worker_;
+        std::thread worker_;
         std::unordered_map<std::wstring, DirectoryState> directoryStates_;
         std::unordered_map<std::wstring, ContainerState> containerStates_;
         std::unordered_map<std::wstring, TriggerScheduleState> triggerScheduleStates_;
