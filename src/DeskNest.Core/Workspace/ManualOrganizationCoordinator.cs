@@ -38,6 +38,8 @@ public sealed class ManualOrganizationCoordinator
                     var committed = _store.Snapshot.Operations
                         .Where(o => o.CommittedTransactionId.HasValue)
                         .Select(o => o.CommittedTransactionId!.Value).ToHashSet();
+                    if (committed.Count > 0)
+                        await _store.CheckpointRecoveryBackupAsync().ConfigureAwait(false);
                     await _transaction.RecoverAsync(cancellationToken, committed).ConfigureAwait(false);
                 }
                 catch (Exception ex) when (ex is IOException or InvalidDataException)
@@ -202,6 +204,7 @@ public sealed class ManualOrganizationCoordinator
                     } : item).ToList()
             }, cancellationToken).ConfigureAwait(false);
             metadataCommitted = true;
+            await _store.CheckpointRecoveryBackupAsync().ConfigureAwait(false);
             // If interrupted here, startup recognizes the persisted commit ID and only
             // finishes journal cleanup, rather than undoing an already committed move.
             await _transaction.CommitAsync(result.OperationId, CancellationToken.None).ConfigureAwait(false);

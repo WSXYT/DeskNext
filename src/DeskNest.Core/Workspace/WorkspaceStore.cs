@@ -106,6 +106,26 @@ public sealed class WorkspaceStore : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Called under OrganizationGate before deleting a physical-operation journal.
+    /// Rotate the already committed primary into the backup, then verify that
+    /// fallback cannot resurrect paths from before the physical operation.
+    /// </summary>
+    internal async Task CheckpointRecoveryBackupAsync()
+    {
+        await gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            ObjectDisposedException.ThrowIf(disposed, this);
+            string json = JsonSerializer.Serialize(current, Json);
+            await ResilientJsonStore.SaveAsync(path, json).ConfigureAwait(false);
+            string backup = await File.ReadAllTextAsync(ResilientJsonStore.GetBackupPath(path)).ConfigureAwait(false);
+            if (!string.Equals(json, backup, StringComparison.Ordinal))
+                throw new IOException("Workspace recovery backup does not match committed metadata; journal must be retained.");
+        }
+        finally { gate.Release(); }
+    }
+
     public async ValueTask DisposeAsync()
     {
         await OrganizationGate.WaitAsync().ConfigureAwait(false);
