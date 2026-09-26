@@ -39,7 +39,10 @@ public sealed record OrganizationMoveReceipt(
     string SourcePath,
     string DestinationPath,
     FileIdentity Identity,
-    bool Completed);
+    bool Completed)
+{
+    public bool Restored { get; init; }
+}
 
 public sealed record OrganizationDirectoryMove(string SourcePath, string DestinationPath);
 
@@ -49,7 +52,10 @@ public sealed record OrganizationDirectoryMoveReceipt(
     string SourcePath,
     string DestinationPath,
     IReadOnlyList<DirectoryFileReceipt> Files,
-    bool Completed);
+    bool Completed)
+{
+    public bool Restored { get; init; }
+}
 
 public sealed record OrganizationRecoveryJournal(
     Guid OperationId,
@@ -94,11 +100,13 @@ public sealed class DesktopOrganizationTransaction
     private readonly string _journalPath;
     private readonly Func<OrganizationMoveReceipt, bool>? _moveGuard;
     private readonly Func<OrganizationDirectoryMoveReceipt, bool>? _directoryMoveGuard;
+    private readonly Func<string, bool>? _restoreGuard;
 
     public DesktopOrganizationTransaction(
         string journalPath,
         Func<OrganizationMoveReceipt, bool>? moveGuard = null,
-        Func<OrganizationDirectoryMoveReceipt, bool>? directoryMoveGuard = null)
+        Func<OrganizationDirectoryMoveReceipt, bool>? directoryMoveGuard = null,
+        Func<string, bool>? restoreGuard = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(journalPath);
         if (!Path.IsPathFullyQualified(journalPath))
@@ -107,12 +115,15 @@ public sealed class DesktopOrganizationTransaction
         _journalPath = journalPath;
         _moveGuard = moveGuard;
         _directoryMoveGuard = directoryMoveGuard;
+        _restoreGuard = restoreGuard;
     }
 
     private string RecoveryMarkerPath => _journalPath + ".recovery-required";
+    private string RollbackFencePath => _journalPath + ".rollback-started";
 
     public bool HasRecoveryJournal => File.Exists(_journalPath) ||
-        File.Exists(ResilientJsonStore.GetBackupPath(_journalPath)) || File.Exists(RecoveryMarkerPath);
+        File.Exists(ResilientJsonStore.GetBackupPath(_journalPath)) || File.Exists(RecoveryMarkerPath) ||
+        File.Exists(RollbackFencePath) || Directory.Exists(RollbackFencePath);
 
     public OrganizationDirectoryMoveSupport DirectoryMoveSupport =>
         OrganizationDirectoryMoveSupport.SameVolumeAtomicWithManifest;
@@ -264,10 +275,12 @@ public sealed class DesktopOrganizationTransaction
         finally { _operationGate.Release(); }
     }
 
-    private static void RequireCompleteReceipts(OrganizationRecoveryJournal journal)
+    private void RequireCompleteReceipts(OrganizationRecoveryJournal journal)
     {
-        if (journal.Moves.Any(m => !m.Completed) || journal.DirectoryMoves?.Any(m => !m.Completed) == true)
-            throw new InvalidDataException("Incomplete receipts cannot be acknowledged as committed.");
+        if (File.Exists(RollbackFencePath) || Directory.Exists(RollbackFencePath) ||
+            journal.Status == "Recovering" || journal.Moves.Any(m => !m.Completed || m.Restored) ||
+            journal.DirectoryMoves?.Any(m => !m.Completed || m.Restored) == true)
+            throw new InvalidDataException("Incomplete or rolled-back receipts cannot be acknowledged as committed.");
     }
 
     public async Task<OrganizationTransactionResult> RecoverAsync(
@@ -293,13 +306,14 @@ public sealed class DesktopOrganizationTransaction
 
             // A Prepared receipt may cover a crash after rename but before acknowledgement.
             // Never infer success from content alone or silently forget such an item.
-            foreach (var pending in journal.Moves.Where(m => !m.Completed))
+            // Previously checkpointed restores must still match before any new move.
+            foreach (var pending in journal.Moves.Where(m => !m.Completed || m.Restored))
             {
                 if (!File.Exists(pending.SourcePath) || File.Exists(pending.DestinationPath) ||
                     Directory.Exists(pending.DestinationPath) || FileIdentity.Capture(pending.SourcePath) != pending.Identity)
                     throw new IOException("Unacknowledged move requires manual reconciliation; journal retained.");
             }
-            foreach (var pending in journal.DirectoryMoves?.Where(m => !m.Completed) ?? [])
+            foreach (var pending in journal.DirectoryMoves?.Where(m => !m.Completed || m.Restored) ?? [])
             {
                 if (!Directory.Exists(pending.SourcePath) || File.Exists(pending.DestinationPath) ||
                     Directory.Exists(pending.DestinationPath) ||
@@ -307,12 +321,21 @@ public sealed class DesktopOrganizationTransaction
                     throw new IOException("Unacknowledged directory move requires manual reconciliation; journal retained.");
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
+            EnsureRollbackFence(journal.OperationId);
+            journal = journal with { Status = "Recovering", UpdatedAt = DateTimeOffset.UtcNow };
+            await SaveJournalAsync(journal, cancellationToken).ConfigureAwait(false);
+            var files = journal.Moves.ToArray();
+            var directories = journal.DirectoryMoves?.ToArray() ?? [];
             var restored = new List<OrganizationMoveReceipt>();
             var restoredDirectories = new List<OrganizationDirectoryMoveReceipt>();
-            foreach (var move in journal.DirectoryMoves?.Where(m => m.Completed).Reverse()
-                         ?? Enumerable.Empty<OrganizationDirectoryMoveReceipt>())
+            for (int index = directories.Length - 1; index >= 0; index--)
             {
+                var move = directories[index];
+                if (!move.Completed || move.Restored) continue;
                 cancellationToken.ThrowIfCancellationRequested();
+                if (_restoreGuard is not null && !_restoreGuard(move.SourcePath))
+                    throw new IOException("Fault injection refused directory restore.");
                 if (!Directory.Exists(move.DestinationPath) || Directory.Exists(move.SourcePath) || File.Exists(move.SourcePath))
                     throw new IOException($"Directory recovery paths are not safe: {move.DestinationPath}");
                 var actual = CaptureDirectoryManifest(move.DestinationPath);
@@ -321,12 +344,21 @@ public sealed class DesktopOrganizationTransaction
                 Directory.CreateDirectory(Path.GetDirectoryName(move.SourcePath)!);
                 FileSystemVolume.RequireSameVolume(move.DestinationPath, move.SourcePath);
                 Directory.Move(move.DestinationPath, move.SourcePath);
-                restoredDirectories.Add(move);
+                directories[index] = move with { Restored = true };
+                journal = journal with { DirectoryMoves = directories, UpdatedAt = DateTimeOffset.UtcNow };
+                // Once the rename happened, finish recording it even if cancellation
+                // was requested. A crash before this save still requires manual review.
+                await SaveJournalAsync(journal, CancellationToken.None).ConfigureAwait(false);
+                restoredDirectories.Add(directories[index]);
             }
 
-            foreach (var move in journal.Moves.Where(m => m.Completed).Reverse())
+            for (int index = files.Length - 1; index >= 0; index--)
             {
+                var move = files[index];
+                if (!move.Completed || move.Restored) continue;
                 cancellationToken.ThrowIfCancellationRequested();
+                if (_restoreGuard is not null && !_restoreGuard(move.SourcePath))
+                    throw new IOException("Fault injection refused file restore.");
                 if (!File.Exists(move.DestinationPath))
                 {
                     throw new IOException($"Recovery destination is missing: {move.DestinationPath}");
@@ -339,7 +371,7 @@ public sealed class DesktopOrganizationTransaction
                         $"Recovery refused because the destination changed: {move.DestinationPath}");
                 }
 
-                if (File.Exists(move.SourcePath))
+                if (File.Exists(move.SourcePath) || Directory.Exists(move.SourcePath))
                 {
                     throw new IOException(
                         $"Recovery refused because the source path is occupied: {move.SourcePath}");
@@ -348,7 +380,10 @@ public sealed class DesktopOrganizationTransaction
                 Directory.CreateDirectory(Path.GetDirectoryName(move.SourcePath)!);
                 FileSystemVolume.RequireSameVolume(move.DestinationPath, move.SourcePath);
                 File.Move(move.DestinationPath, move.SourcePath);
-                restored.Add(move);
+                files[index] = move with { Restored = true };
+                journal = journal with { Moves = files, UpdatedAt = DateTimeOffset.UtcNow };
+                await SaveJournalAsync(journal, CancellationToken.None).ConfigureAwait(false);
+                restored.Add(files[index]);
             }
 
             DeleteJournalFiles();
@@ -505,6 +540,7 @@ public sealed class DesktopOrganizationTransaction
         if (File.Exists(RecoveryMarkerPath))
             throw new InvalidDataException("Organization recovery is blocked pending explicit manual reconciliation.");
 
+        Guid? rollbackId = ReadRollbackFence();
         bool found = false;
         // Unlike ordinary settings, journal copies are evidence. Never quarantine them
         // into apparent absence and never create a default empty recovery journal.
@@ -518,6 +554,8 @@ public sealed class DesktopOrganizationTransaction
                 string json = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
                 var journal = JsonSerializer.Deserialize<OrganizationRecoveryJournal>(json, JsonOptions);
                 ValidateJournal(journal);
+                if (rollbackId.HasValue && rollbackId.Value != journal!.OperationId)
+                    throw new InvalidDataException("Rollback fence belongs to a different transaction.");
                 return journal;
             }
             catch (Exception ex) when (ex is JsonException or InvalidDataException)
@@ -525,7 +563,12 @@ public sealed class DesktopOrganizationTransaction
                 // Try the older copy. Prepared receipts are separately reconciled before rollback.
             }
         }
-        if (!found) return null;
+        if (!found)
+        {
+            if (rollbackId.HasValue)
+                throw new InvalidDataException("Rollback evidence exists without its journal; manual reconciliation required.");
+            return null;
+        }
 
         using (var marker = new FileStream(RecoveryMarkerPath, FileMode.Create, FileAccess.Write, FileShare.None))
         {
@@ -538,7 +581,7 @@ public sealed class DesktopOrganizationTransaction
     private static void ValidateJournal(OrganizationRecoveryJournal? journal)
     {
         if (journal is null || journal.OperationId == Guid.Empty || journal.Moves is null ||
-            journal.Status is not ("Prepared" or "Moving" or "RecoveryRequired") ||
+            journal.Status is not ("Prepared" or "Moving" or "RecoveryRequired" or "Recovering") ||
             journal.Moves.Count + (journal.DirectoryMoves?.Count ?? 0) == 0)
             throw new InvalidDataException("Malformed recovery journal.");
         foreach (var move in journal.Moves)
@@ -546,7 +589,8 @@ public sealed class DesktopOrganizationTransaction
             if (move is null || string.IsNullOrWhiteSpace(move.SourcePath) ||
                 string.IsNullOrWhiteSpace(move.DestinationPath) || !Path.IsPathFullyQualified(move.SourcePath) ||
                 !Path.IsPathFullyQualified(move.DestinationPath) || move.Identity is null ||
-                move.Identity.Length < 0 || string.IsNullOrWhiteSpace(move.Identity.Sha256))
+                move.Identity.Length < 0 || string.IsNullOrWhiteSpace(move.Identity.Sha256) ||
+                move.Restored && (!move.Completed || journal.Status != "Recovering"))
                 throw new InvalidDataException("Malformed recovery receipt.");
         }
         foreach (var move in journal.DirectoryMoves ?? [])
@@ -554,7 +598,8 @@ public sealed class DesktopOrganizationTransaction
             if (move is null || string.IsNullOrWhiteSpace(move.SourcePath) ||
                 string.IsNullOrWhiteSpace(move.DestinationPath) || !Path.IsPathFullyQualified(move.SourcePath) ||
                 !Path.IsPathFullyQualified(move.DestinationPath) || move.Files is null ||
-                move.Files.Any(file => file is null || file.Identity is null || string.IsNullOrWhiteSpace(file.RelativePath)))
+                move.Files.Any(file => file is null || file.Identity is null || string.IsNullOrWhiteSpace(file.RelativePath)) ||
+                move.Restored && (!move.Completed || journal.Status != "Recovering"))
                 throw new InvalidDataException("Malformed directory recovery receipt.");
         }
     }
@@ -579,10 +624,45 @@ public sealed class DesktopOrganizationTransaction
         return new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
     }
 
+    private Guid? ReadRollbackFence()
+    {
+        if (Directory.Exists(RollbackFencePath))
+            throw new InvalidDataException("Rollback fence is not a regular file.");
+        if (!File.Exists(RollbackFencePath)) return null;
+        using var stream = new FileStream(RollbackFencePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        Span<byte> bytes = stackalloc byte[32];
+        if (stream.Length != bytes.Length)
+            throw new InvalidDataException("Incomplete rollback fence; manual reconciliation required.");
+        stream.ReadExactly(bytes);
+        if (!Guid.TryParseExact(System.Text.Encoding.ASCII.GetString(bytes), "N", out Guid id) || id == Guid.Empty)
+            throw new InvalidDataException("Invalid rollback fence; manual reconciliation required.");
+        return id;
+    }
+
+    private void EnsureRollbackFence(Guid operationId)
+    {
+        var existing = ReadRollbackFence();
+        if (existing.HasValue)
+        {
+            if (existing.Value != operationId)
+                throw new InvalidDataException("Rollback fence belongs to a different transaction.");
+            return;
+        }
+        // Independent of rotating journal copies: a stale Moving backup must never
+        // authorize acknowledgement after any reverse move has started.
+        using var stream = new FileStream(RollbackFencePath, FileMode.CreateNew, FileAccess.Write,
+            FileShare.None, 4096, FileOptions.WriteThrough);
+        stream.Write(System.Text.Encoding.ASCII.GetBytes(operationId.ToString("N")));
+        stream.Flush(flushToDisk: true);
+    }
+
     private void DeleteJournalFiles()
     {
         // Delete the older copy first so a crash cannot resurrect a stale backup alone.
         File.Delete(ResilientJsonStore.GetBackupPath(_journalPath));
         File.Delete(_journalPath);
+        // Last: interrupted cleanup can leave a fence-only state, which blocks new
+        // operations until manual reconciliation rather than guessing success.
+        File.Delete(RollbackFencePath);
     }
 }
