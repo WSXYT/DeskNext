@@ -109,7 +109,10 @@ public sealed class DesktopOrganizationTransaction
         _directoryMoveGuard = directoryMoveGuard;
     }
 
-    public bool HasRecoveryJournal => File.Exists(_journalPath);
+    private string RecoveryMarkerPath => _journalPath + ".recovery-required";
+
+    public bool HasRecoveryJournal => File.Exists(_journalPath) ||
+        File.Exists(ResilientJsonStore.GetBackupPath(_journalPath)) || File.Exists(RecoveryMarkerPath);
 
     public OrganizationDirectoryMoveSupport DirectoryMoveSupport =>
         OrganizationDirectoryMoveSupport.SameVolumeAtomicWithManifest;
@@ -130,7 +133,7 @@ public sealed class DesktopOrganizationTransaction
         try
         {
             using var processLock = AcquireProcessLock();
-            if (File.Exists(_journalPath))
+            if (HasRecoveryJournal)
             {
                 throw new InvalidOperationException(
                     "A recovery journal exists; recover or discard it explicitly before starting another operation.");
@@ -198,7 +201,7 @@ public sealed class DesktopOrganizationTransaction
         try
         {
             using var processLock = AcquireProcessLock();
-            if (File.Exists(_journalPath))
+            if (HasRecoveryJournal)
                 throw new InvalidOperationException("A recovery journal exists; recover it before starting another operation.");
 
             var prepared = PrepareDirectories(requestedMoves);
@@ -252,6 +255,22 @@ public sealed class DesktopOrganizationTransaction
             var journal = await LoadJournalAsync(cancellationToken).ConfigureAwait(false)
                 ?? throw new FileNotFoundException("No recovery journal exists.", _journalPath);
 
+            // A Prepared receipt may cover a crash after rename but before acknowledgement.
+            // Never infer success from content alone or silently forget such an item.
+            foreach (var pending in journal.Moves.Where(m => !m.Completed))
+            {
+                if (!File.Exists(pending.SourcePath) || File.Exists(pending.DestinationPath) ||
+                    Directory.Exists(pending.DestinationPath) || FileIdentity.Capture(pending.SourcePath) != pending.Identity)
+                    throw new IOException("Unacknowledged move requires manual reconciliation; journal retained.");
+            }
+            foreach (var pending in journal.DirectoryMoves?.Where(m => !m.Completed) ?? [])
+            {
+                if (!Directory.Exists(pending.SourcePath) || File.Exists(pending.DestinationPath) ||
+                    Directory.Exists(pending.DestinationPath) ||
+                    !CaptureDirectoryManifest(pending.SourcePath).SequenceEqual(pending.Files))
+                    throw new IOException("Unacknowledged directory move requires manual reconciliation; journal retained.");
+            }
+
             var restored = new List<OrganizationMoveReceipt>();
             var restoredDirectories = new List<OrganizationDirectoryMoveReceipt>();
             foreach (var move in journal.DirectoryMoves?.Where(m => m.Completed).Reverse()
@@ -264,6 +283,7 @@ public sealed class DesktopOrganizationTransaction
                 if (!actual.SequenceEqual(move.Files))
                     throw new IOException($"Directory recovery refused because the destination changed: {move.DestinationPath}");
                 Directory.CreateDirectory(Path.GetDirectoryName(move.SourcePath)!);
+                FileSystemVolume.RequireSameVolume(move.DestinationPath, move.SourcePath);
                 Directory.Move(move.DestinationPath, move.SourcePath);
                 restoredDirectories.Add(move);
             }
@@ -290,6 +310,7 @@ public sealed class DesktopOrganizationTransaction
                 }
 
                 Directory.CreateDirectory(Path.GetDirectoryName(move.SourcePath)!);
+                FileSystemVolume.RequireSameVolume(move.DestinationPath, move.SourcePath);
                 File.Move(move.DestinationPath, move.SourcePath);
                 restored.Add(move);
             }
@@ -325,12 +346,7 @@ public sealed class DesktopOrganizationTransaction
                 throw new IOException($"Destination already exists: {destination}");
             if (IsPathInside(destination, source))
                 throw new InvalidDataException("A directory cannot be moved inside itself.");
-            var sourceRoot = Path.GetPathRoot(source);
-            var destinationRoot = Path.GetPathRoot(destination);
-            if (!string.Equals(sourceRoot, destinationRoot,
-                    OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
-                throw new NotSupportedException(
-                    "Cross-volume directory copy is not implemented; the operation is intentionally blocked.");
+            FileSystemVolume.RequireSameVolume(source, destination);
 
             result.Add(new OrganizationDirectoryMoveReceipt(
                 source, destination, CaptureDirectoryManifest(source), false));
@@ -371,6 +387,7 @@ public sealed class DesktopOrganizationTransaction
         if (!current.SequenceEqual(move.Files))
             throw new IOException($"Directory changed before move: {move.SourcePath}");
         Directory.CreateDirectory(Path.GetDirectoryName(move.DestinationPath)!);
+        FileSystemVolume.RequireSameVolume(move.SourcePath, move.DestinationPath);
         Directory.Move(move.SourcePath, move.DestinationPath);
     }
 
@@ -410,6 +427,7 @@ public sealed class DesktopOrganizationTransaction
                 throw new IOException($"Destination has no parent directory: {destination}");
             }
 
+            FileSystemVolume.RequireSameVolume(source, destination);
             var identity = FileIdentity.Capture(source);
             result.Add(new OrganizationMoveReceipt(source, destination, identity, false));
         }
@@ -430,6 +448,7 @@ public sealed class DesktopOrganizationTransaction
         if (current != move.Identity)
             throw new IOException($"Source changed before move: {move.SourcePath}");
 
+        FileSystemVolume.RequireSameVolume(move.SourcePath, move.DestinationPath);
         File.Move(move.SourcePath, move.DestinationPath);
     }
 
@@ -438,32 +457,70 @@ public sealed class DesktopOrganizationTransaction
         CancellationToken cancellationToken)
     {
         string json = JsonSerializer.Serialize(journal, JsonOptions);
-        await ResilientJsonStore.SaveAsync(_journalPath, json).WaitAsync(cancellationToken)
-            .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        // Do not abandon an in-flight durable write: that would release the gate while
+        // the write still races recovery or the next transaction.
+        await ResilientJsonStore.SaveAsync(_journalPath, json).ConfigureAwait(false);
     }
 
     private async Task<OrganizationRecoveryJournal?> LoadJournalAsync(
         CancellationToken cancellationToken)
     {
-        if (!File.Exists(_journalPath))
+        if (File.Exists(RecoveryMarkerPath))
+            throw new InvalidDataException("Organization recovery is blocked pending explicit manual reconciliation.");
+
+        bool found = false;
+        // Unlike ordinary settings, journal copies are evidence. Never quarantine them
+        // into apparent absence and never create a default empty recovery journal.
+        foreach (string path in new[] { _journalPath, ResilientJsonStore.GetBackupPath(_journalPath) })
         {
-            return null;
+            if (!File.Exists(path)) continue;
+            found = true;
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                string json = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
+                var journal = JsonSerializer.Deserialize<OrganizationRecoveryJournal>(json, JsonOptions);
+                ValidateJournal(journal);
+                return journal;
+            }
+            catch (Exception ex) when (ex is JsonException or InvalidDataException)
+            {
+                // Try the older copy. Prepared receipts are separately reconciled before rollback.
+            }
         }
+        if (!found) return null;
 
-        var loaded = await ResilientJsonStore.LoadWithResultAsync(
-            _journalPath,
-            json => JsonSerializer.Deserialize<OrganizationRecoveryJournal>(json, JsonOptions)
-                ?? throw new InvalidDataException("Recovery journal is empty."),
-            () => throw new InvalidDataException("Recovery journal is missing."),
-            "organization-recovery").WaitAsync(cancellationToken).ConfigureAwait(false);
-
-        if (loaded.Source == ResilientJsonLoadSource.DefaultAfterFailure)
+        using (var marker = new FileStream(RecoveryMarkerPath, FileMode.Create, FileAccess.Write, FileShare.None))
         {
-            throw new InvalidDataException(
-                "Recovery journal and backup are both corrupt; manual recovery is required.");
+            marker.Write("Recovery journal copies are invalid. Preserve them for manual reconciliation."u8);
+            marker.Flush(flushToDisk: true);
         }
+        throw new InvalidDataException("Recovery journal and backup are invalid; manual recovery is required.");
+    }
 
-        return loaded.Value;
+    private static void ValidateJournal(OrganizationRecoveryJournal? journal)
+    {
+        if (journal is null || journal.OperationId == Guid.Empty || journal.Moves is null ||
+            journal.Status is not ("Prepared" or "Moving" or "RecoveryRequired") ||
+            journal.Moves.Count + (journal.DirectoryMoves?.Count ?? 0) == 0)
+            throw new InvalidDataException("Malformed recovery journal.");
+        foreach (var move in journal.Moves)
+        {
+            if (move is null || string.IsNullOrWhiteSpace(move.SourcePath) ||
+                string.IsNullOrWhiteSpace(move.DestinationPath) || !Path.IsPathFullyQualified(move.SourcePath) ||
+                !Path.IsPathFullyQualified(move.DestinationPath) || move.Identity is null ||
+                move.Identity.Length < 0 || string.IsNullOrWhiteSpace(move.Identity.Sha256))
+                throw new InvalidDataException("Malformed recovery receipt.");
+        }
+        foreach (var move in journal.DirectoryMoves ?? [])
+        {
+            if (move is null || string.IsNullOrWhiteSpace(move.SourcePath) ||
+                string.IsNullOrWhiteSpace(move.DestinationPath) || !Path.IsPathFullyQualified(move.SourcePath) ||
+                !Path.IsPathFullyQualified(move.DestinationPath) || move.Files is null ||
+                move.Files.Any(file => file is null || file.Identity is null || string.IsNullOrWhiteSpace(file.RelativePath)))
+                throw new InvalidDataException("Malformed directory recovery receipt.");
+        }
     }
 
     private static string Normalize(string path)
@@ -488,9 +545,8 @@ public sealed class DesktopOrganizationTransaction
 
     private void DeleteJournalFiles()
     {
+        // Delete the older copy first so a crash cannot resurrect a stale backup alone.
+        File.Delete(ResilientJsonStore.GetBackupPath(_journalPath));
         File.Delete(_journalPath);
-        string backupPath = ResilientJsonStore.GetBackupPath(_journalPath);
-        if (File.Exists(backupPath))
-            File.Delete(backupPath);
     }
 }

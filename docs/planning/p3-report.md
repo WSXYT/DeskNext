@@ -5,18 +5,21 @@ Status: implementation in progress. Desktop takeover and watcher-driven automati
 ## Verified at the current worktree
 
 - `DesktopOrganizationTransaction` performs fail-closed journaled regular-file moves and same-volume directory moves.
-- Directory moves reject reparse points, self-nesting, duplicate paths, existing destinations, and cross-volume destinations. Every directory journal stores a sorted recursive file identity manifest.
-- Startup recovery distinguishes an absent journal from a corrupt primary/backup journal. Recovery refuses missing, changed, or occupied destinations and preserves the journal for manual reconciliation.
+- Directory moves reject reparse-point members, self-nesting, duplicate source/destination paths and existing destinations. Journals store sorted file-content manifests; these are not native object IDs or complete directory-topology snapshots.
+- New local-volume guards run during preparation and immediately before forward/reverse file and directory moves. Windows uses volume-mount APIs; Linux uses physical paths plus component-bounded mount IDs (including bind mounts); macOS uses physical paths plus mounted filesystem enumeration. Unsupported/ambiguous lookups fail closed. Cross-volume file moves are also disabled to prevent implicit copy/delete through `File.Move`.
+- Recovery recognizes primary, backup-only, and persistent `.recovery-required` markers. Invalid copies are preserved, not quarantined into apparent absence. Double corruption blocks subsequent instances even if damaged copies are later removed.
+- Unacknowledged moves are cleared only when the source still matches and the destination is absent; a crash after rename but before receipt persistence requires manual reconciliation. Backup is deleted before primary, and cancellation cannot abandon an in-flight journal write.
 - `ManualOrganizationCoordinator` updates workspace metadata only after physical movement succeeds. It records `PendingUser`, `Completed`, `Undone`, and `RecoveryRequired` states.
 - File undo verifies length, last-write ticks, and SHA-256. Directory undo verifies the persisted recursive manifest before restoring the directory. Any mismatch marks the operation `RecoveryRequired` and leaves the external content in place.
 - Managed-file rename uses the same transaction and identity-checked undo path. Mapped-reference removal only removes the catalog metadata and leaves the source file untouched.
 - Source and destination leaf boundaries are checked against their owning space roots. Managed directory manifests are validated before persistence.
 - The Avalonia surface exposes localized callback-only gates for open, preview, copy, cut, paste, rename, and mapped-reference removal. No UI callback performs direct filesystem I/O. Managed and mapped rows show distinct capability labels.
-- Release verification: solution build is 0 warnings / 0 errors; Core tests pass 41/41; Inference tests pass 4/4; headless smoke passes with 257-key parity across 12 locales and reports physical DPI/IME/native display evidence honestly as unverified.
+- Latest local Windows verification: Release build has 0 warnings / 0 errors; Core tests pass 61/61; Inference tests pass 4/4; headless smoke passes with 257-key parity across 12 locales. New tests cover native Windows volume lookup, synthetic Linux mount records (all 24 covered-child/overmount orderings), backup-only recovery, double corruption across restarts, unacknowledged file/directory moves, and malformed null-path primary/backup receipts. Linux/macOS runtime execution of these new changes is not yet verified.
 
 ## Remaining P3 gates
 
 - Connect platform open/preview and clipboard providers through concrete cross-platform implementations and tests; the current UI delegates are intentionally unbound or callback-only.
 - Implement a cross-platform managed delete-to-trash/recovery policy before enabling managed deletion. The UI correctly keeps managed deletion disabled and only enables mapped-reference removal when its callback is attached.
-- Complete S01 volume/device identity adaptation. `Path.GetPathRoot` remains a conservative same-volume gate, not proof for Linux mount points, network shares, or other devices.
+- Complete native S01 evidence: actual Linux bind/overmounts, macOS APFS/firmlinks, Windows mounted folders/junctions, network and unavailable-volume refusals. Parser fixtures and local Windows temp-directory tests do not establish the full platform gate.
+- S02/S08 remain open: content hashes are not native file IDs; empty-directory topology, ancestor-link and mount-change races, restartable partial rollback, and the physical-move/workspace-metadata commit gap need additional hardening. Do not infer recovery completeness from the current passing tests.
 - Add Windows install/publish evidence and fault-injection coverage for rename/delete/recovery lifecycle. Do not enable desktop takeover until S01-S08 and disk-fault gates pass.
