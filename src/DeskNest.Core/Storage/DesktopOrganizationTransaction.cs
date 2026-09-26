@@ -121,7 +121,8 @@ public sealed class DesktopOrganizationTransaction
 
     public async Task<OrganizationTransactionResult> ExecuteAsync(
         IReadOnlyList<OrganizationMove> requestedMoves,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool retainJournalUntilCommit = false)
     {
         ArgumentNullException.ThrowIfNull(requestedMoves);
         if (requestedMoves.Count == 0)
@@ -165,7 +166,7 @@ public sealed class DesktopOrganizationTransaction
                     }, cancellationToken).ConfigureAwait(false);
                 }
 
-                DeleteJournalFiles();
+                if (!retainJournalUntilCommit) DeleteJournalFiles();
                 return new OrganizationTransactionResult(
                     operationId,
                     OrganizationTransactionStatus.Completed,
@@ -191,7 +192,8 @@ public sealed class DesktopOrganizationTransaction
 
     public async Task<OrganizationTransactionResult> ExecuteDirectoriesAsync(
         IReadOnlyList<OrganizationDirectoryMove> requestedMoves,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool retainJournalUntilCommit = false)
     {
         ArgumentNullException.ThrowIfNull(requestedMoves);
         if (requestedMoves.Count == 0)
@@ -225,7 +227,7 @@ public sealed class DesktopOrganizationTransaction
                     }, cancellationToken).ConfigureAwait(false);
                 }
 
-                DeleteJournalFiles();
+                if (!retainJournalUntilCommit) DeleteJournalFiles();
                 return new OrganizationTransactionResult(operationId, OrganizationTransactionStatus.Completed, [], completed);
             }
             catch
@@ -245,8 +247,32 @@ public sealed class DesktopOrganizationTransaction
         }
     }
 
+    /// <summary>Called only after workspace metadata durably records this transaction ID.</summary>
+    public async Task CommitAsync(Guid transactionId, CancellationToken cancellationToken = default)
+    {
+        await _operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            using var processLock = AcquireProcessLock();
+            var journal = await LoadJournalAsync(cancellationToken).ConfigureAwait(false)
+                ?? throw new FileNotFoundException("No journal to commit.", _journalPath);
+            if (journal.OperationId != transactionId)
+                throw new InvalidDataException("Commit ID does not match the retained journal.");
+            RequireCompleteReceipts(journal);
+            DeleteJournalFiles();
+        }
+        finally { _operationGate.Release(); }
+    }
+
+    private static void RequireCompleteReceipts(OrganizationRecoveryJournal journal)
+    {
+        if (journal.Moves.Any(m => !m.Completed) || journal.DirectoryMoves?.Any(m => !m.Completed) == true)
+            throw new InvalidDataException("Incomplete receipts cannot be acknowledged as committed.");
+    }
+
     public async Task<OrganizationTransactionResult> RecoverAsync(
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IReadOnlySet<Guid>? committedTransactionIds = null)
     {
         await _operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -254,6 +280,16 @@ public sealed class DesktopOrganizationTransaction
             using var processLock = AcquireProcessLock();
             var journal = await LoadJournalAsync(cancellationToken).ConfigureAwait(false)
                 ?? throw new FileNotFoundException("No recovery journal exists.", _journalPath);
+
+            if (committedTransactionIds?.Contains(journal.OperationId) == true)
+            {
+                // Workspace commit succeeded before cleanup was interrupted. Never roll
+                // back files behind an already committed workspace snapshot.
+                RequireCompleteReceipts(journal);
+                DeleteJournalFiles();
+                return new OrganizationTransactionResult(journal.OperationId,
+                    OrganizationTransactionStatus.Completed, journal.Moves, journal.DirectoryMoves);
+            }
 
             // A Prepared receipt may cover a crash after rename but before acknowledgement.
             // Never infer success from content alone or silently forget such an item.

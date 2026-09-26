@@ -13,6 +13,10 @@ public sealed class WorkspaceStore : IAsyncDisposable
         Converters = { new JsonStringEnumConverter() }
     };
     private readonly SemaphoreSlim gate = new(1, 1);
+    // All coordinators for this exclusive workspace owner share the full
+    // physical-move -> metadata-commit -> cleanup critical section.
+    internal SemaphoreSlim OrganizationGate { get; } = new(1, 1);
+    private bool disposed;
     private readonly FileStream lockFile;
     private readonly string path;
     private WorkspaceState current;
@@ -72,7 +76,14 @@ public sealed class WorkspaceStore : IAsyncDisposable
         }
     }
 
-    public WorkspaceState Snapshot => Copy(current);
+    public WorkspaceState Snapshot
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(disposed, this);
+            return Copy(current);
+        }
+    }
 
     public async Task<WorkspaceState> UpdateAsync(Func<WorkspaceState, WorkspaceState> update,
         CancellationToken cancellationToken = default)
@@ -81,6 +92,7 @@ public sealed class WorkspaceStore : IAsyncDisposable
         await gate.WaitAsync(cancellationToken);
         try
         {
+            ObjectDisposedException.ThrowIf(disposed, this);
             var next = update(Copy(current)) ?? throw new InvalidDataException("Null workspace update");
             next = next with { Revision = checked(current.Revision + 1) };
             Validate(next);
@@ -96,9 +108,21 @@ public sealed class WorkspaceStore : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        await gate.WaitAsync();
-        try { await lockFile.DisposeAsync(); }
-        finally { gate.Release(); gate.Dispose(); }
+        await OrganizationGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            await gate.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                if (disposed) return;
+                await lockFile.DisposeAsync().ConfigureAwait(false);
+                disposed = true;
+            }
+            finally { gate.Release(); }
+        }
+        // Keep managed semaphores usable by queued callers so they can observe
+        // the disposed flag rather than race Release against semaphore disposal.
+        finally { OrganizationGate.Release(); }
     }
 
     private static WorkspaceState Copy(WorkspaceState state) =>

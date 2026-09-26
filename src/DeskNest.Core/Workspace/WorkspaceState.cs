@@ -15,6 +15,8 @@ public sealed record WorkspaceDirectoryFileIdentity(
 public sealed record ProposedOperation(Guid Id, Guid FileId, Guid? TargetSpaceId,
     ProposedOperationStatus Status, DateTimeOffset CreatedAt)
 {
+    // Persisted atomically with the metadata result, before transaction journal cleanup.
+    public Guid? CommittedTransactionId { get; init; }
     public string? SourcePath { get; init; }
     public Guid SourceSpaceId { get; init; }
     public string? DestinationPath { get; init; }
