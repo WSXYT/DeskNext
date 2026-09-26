@@ -150,6 +150,8 @@ public sealed class WorkspaceStore : IAsyncDisposable
 
     private static bool IsInvalidDirectoryManifestEntry(WorkspaceDirectoryFileIdentity? item)
     {
+        // Preserve the file-only legacy schema's metadata bounds. Full topology gets
+        // stricter validation below; absent topology never authorizes physical undo.
         if (item is null || string.IsNullOrWhiteSpace(item.RelativePath) || item.RelativePath.Length > 4_096 ||
             Path.IsPathFullyQualified(item.RelativePath) || item.Length < 0 ||
             item.LastWriteTimeUtcTicks < 0 || string.IsNullOrWhiteSpace(item.Sha256) ||
@@ -215,7 +217,16 @@ public sealed class WorkspaceStore : IAsyncDisposable
             bool invalidPaths = operation.SourcePath is { } sourcePath && !Path.IsPathFullyQualified(sourcePath) ||
                 operation.DestinationPath is { } destinationPath && !Path.IsPathFullyQualified(destinationPath);
             bool invalidManifest = operation.OriginalDirectoryManifest is { } manifest &&
-                (manifest.Count > 100_000 || manifest.Any(IsInvalidDirectoryManifestEntry));
+                (manifest.Count > DesktopOrganizationTransaction.MaximumDirectoryEntries ||
+                 manifest.Any(IsInvalidDirectoryManifestEntry));
+            if (operation.OriginalDirectoryPaths is { } directories)
+            {
+                if (invalidManifest || operation.OriginalDirectoryManifest is null)
+                    throw new InvalidDataException("Directory topology has no valid file manifest.");
+                DesktopOrganizationTransaction.ValidateDirectoryManifest(
+                    operation.OriginalDirectoryManifest.Select(item => new DirectoryFileReceipt(item.RelativePath,
+                        new FileIdentity(item.Length, item.LastWriteTimeUtcTicks, item.Sha256))).ToArray(), directories);
+            }
             if (operation.Id == Guid.Empty || !operations.Add(operation.Id) || !files.Contains(operation.FileId) ||
                 !Enum.IsDefined(operation.Status) ||
                 operation.TargetSpaceId is { } operationTarget && !spaces.Contains(operationTarget) ||

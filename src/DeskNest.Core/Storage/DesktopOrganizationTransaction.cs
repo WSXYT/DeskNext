@@ -54,6 +54,8 @@ public sealed record OrganizationDirectoryMoveReceipt(
     IReadOnlyList<DirectoryFileReceipt> Files,
     bool Completed)
 {
+    // Null means legacy evidence, not an empty tree. Never infer missing topology.
+    public IReadOnlyList<string>? Directories { get; init; }
     public bool Restored { get; init; }
 }
 
@@ -317,7 +319,7 @@ public sealed class DesktopOrganizationTransaction
             {
                 if (!Directory.Exists(pending.SourcePath) || File.Exists(pending.DestinationPath) ||
                     Directory.Exists(pending.DestinationPath) ||
-                    !CaptureDirectoryManifest(pending.SourcePath).SequenceEqual(pending.Files))
+                    !DirectoryManifestMatches(pending.SourcePath, pending.Files, pending.Directories))
                     throw new IOException("Unacknowledged directory move requires manual reconciliation; journal retained.");
             }
 
@@ -338,8 +340,7 @@ public sealed class DesktopOrganizationTransaction
                     throw new IOException("Fault injection refused directory restore.");
                 if (!Directory.Exists(move.DestinationPath) || Directory.Exists(move.SourcePath) || File.Exists(move.SourcePath))
                     throw new IOException($"Directory recovery paths are not safe: {move.DestinationPath}");
-                var actual = CaptureDirectoryManifest(move.DestinationPath);
-                if (!actual.SequenceEqual(move.Files))
+                if (!DirectoryManifestMatches(move.DestinationPath, move.Files, move.Directories))
                     throw new IOException($"Directory recovery refused because the destination changed: {move.DestinationPath}");
                 Directory.CreateDirectory(Path.GetDirectoryName(move.SourcePath)!);
                 FileSystemVolume.RequireSameVolume(move.DestinationPath, move.SourcePath);
@@ -419,33 +420,107 @@ public sealed class DesktopOrganizationTransaction
                 throw new InvalidDataException("A directory cannot be moved inside itself.");
             FileSystemVolume.RequireSameVolume(source, destination);
 
-            result.Add(new OrganizationDirectoryMoveReceipt(
-                source, destination, CaptureDirectoryManifest(source), false));
+            var snapshot = CaptureDirectorySnapshot(source);
+            result.Add(new OrganizationDirectoryMoveReceipt(source, destination, snapshot.Files, false)
+            {
+                Directories = snapshot.Directories
+            });
         }
         return result;
     }
 
-    public static IReadOnlyList<DirectoryFileReceipt> CaptureDirectoryManifest(string root)
+    // File-only compatibility helper; physical operations require the full snapshot.
+    public static IReadOnlyList<DirectoryFileReceipt> CaptureDirectoryManifest(string root) =>
+        CaptureDirectorySnapshot(root).Files;
+
+    internal const int MaximumDirectoryEntries = 100_000;
+    internal const int MaximumDirectoryDepth = 128;
+
+    public static (IReadOnlyList<DirectoryFileReceipt> Files, IReadOnlyList<string> Directories)
+        CaptureDirectorySnapshot(string root)
     {
-        var rootInfo = new DirectoryInfo(root);
-        if ((rootInfo.Attributes & FileAttributes.ReparsePoint) != 0)
-            throw new IOException($"Reparse-point directory is not eligible: {root}");
-
+        root = Normalize(root);
         var files = new List<DirectoryFileReceipt>();
-        foreach (string directory in Directory.EnumerateDirectories(root, "*", SearchOption.AllDirectories))
+        var directories = new List<string>();
+        var pending = new Stack<(string Path, int Depth)>();
+        pending.Push((root, 0));
+        while (pending.TryPop(out var current))
         {
-            if ((new DirectoryInfo(directory).Attributes & FileAttributes.ReparsePoint) != 0)
-                throw new IOException($"Reparse-point directory member is not eligible: {directory}");
+            var attributes = File.GetAttributes(current.Path);
+            if ((attributes & FileAttributes.ReparsePoint) != 0 ||
+                (attributes & FileAttributes.Directory) == 0)
+                throw new IOException($"Directory is not eligible for a safe snapshot: {current.Path}");
+            // Enumerate one level only. Inspect links before traversing, including empty directories.
+            foreach (string path in Directory.EnumerateFileSystemEntries(current.Path))
+            {
+                if (files.Count + directories.Count >= MaximumDirectoryEntries ||
+                    current.Depth >= MaximumDirectoryDepth)
+                    throw new IOException("Directory snapshot exceeds its entry or depth budget.");
+                attributes = File.GetAttributes(path);
+                if ((attributes & FileAttributes.ReparsePoint) != 0)
+                    throw new IOException($"Reparse-point directory member is not eligible: {path}");
+                FileSystemVolume.RequireSameVolume(root, path);
+                string relative = Path.GetRelativePath(root, path);
+                if ((attributes & FileAttributes.Directory) != 0)
+                {
+                    directories.Add(relative);
+                    pending.Push((path, current.Depth + 1));
+                }
+                else
+                {
+                    files.Add(new DirectoryFileReceipt(relative, FileIdentity.Capture(path)));
+                }
+            }
         }
+        var sortedFiles = files.OrderBy(item => item.RelativePath, StringComparer.Ordinal).ToArray();
+        var sortedDirectories = directories.Order(StringComparer.Ordinal).ToArray();
+        ValidateDirectoryManifest(sortedFiles, sortedDirectories);
+        return (sortedFiles, sortedDirectories);
+    }
 
-        foreach (string path in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+    internal static bool DirectoryManifestMatches(string root, IReadOnlyList<DirectoryFileReceipt> files,
+        IReadOnlyList<string>? directories)
+    {
+        ValidateDirectoryManifest(files, directories);
+        var actual = CaptureDirectorySnapshot(root);
+        return actual.Files.SequenceEqual(files) && actual.Directories.SequenceEqual(directories!);
+    }
+
+    internal static bool IsValidManifestPath(string? path) =>
+        !string.IsNullOrWhiteSpace(path) && path.Length <= 4_096 &&
+        !Path.IsPathRooted(path) && !path.Contains(':') && !path.Any(char.IsControl) &&
+        path.Split(['/', '\\']).All(part => part.Length > 0 && part is not ("." or "..")) &&
+        path.Split(['/', '\\']).Length <= MaximumDirectoryDepth;
+
+    internal static void ValidateDirectoryManifest(IReadOnlyList<DirectoryFileReceipt> files,
+        IReadOnlyList<string>? directories)
+    {
+        if (directories is null || (long)files.Count + directories.Count > MaximumDirectoryEntries)
+            throw new InvalidDataException("Directory topology evidence is missing or exceeds its budget.");
+        var comparer = GetPathComparer();
+        var entries = new HashSet<string>(comparer);
+        var folders = new HashSet<string>(comparer);
+        foreach (string directory in directories)
         {
-            var info = new FileInfo(path);
-            if ((info.Attributes & FileAttributes.ReparsePoint) != 0)
-                throw new IOException($"Reparse-point directory member is not eligible: {path}");
-            files.Add(new DirectoryFileReceipt(Path.GetRelativePath(root, path), FileIdentity.Capture(path)));
+            if (!IsValidManifestPath(directory) || !entries.Add(directory.Replace('\\', '/')))
+                throw new InvalidDataException("Invalid or duplicate directory topology entry.");
+            folders.Add(directory.Replace('\\', '/'));
         }
-        return files.OrderBy(item => item.RelativePath, StringComparer.Ordinal).ToArray();
+        foreach (var file in files)
+        {
+            if (file is null || !IsValidManifestPath(file.RelativePath) || file.Identity is null ||
+                file.Identity.Length < 0 || file.Identity.LastWriteTimeUtcTicks < 0 ||
+                file.Identity.LastWriteTimeUtcTicks > DateTime.MaxValue.Ticks ||
+                file.Identity.Sha256 is not { Length: 64 } || !file.Identity.Sha256.All(Uri.IsHexDigit) ||
+                !entries.Add(file.RelativePath.Replace('\\', '/')))
+                throw new InvalidDataException("Invalid or duplicate directory file receipt.");
+        }
+        foreach (string entry in entries)
+        {
+            int separator = entry.LastIndexOf('/');
+            if (separator >= 0 && !folders.Contains(entry[..separator]))
+                throw new InvalidDataException("Directory topology is missing an ancestor.");
+        }
     }
 
     private void MoveDirectoryOne(OrganizationDirectoryMoveReceipt move)
@@ -454,8 +529,7 @@ public sealed class DesktopOrganizationTransaction
             throw new IOException($"Fault injection refused directory move: {move.SourcePath}");
         if (Directory.Exists(move.DestinationPath) || File.Exists(move.DestinationPath))
             throw new IOException($"Destination appeared during directory move: {move.DestinationPath}");
-        var current = CaptureDirectoryManifest(move.SourcePath);
-        if (!current.SequenceEqual(move.Files))
+        if (!DirectoryManifestMatches(move.SourcePath, move.Files, move.Directories))
             throw new IOException($"Directory changed before move: {move.SourcePath}");
         Directory.CreateDirectory(Path.GetDirectoryName(move.DestinationPath)!);
         FileSystemVolume.RequireSameVolume(move.SourcePath, move.DestinationPath);
@@ -601,6 +675,7 @@ public sealed class DesktopOrganizationTransaction
                 move.Files.Any(file => file is null || file.Identity is null || string.IsNullOrWhiteSpace(file.RelativePath)) ||
                 move.Restored && (!move.Completed || journal.Status != "Recovering"))
                 throw new InvalidDataException("Malformed directory recovery receipt.");
+            ValidateDirectoryManifest(move.Files, move.Directories);
         }
     }
 

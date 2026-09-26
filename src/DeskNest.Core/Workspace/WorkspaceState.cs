@@ -24,6 +24,8 @@ public sealed record ProposedOperation(Guid Id, Guid FileId, Guid? TargetSpaceId
     public long? OriginalLastWriteUtcTicks { get; init; }
     public string? OriginalSha256 { get; init; }
     public List<WorkspaceDirectoryFileIdentity>? OriginalDirectoryManifest { get; init; }
+    // Absent on legacy operations; undo must not invent empty-directory evidence.
+    public List<string>? OriginalDirectoryPaths { get; init; }
 }
 
 public sealed record WorkspaceSettings

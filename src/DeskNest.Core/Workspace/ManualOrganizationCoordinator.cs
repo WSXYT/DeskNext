@@ -126,8 +126,9 @@ public sealed class ManualOrganizationCoordinator
                     var saved = operation.OriginalDirectoryManifest
                         ?? throw new InvalidDataException("The directory operation has no manifest for undo.");
                     var expected = saved.Select(item => new DirectoryFileReceipt(item.RelativePath,
-                        new FileIdentity(item.Length, item.LastWriteTimeUtcTicks, item.Sha256)));
-                    if (!DesktopOrganizationTransaction.CaptureDirectoryManifest(file.Path).SequenceEqual(expected))
+                        new FileIdentity(item.Length, item.LastWriteTimeUtcTicks, item.Sha256))).ToArray();
+                    if (!DesktopOrganizationTransaction.DirectoryManifestMatches(file.Path, expected,
+                        operation.OriginalDirectoryPaths))
                         throw new IOException("Undo refused because the moved directory contents changed.");
                 }
                 else
@@ -183,10 +184,12 @@ public sealed class ManualOrganizationCoordinator
                     retainJournalUntilCommit: true).ConfigureAwait(false)
                 : await _transaction.ExecuteAsync([new(source, destination)], cancellationToken,
                     retainJournalUntilCommit: true).ConfigureAwait(false);
-            var manifest = result.DirectoryReceipts?.SingleOrDefault()?.Files.Select(item =>
+            var directoryReceipt = result.DirectoryReceipts?.SingleOrDefault();
+            var manifest = directoryReceipt?.Files.Select(item =>
                 new WorkspaceDirectoryFileIdentity(item.RelativePath, item.Identity.Length,
                     item.Identity.LastWriteTimeUtcTicks, item.Identity.Sha256)).ToList();
-            if (file.IsDirectory && manifest is null)
+            var directories = directoryReceipt?.Directories?.ToList();
+            if (file.IsDirectory && (manifest is null || directories is null))
                 throw new InvalidDataException("The directory transaction returned no recovery manifest.");
 
             await _store.UpdateAsync(state => state with
@@ -200,7 +203,8 @@ public sealed class ManualOrganizationCoordinator
                     {
                         Status = undo is null ? ProposedOperationStatus.Completed : ProposedOperationStatus.Undone,
                         CommittedTransactionId = result.OperationId,
-                        OriginalDirectoryManifest = undo is null ? manifest : item.OriginalDirectoryManifest
+                        OriginalDirectoryManifest = undo is null ? manifest : item.OriginalDirectoryManifest,
+                        OriginalDirectoryPaths = undo is null ? directories : item.OriginalDirectoryPaths
                     } : item).ToList()
             }, cancellationToken).ConfigureAwait(false);
             metadataCommitted = true;

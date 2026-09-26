@@ -110,7 +110,8 @@ public sealed class DesktopOrganizationTransactionTests
             Guid.NewGuid(), "RecoveryRequired", [], DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
             [new OrganizationDirectoryMoveReceipt(
                 source, destination,
-                [new DirectoryFileReceipt(Path.Combine("nested", "item.txt"), identity)], true)]);
+                [new DirectoryFileReceipt(Path.Combine("nested", "item.txt"), identity)], true)
+                { Directories = ["nested"] }]);
         await File.WriteAllTextAsync(journal, JsonSerializer.Serialize(recoveryJournal));
         var restored = await new DesktopOrganizationTransaction(journal).RecoverAsync();
 

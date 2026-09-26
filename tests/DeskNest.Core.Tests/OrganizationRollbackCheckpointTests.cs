@@ -104,7 +104,8 @@ public sealed class OrganizationRollbackCheckpointTests : IDisposable
             directory ? [] : [new OrganizationMoveReceipt(Source(1), Destination(1), FileIdentity.Capture(Source(1)), true)
                 { Restored = checkpointed }], DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
             directory ? [new OrganizationDirectoryMoveReceipt(Source(1), Destination(1),
-                DesktopOrganizationTransaction.CaptureDirectoryManifest(Source(1)), true) { Restored = checkpointed }] : null);
+                DesktopOrganizationTransaction.CaptureDirectoryManifest(Source(1)), true)
+                { Restored = checkpointed, Directories = [] }] : null);
         await File.WriteAllTextAsync(Journal, JsonSerializer.Serialize(journal));
         var transaction = new DesktopOrganizationTransaction(Journal);
         if (checkpointed)

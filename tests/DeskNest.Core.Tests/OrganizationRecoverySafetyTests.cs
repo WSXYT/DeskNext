@@ -83,7 +83,7 @@ public sealed class OrganizationRecoverySafetyTests : IDisposable
         string destination = Directory.CreateDirectory(Path.Combine(root, "target")).FullName;
         await File.WriteAllTextAsync(Path.Combine(destination, "file.txt"), "moved");
         var receipt = new OrganizationDirectoryMoveReceipt(source, destination,
-            DesktopOrganizationTransaction.CaptureDirectoryManifest(destination), false);
+            DesktopOrganizationTransaction.CaptureDirectoryManifest(destination), false) { Directories = [] };
         var journal = new OrganizationRecoveryJournal(Guid.NewGuid(), "Prepared", [],
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, [receipt]);
         await File.WriteAllTextAsync(Journal, JsonSerializer.Serialize(journal));
