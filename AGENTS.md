@@ -8,7 +8,8 @@
 - Sorted directory topology: 100,000 entries/depth 128. Legacy null topology loads but cannot authorize undo/recovery.
 - Managed deletion uses app recovery storage, not OS trash. Open/reveal/preview rejects relative/URI/reparse paths; previews are bounded. Production Copy/copy-Paste stays gated. Unsupported streams fail closed. Retain intents; never auto-adopt/delete unconfirmed copies. Validate native destination ancestry before creating parents.
 - Catalog only existing in-root items; external space import stays gated.
+- Release singleton subscriptions with their UI owners.
 - Monitoring supports Desktop and selected folders: whitelist, baseline, health, pause/rescan, target binding. No takeover before S01–S08.
-- CI uses physical macOS temporary paths; alias provisioning is hosted-CI-only. Skips are not native evidence.
+- CI uses physical macOS temp paths and hosted-CI-only aliases. Require terminal probe JSON; skips aren't native evidence.
 - Preserve provenance, twelve-locale parity, F01–F13/inference evidence and screenshot honesty. Python/models stay in ignored `artifacts/`; synthetic images cannot prove desktop compositing.
 <!-- pi-agents-md:end -->

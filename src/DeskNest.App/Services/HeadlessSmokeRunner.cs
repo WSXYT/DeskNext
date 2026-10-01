@@ -68,6 +68,8 @@ public sealed class SmokeTestResult
     public bool StartupRecoveryRetryVerified { get; set; }
     public bool CompanionLifetimeVerified { get; set; }
     public bool SpaceMetadataBoundaryVerified { get; set; }
+    public bool FileRowLifetimeVerified { get; set; }
+    public bool WorkspaceViewModelLifetimeVerified { get; set; }
     public bool WorkspaceFileCallbacksInvoked { get; set; }
     public bool WorkspaceFileManagedVsMappedVerified { get; set; }
     public bool WorkspaceFileSelectionRetentionVerified { get; set; }
@@ -200,6 +202,70 @@ public static class HeadlessSmokeRunner
             AwaitOnUIThread(unopenedVm.DisposeAsync().AsTask(), "pre-open retry disposal");
             Directory.Delete(unopenedRoot, recursive: true);
         }
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static WeakReference CreateDiscardedFileRow() => new(new WorkspaceFileItemViewModel(
+        Guid.NewGuid(), Guid.NewGuid(), "discarded.txt", Path.Combine(Path.GetTempPath(), "discarded.txt"), false));
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static WeakReference[] CreateDiscardedWorkspaceGraph()
+    {
+        var space = new WorkspaceSpace(Guid.NewGuid(), "Lifetime fixture", "", SpaceStorageMode.Managed,
+            Path.Combine(Path.GetTempPath(), "DeskNext-lifetime"));
+        var file = new WorkspaceFile(Guid.NewGuid(), space.Id, "item.txt", Path.Combine(space.Folder, "item.txt"), false);
+        var operation = new ProposedOperation(Guid.NewGuid(), file.Id, space.Id,
+            ProposedOperationStatus.Completed, DateTimeOffset.UtcNow);
+        var main = new MainWindowViewModel(new WorkspaceState
+        {
+            OnboardingComplete = true, OnboardingStep = 5,
+            Spaces = [space], Files = [file], Operations = [operation]
+        });
+        var studio = main.Studio ?? throw new InvalidOperationException("Lifetime fixture has no Studio.");
+        var selected = studio.SelectedSpace ?? throw new InvalidOperationException("Lifetime fixture has no space.");
+        WeakReference[] references = [new(main), new(studio), new(selected),
+            new(selected.Files.Single()), new(studio.OperationHistory.Single())];
+        main.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        return references;
+    }
+
+    private static void VerifyFileRowLifetime()
+    {
+        var abandoned = CreateDiscardedFileRow();
+        for (int i = 0; i < 3; i++)
+        {
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+        }
+        if (abandoned.IsAlive)
+            throw new InvalidOperationException("The localization singleton retained a discarded file row.");
+        var graph = CreateDiscardedWorkspaceGraph();
+        for (int i = 0; i < 3; i++)
+        {
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+        }
+        if (graph.Any(reference => reference.IsAlive))
+            throw new InvalidOperationException("A singleton retained a disposed workspace or its discarded rows.");
+        var row = new WorkspaceFileItemViewModel(Guid.NewGuid(), Guid.NewGuid(), "live.txt",
+            Path.Combine(Path.GetTempPath(), "live.txt"), false);
+        var notifications = new HashSet<string?>();
+        row.PropertyChanged += (_, e) => notifications.Add(e.PropertyName);
+        var localizer = LocalizationManager.Instance;
+        string previous = localizer.CurrentLanguage;
+        try
+        {
+            localizer.CurrentLanguage = previous == "en-US" ? "zh-CN" : "en-US";
+            if (!notifications.Contains(nameof(row.CapabilityBadgeText)) ||
+                !notifications.Contains(nameof(row.CapabilityDescription)) ||
+                !notifications.Contains(nameof(row.DeleteActionText)) ||
+                row.CapabilityBadgeText != localizer[row.CapabilityBadgeKey])
+                throw new InvalidOperationException("A live file row stopped observing localization changes.");
+        }
+        finally { localizer.CurrentLanguage = previous; }
+        GC.KeepAlive(row);
     }
 
     private static void VerifySpaceMetadataBoundary()
@@ -409,6 +475,9 @@ public static class HeadlessSmokeRunner
                 .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
 
             builder.SetupWithoutStarting();
+            VerifyFileRowLifetime();
+            result.FileRowLifetimeVerified = true;
+            result.WorkspaceViewModelLifetimeVerified = true;
             VerifyStartupRecoveryRetry();
             result.StartupRecoveryRetryVerified = true;
             VerifyCompanionLifetime();

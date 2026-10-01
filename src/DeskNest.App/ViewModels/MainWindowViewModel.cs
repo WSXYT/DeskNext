@@ -130,19 +130,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         _selectedTheme = ThemeMgr.CurrentThemeMode;
         Probe = new SystemProbeViewModel();
 
-        Localizer.LanguageChanged += OnLanguageChanged;
-        Localizer.PropertyChanged += (s, e) =>
-        {
-            OnPropertyChanged(nameof(CurrentFlowDirection));
-            OnPropertyChanged(nameof(Localizer));
-        };
-
-        ThemeMgr.ThemeChanged += (s, mode) =>
-        {
-            _selectedTheme = mode;
-            OnPropertyChanged(nameof(SelectedTheme));
-        };
-
+        SubscribeToSettings();
         _ = InitializeWorkspaceAsync();
     }
 
@@ -162,19 +150,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         _selectedTheme = ThemeMgr.CurrentThemeMode;
         Probe = new SystemProbeViewModel();
 
-        Localizer.LanguageChanged += OnLanguageChanged;
-        Localizer.PropertyChanged += (s, e) =>
-        {
-            OnPropertyChanged(nameof(CurrentFlowDirection));
-            OnPropertyChanged(nameof(Localizer));
-        };
-
-        ThemeMgr.ThemeChanged += (s, mode) =>
-        {
-            _selectedTheme = mode;
-            OnPropertyChanged(nameof(SelectedTheme));
-        };
-
+        SubscribeToSettings();
         ApplySnapshot(store.Snapshot);
         IsLoading = false;
         StartupState = StartupState.Ready;
@@ -193,19 +169,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         _selectedTheme = ThemeMgr.CurrentThemeMode;
         Probe = new SystemProbeViewModel();
 
-        Localizer.LanguageChanged += OnLanguageChanged;
-        Localizer.PropertyChanged += (s, e) =>
-        {
-            OnPropertyChanged(nameof(CurrentFlowDirection));
-            OnPropertyChanged(nameof(Localizer));
-        };
-
-        ThemeMgr.ThemeChanged += (s, mode) =>
-        {
-            _selectedTheme = mode;
-            OnPropertyChanged(nameof(SelectedTheme));
-        };
-
+        SubscribeToSettings();
         ApplySnapshot(state);
         IsLoading = false;
         StartupState = StartupState.Ready;
@@ -870,6 +834,26 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         }
     }
 
+    private void SubscribeToSettings()
+    {
+        Localizer.LanguageChanged += OnLanguageChanged;
+        Localizer.PropertyChanged += OnLocalizerPropertyChanged;
+        ThemeMgr.ThemeChanged += OnThemeChanged;
+    }
+
+    private void OnLocalizerPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (_disposed) return;
+        OnPropertyChanged(nameof(CurrentFlowDirection));
+        OnPropertyChanged(nameof(Localizer));
+    }
+
+    private void OnThemeChanged(object? sender, AppThemeMode mode)
+    {
+        if (_disposed) return;
+        SelectedTheme = mode;
+    }
+
     public async ValueTask DisposeAsync()
     {
         await _startupGate.WaitAsync().ConfigureAwait(false);
@@ -877,6 +861,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         {
             if (_disposed) return;
             _disposed = true;
+            Localizer.LanguageChanged -= OnLanguageChanged;
+            Localizer.PropertyChanged -= OnLocalizerPropertyChanged;
+            ThemeMgr.ThemeChanged -= OnThemeChanged;
             if (_ownsStore && _store != null)
                 await _store.DisposeAsync().ConfigureAwait(false);
             _store = null;
@@ -887,6 +874,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
 
     private void OnLanguageChanged(object? sender, string langCode)
     {
+        if (_disposed) return;
         foreach (var lang in SupportedLanguages)
         {
             if (lang.Code.Equals(langCode, StringComparison.OrdinalIgnoreCase))

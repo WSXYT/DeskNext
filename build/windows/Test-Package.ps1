@@ -86,7 +86,6 @@ if ($RecoveryProbe) {
         @($results | Where-Object { $_.Success -ne $true -or $_.forciblyTerminated -ne $true }).Count -ne 0) {
         throw 'Installed recovery probe did not pass every expected force-kill scenario.'
     }
-    Write-Output (Get-Content -LiteralPath $recoveryLog -Raw)
 }
 $sentinel = Join-Path $installRoot 'user-sentinel.txt'
 [IO.File]::WriteAllText($sentinel, 'preserve')

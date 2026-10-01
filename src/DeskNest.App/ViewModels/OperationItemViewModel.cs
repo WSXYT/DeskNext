@@ -1,4 +1,6 @@
 using System;
+using System.ComponentModel;
+using Avalonia.Utilities;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -85,12 +87,16 @@ public sealed partial class OperationItemViewModel : ViewModelBase
         FileName = string.IsNullOrWhiteSpace(fileName) ? operation.FileId.ToString() : fileName;
         TargetSpaceName = targetSpaceName ?? string.Empty;
 
-        Localizer.LanguageChanged += (_, _) =>
-        {
-            OnPropertyChanged(nameof(StatusLocalized));
-            OnPropertyChanged(nameof(StatusDescription));
-            OnPropertyChanged(nameof(RecoveryActionPrompt));
-            OnPropertyChanged(nameof(NoUndoNotice));
-        };
+        WeakEventHandlerManager.Subscribe<LocalizationManager, PropertyChangedEventArgs, OperationItemViewModel>(
+            Localizer, nameof(LocalizationManager.PropertyChanged), OnLocalizerChanged);
+    }
+
+    private void OnLocalizerChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(LocalizationManager.CurrentLanguage)) return;
+        OnPropertyChanged(nameof(StatusLocalized));
+        OnPropertyChanged(nameof(StatusDescription));
+        OnPropertyChanged(nameof(RecoveryActionPrompt));
+        OnPropertyChanged(nameof(NoUndoNotice));
     }
 }

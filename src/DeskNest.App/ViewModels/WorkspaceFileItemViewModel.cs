@@ -1,4 +1,6 @@
 using System;
+using System.ComponentModel;
+using Avalonia.Utilities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using DeskNest.App.Localization;
 using DeskNest.Core.Workspace;
@@ -77,11 +79,16 @@ public sealed partial class WorkspaceFileItemViewModel : ViewModelBase
         _storageMode = storageMode;
         _isInTrash = isInTrash;
 
-        Localizer.LanguageChanged += (_, _) =>
-        {
-            OnPropertyChanged(nameof(CapabilityBadgeText));
-            OnPropertyChanged(nameof(CapabilityDescription));
-            OnPropertyChanged(nameof(DeleteActionText));
-        };
+        // Rows are replaced during refresh; the singleton must not retain discarded rows.
+        WeakEventHandlerManager.Subscribe<LocalizationManager, PropertyChangedEventArgs, WorkspaceFileItemViewModel>(
+            Localizer, nameof(LocalizationManager.PropertyChanged), OnLocalizerChanged);
+    }
+
+    private void OnLocalizerChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(LocalizationManager.CurrentLanguage)) return;
+        OnPropertyChanged(nameof(CapabilityBadgeText));
+        OnPropertyChanged(nameof(CapabilityDescription));
+        OnPropertyChanged(nameof(DeleteActionText));
     }
 }

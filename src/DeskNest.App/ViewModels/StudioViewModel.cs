@@ -1,4 +1,6 @@
 using System;
+using System.ComponentModel;
+using Avalonia.Utilities;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -524,15 +526,19 @@ public sealed partial class StudioViewModel : ViewModelBase
         foreach (var e in state.Settings.ExcludedFolders)
             SettingsExcludedFolders.Add(e);
 
-        Localizer.LanguageChanged += (_, _) =>
-        {
-            OnPropertyChanged(nameof(ManualMoveStatusNotice));
-            OnPropertyChanged(nameof(ManualUndoStatusNotice));
-            NotifyFileActionGates();
-        };
+        WeakEventHandlerManager.Subscribe<LocalizationManager, PropertyChangedEventArgs, StudioViewModel>(
+            Localizer, nameof(LocalizationManager.PropertyChanged), OnLocalizerChanged);
 
         // Load spaces and files
         RefreshFromState(state);
+    }
+
+    private void OnLocalizerChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(LocalizationManager.CurrentLanguage)) return;
+        OnPropertyChanged(nameof(ManualMoveStatusNotice));
+        OnPropertyChanged(nameof(ManualUndoStatusNotice));
+        NotifyFileActionGates();
     }
 
     private static readonly char[] CrossPlatformForbiddenChars =
