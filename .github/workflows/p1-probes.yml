@@ -37,29 +37,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         timeout-minutes: 3
-        run: |
-          # Ephemeral CI runner only; never alter an existing drive mapping.
-          if (Get-PSDrive -Name Z -ErrorAction SilentlyContinue) {
-            throw 'Z: is occupied; refusing to replace it.'
-          }
-          $root = [IO.Path]::GetPathRoot([IO.Path]::GetTempPath())
-          $volume = (mountvol.exe $root /L | Out-String).Trim()
-          if (!$volume.StartsWith('\\?\Volume{') -or
-              !$volume.EndsWith('}\')) { throw 'Missing native volume GUID.' }
-          # Direct volume mapping, not SUBST (OBJ_DONT_REPARSE rejects SUBST).
-          mountvol.exe Z:\ $volume
-          if ($LASTEXITCODE -ne 0) { throw 'Could not create test alias.' }
-          try {
-            $env:DESKNEXT_TEST_VOLUME_ALIAS = 'Z:\'
-            $project = 'tests/DeskNest.Core.Tests/DeskNest.Core.Tests.csproj'
-            dotnet test $project -c Release --no-build --no-restore `
-              --filter 'FullyQualifiedName~WindowsCopyDestinationTests'
-            if ($LASTEXITCODE -ne 0) { throw 'Native alias tests failed.' }
-          } finally {
-            Remove-Item Env:DESKNEXT_TEST_VOLUME_ALIAS
-            mountvol.exe Z:\ /D
-            if ($LASTEXITCODE -ne 0) { throw 'Test alias cleanup failed.' }
-          }
+        run: ./build/windows/Test-VolumeAlias.ps1
       - name: Exercise isolated force-kill recovery boundaries (Windows P3 probe)
         if: runner.os == 'Windows'
         shell: pwsh
