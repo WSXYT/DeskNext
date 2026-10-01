@@ -207,6 +207,56 @@ public sealed class WorkspaceStoreTests
     }
 
     [Fact]
+    public async Task ManagedDeleteMovesIntoApplicationTrashAndUndoRestores()
+    {
+        using var temp = new TemporaryDirectory();
+        string managedFolder = Path.Combine(temp.Path, "managed");
+        Directory.CreateDirectory(managedFolder);
+        string sourcePath = Path.Combine(managedFolder, "remove.txt");
+        await File.WriteAllTextAsync(sourcePath, "trash me");
+        var space = new WorkspaceSpace(Guid.NewGuid(), "Managed", "", SpaceStorageMode.Managed, managedFolder);
+        var file = new WorkspaceFile(Guid.NewGuid(), space.Id, "remove.txt", sourcePath, false);
+        await using var store = await WorkspaceStore.OpenAsync(temp.Path);
+        await store.UpdateAsync(state => state with { Spaces = [space], Files = [file] });
+        var coordinator = new ManualOrganizationCoordinator(store,
+            new DesktopOrganizationTransaction(Path.Combine(temp.Path, "operation.json")));
+
+        await coordinator.DeleteManagedFileAsync(file.Id);
+        var deleted = store.Snapshot.Files.Single();
+        var operation = store.Snapshot.Operations.Single();
+        Assert.True(deleted.IsInTrash);
+        Assert.False(File.Exists(sourcePath));
+        Assert.True(File.Exists(deleted.Path));
+        Assert.StartsWith(Path.Combine(managedFolder, ".desknest-trash"), deleted.Path,
+            StringComparison.OrdinalIgnoreCase);
+
+        await coordinator.UndoOperationAsync(operation.Id);
+        Assert.False(store.Snapshot.Files.Single().IsInTrash);
+        Assert.True(File.Exists(sourcePath));
+        Assert.False(File.Exists(deleted.Path));
+        Assert.Equal(ProposedOperationStatus.Undone, store.Snapshot.Operations.Single().Status);
+    }
+
+    [Fact]
+    public async Task ManagedDeleteRefusesMappedReference()
+    {
+        using var temp = new TemporaryDirectory();
+        string sourcePath = Path.Combine(temp.Path, "mapped.txt");
+        await File.WriteAllTextAsync(sourcePath, "keep");
+        var space = new WorkspaceSpace(Guid.NewGuid(), "Mapped", "", SpaceStorageMode.Mapped, temp.Path);
+        var file = new WorkspaceFile(Guid.NewGuid(), space.Id, "mapped.txt", sourcePath, false);
+        await using var store = await WorkspaceStore.OpenAsync(temp.Path);
+        await store.UpdateAsync(state => state with { Spaces = [space], Files = [file] });
+        var coordinator = new ManualOrganizationCoordinator(store,
+            new DesktopOrganizationTransaction(Path.Combine(temp.Path, "operation.json")));
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => coordinator.DeleteManagedFileAsync(file.Id));
+        Assert.True(File.Exists(sourcePath));
+        Assert.Empty(store.Snapshot.Operations);
+    }
+
+
+    [Fact]
     public async Task ManualCoordinatorRenamesManagedFileThroughTransactionAndUndo()
     {
         using var temp = new TemporaryDirectory();

@@ -71,6 +71,50 @@ public sealed class DesktopOrganizationMonitorTests
         Assert.True(Directory.Exists(nested));
     }
 
+    [Fact]
+    public async Task DirectoryCandidateIsUnstableWhenNestedContentChanges()
+    {
+        using var root = new TemporaryDirectory();
+        await using var monitor = new DesktopOrganizationMonitor(
+            new DesktopOrganizationMonitorOptions([root.Path], []), _ => Task.CompletedTask);
+        string project = Directory.CreateDirectory(Path.Combine(root.Path, "project")).FullName;
+        var result = await monitor.WaitForStabilityAsync(project, true, default,
+            _ => File.WriteAllTextAsync(Path.Combine(project, "nested.txt"), "still-writing"));
+        Assert.False(result.Stable);
+        Assert.True(result.WithinBudget);
+        Assert.False(result.ReparsePoint);
+    }
+
+    [Fact]
+    public async Task DirectoryCandidateBecomesManualFolderWhenBoundedTreeIsStable()
+    {
+        using var root = new TemporaryDirectory();
+        var candidates = new TaskCompletionSource<DesktopOrganizationMonitorCandidate>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var monitor = new DesktopOrganizationMonitor(
+            new DesktopOrganizationMonitorOptions([root.Path], [], QueueCapacity: 8,
+                StabilityWindow: TimeSpan.FromMilliseconds(20), DirectoryEntryLimit: 4),
+            batch =>
+            {
+                var candidate = batch.FirstOrDefault(item => item.Path.EndsWith("stable", StringComparison.OrdinalIgnoreCase));
+                if (candidate is not null) candidates.TrySetResult(candidate);
+                return Task.CompletedTask;
+            });
+        using var staging = new TemporaryDirectory();
+        string prepared = Directory.CreateDirectory(Path.Combine(staging.Path, "prepared")).FullName;
+        string nested = Directory.CreateDirectory(Path.Combine(prepared, "nested")).FullName;
+        File.WriteAllText(Path.Combine(nested, "one.txt"), "one");
+        await monitor.StartAsync();
+        string stable = Path.Combine(root.Path, "stable");
+        Directory.Move(prepared, stable);
+        var observed = await Task.WhenAny(candidates.Task, Task.Delay(TimeSpan.FromSeconds(3)));
+        Assert.Same(candidates.Task, observed);
+        var candidate = await candidates.Task;
+        Assert.True(candidate.IsStable);
+        Assert.Equal(DesktopOrganizationExclusionReason.Folder, candidate.ExclusionReason);
+    }
+
+
     private sealed class TemporaryDirectory : IDisposable
     {
         public string Path { get; } = Directory.CreateDirectory(System.IO.Path.Combine(

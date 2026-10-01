@@ -201,6 +201,8 @@ public sealed class WorkspaceStore : IAsyncDisposable
                 string.IsNullOrWhiteSpace(file.Name) || file.Name.Length > 260 ||
                 !Path.IsPathFullyQualified(file.Path))
                 throw new InvalidDataException("Invalid or orphaned workspace file metadata");
+            if (file.Publication is { } publication)
+                PublicationEvidenceValidation.Validate(publication, file.IsDirectory);
         }
         var pending = new HashSet<Guid>();
         foreach (var item in state.Pending)
@@ -225,7 +227,8 @@ public sealed class WorkspaceStore : IAsyncDisposable
                     throw new InvalidDataException("Directory topology has no valid file manifest.");
                 DesktopOrganizationTransaction.ValidateDirectoryManifest(
                     operation.OriginalDirectoryManifest.Select(item => new DirectoryFileReceipt(item.RelativePath,
-                        new FileIdentity(item.Length, item.LastWriteTimeUtcTicks, item.Sha256))).ToArray(), directories);
+                        new FileIdentity(item.Length, item.LastWriteTimeUtcTicks, item.Sha256)
+                        { NativeId = item.NativeId })).ToArray(), directories);
             }
             if (operation.Id == Guid.Empty || !operations.Add(operation.Id) || !files.Contains(operation.FileId) ||
                 !Enum.IsDefined(operation.Status) ||

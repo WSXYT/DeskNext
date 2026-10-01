@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <InternalsVisibleTo Include="DeskNest.Core.Tests" />
+    <InternalsVisibleTo Include="DeskNest.RecoveryProbe" />
   </ItemGroup>
 </Project>

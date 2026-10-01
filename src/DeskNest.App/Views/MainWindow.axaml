@@ -6,103 +6,74 @@
         xmlns:th="using:DeskNest.App.Themes"
         x:Class="DeskNest.App.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Title="{Binding Localizer[App.Title]}"
+        Title="DeskNext"
         Width="1280" Height="760"
         MinWidth="960" MinHeight="600"
         WindowStartupLocation="CenterScreen"
-        Background="{DynamicResource WindowBackgroundBrush}"
+        WindowDecorations="None"
+        ExtendClientAreaToDecorationsHint="False"
+        CanResize="True"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent"
+        TransparencyBackgroundFallback="{DynamicResource WindowBackgroundBrush}"
         Foreground="{DynamicResource TextPrimaryBrush}"
         FlowDirection="{Binding CurrentFlowDirection}">
 
+    <Border x:Name="WindowFrame"
+            CornerRadius="{DynamicResource RadiusWindow}"
+            Background="{DynamicResource WindowBackgroundBrush}"
+            BorderBrush="{DynamicResource BorderSubtleBrush}"
+            BorderThickness="1"
+            ClipToBounds="True">
     <Grid RowDefinitions="Auto,*,Auto">
-        <!-- TOP HEADER BAR -->
+        <!-- COMPACT APPLICATION CHROME (Window Title Bar & Global Utility) -->
         <Border Grid.Row="0"
+                Height="38"
                 Background="{DynamicResource SurfaceBrush}"
                 BorderBrush="{DynamicResource BorderSubtleBrush}"
                 BorderThickness="0,0,0,1"
-                Padding="18,10">
+                DoubleTapped="OnTitleBarDoubleTapped"
+                PointerPressed="OnTitleBarPointerPressed">
             <Grid ColumnDefinitions="Auto,*,Auto">
-                <!-- Brand & Workspace Identity -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                    <Border Width="30" Height="30"
-                            CornerRadius="{DynamicResource RadiusSmall}"
-                            Background="{DynamicResource SurfaceElevatedBrush}"
-                            BorderBrush="{DynamicResource BorderStrongBrush}"
-                            BorderThickness="1">
-                        <TextBlock Text="栖"
-                                   Foreground="{DynamicResource TextPrimaryBrush}"
-                                   FontWeight="Bold"
-                                   FontSize="14"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"/>
-                    </Border>
-
-                    <StackPanel VerticalAlignment="Center" Spacing="2">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="{Binding Localizer[App.Title]}"
-                                       FontWeight="Bold"
-                                       FontSize="15"
-                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
-
-                            <Border CornerRadius="{DynamicResource RadiusSmall}"
-                                    Background="{DynamicResource AccentSubtleBrush}"
-                                    BorderBrush="{DynamicResource AccentBorderBrush}"
-                                    BorderThickness="1"
-                                    Padding="5,1">
-                                <TextBlock Text="{Binding Localizer[App.ProbeTagP2]}"
-                                           FontSize="10"
-                                           FontFamily="Consolas,Menlo,Monospace"
-                                           FontWeight="SemiBold"
-                                           Foreground="{DynamicResource AccentTextBrush}"/>
-                            </Border>
-                        </StackPanel>
-
-                        <!-- Clean Utility Subtitle -->
-                        <TextBlock Text="{Binding Localizer[App.Tagline]}"
-                                   FontSize="11"
-                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
-                    </StackPanel>
+                <StackPanel Grid.Column="0"
+                            Orientation="Horizontal"
+                            Spacing="9"
+                            VerticalAlignment="Center"
+                            Margin="14,0,0,0">
+                    <PathIcon Data="{StaticResource IconDeskNext}"
+                              Width="21" Height="21"
+                              Foreground="{DynamicResource AccentPrimaryBrush}"/>
+                    <TextBlock Text="DeskNext"
+                               FontWeight="SemiBold" FontSize="13"
+                               VerticalAlignment="Center"/>
                 </StackPanel>
 
-                <!-- Controls: Theme and Language -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                    <!-- Theme Selector -->
-                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding Localizer[Theme.Label]}"
-                                   FontSize="11"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        <ComboBox ItemsSource="{Binding SupportedThemes}"
-                                  SelectedItem="{Binding SelectedTheme}"
-                                  CornerRadius="{DynamicResource RadiusSmall}"
-                                  FontSize="12"
-                                  Width="105">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate x:DataType="th:AppThemeMode">
-                                    <TextBlock Text="{Binding}"/>
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
-                    </StackPanel>
+                <Panel Grid.Column="1" Background="Transparent"/>
 
-                    <!-- Language Selector -->
-                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding Localizer[Language.Label]}"
-                                   FontSize="11"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        <ComboBox ItemsSource="{Binding SupportedLanguages}"
-                                  SelectedItem="{Binding SelectedLanguage}"
-                                  CornerRadius="{DynamicResource RadiusSmall}"
-                                  FontSize="12"
-                                  Width="170">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate x:DataType="loc:LanguageInfo">
-                                    <TextBlock Text="{Binding DisplayText}"/>
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
-                    </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Stretch">
+                    <Button Classes="WindowChromeButton"
+                            Click="OnMinimizeWindowClick"
+                            Focusable="False">
+                        <PathIcon Data="{StaticResource IconChromeMinimize}"
+                                  Width="10" Height="10"
+                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </Button>
+                    <Button Classes="WindowChromeButton"
+                            Click="OnMaximizeRestoreWindowClick"
+                            Focusable="False">
+                        <PathIcon x:Name="MaximizeIcon"
+                                  Data="{StaticResource IconChromeMaximize}"
+                                  Width="10" Height="10"
+                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </Button>
+                    <Button Classes="WindowChromeButton CloseButton"
+                            Click="OnCloseWindowClick"
+                            ToolTip.Tip="{Binding Localizer[Action.Close]}"
+                            Focusable="False">
+                        <PathIcon Data="{StaticResource IconChromeClose}"
+                                  Width="10" Height="10"
+                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>
@@ -122,7 +93,8 @@
             </Border>
 
             <!-- 2. Startup Error View (Visible fail-closed without overwriting metadata) -->
-            <Border IsVisible="{Binding HasStartupError}" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24" MaxWidth="680">
+            <ScrollViewer IsVisible="{Binding HasStartupError}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                          Padding="24" MaxWidth="760" VerticalScrollBarVisibility="Auto">
                 <Border Background="{DynamicResource SurfaceBrush}"
                         BorderBrush="{DynamicResource WarningBadgeFgBrush}"
                         BorderThickness="1"
@@ -167,6 +139,20 @@
                                        TextWrapping="Wrap"/>
                         </Border>
 
+                        <StackPanel Spacing="8" IsVisible="{Binding IsRecoveryRequired}">
+                            <Button Content="{Binding Localizer[Startup.RecoveryDetails]}"
+                                    Command="{Binding InspectRecoveryEvidenceCommand}"/>
+                            <TextBlock Text="{Binding Localizer[Startup.RecoveryDetailsNotice]}"
+                                       TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <TextBox x:Name="RecoveryEvidenceTextBox" Text="{Binding RecoveryEvidenceText, Mode=OneWay}"
+                                     IsVisible="{Binding HasRecoveryEvidence}" IsReadOnly="True" AcceptsReturn="True"
+                                     Height="180" TextWrapping="NoWrap" FontFamily="Consolas,Menlo,Monospace"
+                                     FontSize="12" FlowDirection="LeftToRight"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                     AutomationProperties.Name="{Binding Localizer[Startup.RecoveryDetails]}"/>
+                        </StackPanel>
+
                         <!-- Error Action Buttons -->
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12" Margin="0,8,0,0">
                             <Button Content="{Binding Localizer[Action.OpenDataFolder]}"
@@ -187,7 +173,7 @@
                         </StackPanel>
                     </StackPanel>
                 </Border>
-            </Border>
+            </ScrollViewer>
 
             <!-- 3. Onboarding Wizard View -->
             <Panel IsVisible="{Binding IsOnboardingActive}">
@@ -202,42 +188,22 @@
 
         <!-- STATUS BAR -->
         <Border Grid.Row="2"
+                Height="28"
                 Background="{DynamicResource SurfaceBrush}"
                 BorderBrush="{DynamicResource BorderSubtleBrush}"
                 BorderThickness="0,1,0,0"
-                Padding="16,8">
-            <Grid ColumnDefinitions="Auto,*,Auto">
-                <!-- Status Left -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <Border Width="8" Height="8" CornerRadius="4" Background="{Binding StatusDotColor}" VerticalAlignment="Center"/>
-                    <TextBlock Text="{Binding StatusTitleText}"
-                               FontSize="12"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    <TextBlock Text="|" Foreground="{DynamicResource BorderSubtleBrush}"/>
-                    <TextBlock Text="{Binding StatusNoticeText}"
-                               FontSize="11"
-                               Foreground="{DynamicResource TextMutedBrush}"/>
-                </StackPanel>
-
-                <!-- Status Right -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding Probe.RuntimeIdentifier}"
-                               FontFamily="Consolas,Menlo,Monospace"
-                               FontSize="11"
-                               FlowDirection="LeftToRight"
-                               Foreground="{DynamicResource TextMutedBrush}"/>
-                    <TextBlock Text="{Binding Probe.WorkingSetMemory}"
-                               FontFamily="Consolas,Menlo,Monospace"
-                               FontSize="11"
-                               FlowDirection="LeftToRight"
-                               Foreground="{DynamicResource AccentTextBrush}"/>
-                    <TextBlock Text="{Binding CurrentFlowDirection}"
-                               FontFamily="Consolas,Menlo,Monospace"
-                               FontSize="11"
-                               Foreground="{DynamicResource TextMutedBrush}"/>
-                </StackPanel>
-            </Grid>
+                Padding="14,4">
+                <Grid ColumnDefinitions="Auto,*">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Border Width="7" Height="7" CornerRadius="3.5" Background="{Binding StatusDotColor}" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding StatusTitleText}"
+                                   FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" Text="{Binding StatusNoticeText}"
+                               FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}"
+                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="16,0,0,0"/>
+                </Grid>
         </Border>
     </Grid>
+    </Border>
 </Window>

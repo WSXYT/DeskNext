@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using DeskNest.Core.Storage;
 using Xunit;
@@ -233,6 +234,45 @@ public sealed class DesktopOrganizationTransactionTests
 
         Assert.True(File.Exists(source));
         Assert.False(File.Exists(journal));
+    }
+
+    [Fact]
+    public async Task ExecuteRejectsReparsePointDestinationParentBeforeMoving()
+    {
+        using var root = new TempDirectory();
+        string source = Path.Combine(root.Path, "source.txt");
+        string outside = Directory.CreateDirectory(Path.Combine(root.Path, "outside")).FullName;
+        string trashRoot = Path.Combine(root.Path, ".desknest-trash");
+        await File.WriteAllTextAsync(source, "source");
+        string sentinel = Path.Combine(outside, "sentinel.txt");
+        await File.WriteAllTextAsync(sentinel, "untouched");
+        if (OperatingSystem.IsWindows())
+        {
+            using var process = Process.Start(new ProcessStartInfo(
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "cmd.exe"),
+                $"/d /c mklink /J \"{trashRoot}\" \"{outside}\"")
+            { UseShellExecute = false, CreateNoWindow = true });
+            Assert.NotNull(process);
+            Assert.True(process!.WaitForExit(10_000));
+            Assert.Equal(0, process.ExitCode);
+        }
+        else
+        {
+            Directory.CreateSymbolicLink(trashRoot, outside);
+        }
+
+        try
+        {
+            string journal = Path.Combine(root.Path, "operation.json");
+            var transaction = new DesktopOrganizationTransaction(journal);
+            await Assert.ThrowsAsync<IOException>(() => transaction.ExecuteAsync([
+                new OrganizationMove(source, Path.Combine(trashRoot, "op", "source.txt"))]));
+            Assert.True(File.Exists(source));
+            Assert.Equal("untouched", await File.ReadAllTextAsync(sentinel));
+            Assert.False(Directory.Exists(Path.Combine(outside, "op")));
+            Assert.False(transaction.HasRecoveryJournal);
+        }
+        finally { Directory.Delete(trashRoot); }
     }
 
     private sealed class TempDirectory : IDisposable

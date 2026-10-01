@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -29,7 +28,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
 {
     private WorkspaceStore? _store;
     private ManualOrganizationCoordinator? _manualCoordinator;
-    private readonly bool _ownsStore;
+    private bool _ownsStore;
+    private bool _disposed;
+    private readonly System.Threading.SemaphoreSlim _startupGate = new(1, 1);
+    private readonly Func<Func<WorkspaceState, WorkspaceState>, Task<WorkspaceState>>? _stateUpdater;
     private string? _dataDirectory;
 
     public LocalizationManager Localizer => LocalizationManager.Instance;
@@ -51,6 +53,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
 
     [ObservableProperty]
     private string _startupErrorMessage = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasRecoveryEvidence))]
+    private string _recoveryEvidenceText = string.Empty;
+    public bool HasRecoveryEvidence => !string.IsNullOrEmpty(RecoveryEvidenceText);
 
     public bool HasStartupError => StartupState is StartupState.LockConflict or StartupState.RecoveryRequired or StartupState.Error;
     public bool IsLockConflict => StartupState == StartupState.LockConflict;
@@ -80,12 +87,44 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
 
     public FlowDirection CurrentFlowDirection => Localizer.FlowDirectionValue;
 
+    public Func<Avalonia.Input.Platform.IClipboard?>? ClipboardProvider { get; set; }
+
+    public Avalonia.Input.Platform.IClipboard? GetClipboard()
+    {
+        if (ClipboardProvider is not null)
+            return ClipboardProvider();
+
+        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            if (desktop.MainWindow?.Clipboard is { } cb)
+                return cb;
+            var activeWin = desktop.Windows.FirstOrDefault(w => w.IsActive) ?? desktop.Windows.FirstOrDefault();
+            if (activeWin?.Clipboard is { } fallbackCb)
+                return fallbackCb;
+        }
+
+        return null;
+    }
+
+    private static async Task SetUIStateAsync(Action action)
+    {
+        if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+        {
+            action();
+        }
+        else
+        {
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(action);
+        }
+    }
+
     /// <summary>
     /// Default constructor for UI startup and XAML designer.
     /// Connects to the default WorkspaceStore.
     /// </summary>
-    public MainWindowViewModel()
+    public MainWindowViewModel(Func<Avalonia.Input.Platform.IClipboard?>? clipboardProvider = null)
     {
+        ClipboardProvider = clipboardProvider;
         _ownsStore = true;
         _selectedLanguage = Localizer.CurrentLanguageInfo;
         _selectedTheme = ThemeMgr.CurrentThemeMode;
@@ -110,9 +149,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     /// <summary>
     /// Test or direct injection constructor with an explicit WorkspaceStore.
     /// </summary>
-    public MainWindowViewModel(WorkspaceStore store, bool ownsStore = false)
+    public MainWindowViewModel(WorkspaceStore store, bool ownsStore = false, Func<Avalonia.Input.Platform.IClipboard?>? clipboardProvider = null)
     {
+        ClipboardProvider = clipboardProvider;
         _store = store;
+        _dataDirectory = store.DataDirectory;
         _manualCoordinator = new ManualOrganizationCoordinator(
             store, new DesktopOrganizationTransaction(
                 Path.Combine(store.DataDirectory, "organization-recovery.json")));
@@ -140,6 +181,37 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     }
 
     /// <summary>
+    /// Test or synthetic headless fixture constructor with an isolated in-memory WorkspaceState.
+    /// Does not touch disk or require a physical WorkspaceStore.
+    /// </summary>
+    public MainWindowViewModel(WorkspaceState state, Func<Func<WorkspaceState, WorkspaceState>, Task<WorkspaceState>>? updateState = null, Func<Avalonia.Input.Platform.IClipboard?>? clipboardProvider = null)
+    {
+        ClipboardProvider = clipboardProvider;
+        _ownsStore = false;
+        _stateUpdater = updateState ?? (u => Task.FromResult(u(state)));
+        _selectedLanguage = Localizer.CurrentLanguageInfo;
+        _selectedTheme = ThemeMgr.CurrentThemeMode;
+        Probe = new SystemProbeViewModel();
+
+        Localizer.LanguageChanged += OnLanguageChanged;
+        Localizer.PropertyChanged += (s, e) =>
+        {
+            OnPropertyChanged(nameof(CurrentFlowDirection));
+            OnPropertyChanged(nameof(Localizer));
+        };
+
+        ThemeMgr.ThemeChanged += (s, mode) =>
+        {
+            _selectedTheme = mode;
+            OnPropertyChanged(nameof(SelectedTheme));
+        };
+
+        ApplySnapshot(state);
+        IsLoading = false;
+        StartupState = StartupState.Ready;
+    }
+
+    /// <summary>
     /// Test or diagnostic constructor for demonstrating visible startup errors.
     /// </summary>
     public MainWindowViewModel(StartupState errorState, string errorMessage)
@@ -154,44 +226,64 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
 
     public async Task InitializeWorkspaceAsync(string? customDataDir = null)
     {
-        _dataDirectory = customDataDir;
-        IsLoading = true;
+        await _startupGate.WaitAsync().ConfigureAwait(false);
         try
         {
-            _store = await WorkspaceStore.OpenAsync(customDataDir);
-            _manualCoordinator = new ManualOrganizationCoordinator(
-                _store, new DesktopOrganizationTransaction(
-                    Path.Combine(_store.DataDirectory, "organization-recovery.json")));
-            await _manualCoordinator.RecoverPendingAsync().ConfigureAwait(false);
-            StartupState = StartupState.Ready;
-            StartupErrorMessage = string.Empty;
-            ApplySnapshot(_store.Snapshot);
+            if (_disposed) return;
+            _dataDirectory = _store?.DataDirectory ?? customDataDir ?? WorkspaceStore.DefaultDataDirectory();
+            await SetUIStateAsync(() =>
+            {
+                IsLoading = true;
+                StartupState = StartupState.Loading;
+                RecoveryEvidenceText = string.Empty;
+                IsStudioActive = false;
+                IsOnboardingActive = false;
+            });
+            try
+            {
+                // Recovery failure retains this store's exclusive lock. Retry recovery on that
+                // same owner rather than trying to acquire our own lock a second time.
+                if (_store is null)
+                {
+                    _store = await WorkspaceStore.OpenAsync(_dataDirectory).ConfigureAwait(false);
+                    _ownsStore = true;
+                    _dataDirectory = _store.DataDirectory;
+                }
+                _manualCoordinator ??= new ManualOrganizationCoordinator(
+                    _store, new DesktopOrganizationTransaction(
+                        Path.Combine(_store.DataDirectory, "organization-recovery.json")));
+                await _manualCoordinator.RecoverPendingAsync().ConfigureAwait(false);
+                await SetUIStateAsync(() =>
+                {
+                    StartupState = StartupState.Ready;
+                    StartupErrorMessage = string.Empty;
+                    ApplySnapshot(_store.Snapshot);
+                });
+            }
+            catch (Exception ex)
+            {
+                await SetUIStateAsync(() =>
+                {
+                    StartupState = ex is InvalidDataException ? StartupState.RecoveryRequired :
+                        ex is IOException ? StartupState.LockConflict : StartupState.Error;
+                    StartupErrorMessage = ex.Message;
+                });
+            }
+            finally
+            {
+                await SetUIStateAsync(() =>
+                {
+                    IsLoading = false;
+                    OnPropertyChanged(nameof(HasStartupError));
+                    OnPropertyChanged(nameof(IsLockConflict));
+                    OnPropertyChanged(nameof(IsRecoveryRequired));
+                    OnPropertyChanged(nameof(StatusDotColor));
+                    OnPropertyChanged(nameof(StatusTitleText));
+                    OnPropertyChanged(nameof(StatusNoticeText));
+                });
+            }
         }
-        catch (IOException ex)
-        {
-            StartupState = StartupState.LockConflict;
-            StartupErrorMessage = ex.Message;
-        }
-        catch (InvalidDataException ex)
-        {
-            StartupState = StartupState.RecoveryRequired;
-            StartupErrorMessage = ex.Message;
-        }
-        catch (Exception ex)
-        {
-            StartupState = StartupState.Error;
-            StartupErrorMessage = ex.Message;
-        }
-        finally
-        {
-            IsLoading = false;
-            OnPropertyChanged(nameof(HasStartupError));
-            OnPropertyChanged(nameof(IsLockConflict));
-            OnPropertyChanged(nameof(IsRecoveryRequired));
-            OnPropertyChanged(nameof(StatusDotColor));
-            OnPropertyChanged(nameof(StatusTitleText));
-            OnPropertyChanged(nameof(StatusNoticeText));
-        }
+        finally { _startupGate.Release(); }
     }
 
     private void ApplySnapshot(WorkspaceState state)
@@ -223,7 +315,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
                 description: s.Description,
                 mode: s.Mode == SpaceStorageMode.Managed ? SpaceMode.Managed : SpaceMode.Mapped,
                 physicalPath: s.Folder,
-                itemCount: state.Files.Count(f => f.SpaceId == s.Id),
+                itemCount: state.Files.Count(f => f.SpaceId == s.Id && !f.IsInTrash),
                 status: s.Mode == SpaceStorageMode.Managed ? "Spaces.BadgeReady" : "Spaces.BadgeReadOnly",
                 boundsSummary: s.Mode == SpaceStorageMode.Managed ? "收纳受控于本目录" : "映射外部既有目录",
                 rulesSummary: "【P2 边界说明】Core 管控元数据，无实际文件移动。"
@@ -248,25 +340,29 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             if (Studio == null)
             {
                 Studio = new StudioViewModel(state, UpdateStoreAsync);
-                if (_manualCoordinator != null)
-                {
-                    Studio.AttachManualMoveExecutor(ExecuteManualMoveAsync);
-                    Studio.AttachManualUndoExecutor(ExecuteUndoManualMoveAsync);
-                    Studio.AttachRenameFileExecutor(ExecuteRenameFileAsync);
-                    Studio.AttachDeleteFileExecutor(ExecuteRemoveMappedReferenceAsync);
-                }
+                AttachStudioExecutors(Studio);
             }
             else
             {
                 Studio.RefreshFromState(state);
-                if (_manualCoordinator != null)
-                {
-                    Studio.AttachManualMoveExecutor(ExecuteManualMoveAsync);
-                    Studio.AttachManualUndoExecutor(ExecuteUndoManualMoveAsync);
-                    Studio.AttachRenameFileExecutor(ExecuteRenameFileAsync);
-                    Studio.AttachDeleteFileExecutor(ExecuteRemoveMappedReferenceAsync);
-                }
+                AttachStudioExecutors(Studio);
             }
+        }
+    }
+
+    private void AttachStudioExecutors(StudioViewModel studio)
+    {
+        if (_manualCoordinator != null)
+        {
+            studio.AttachManualMoveExecutor(ExecuteManualMoveAsync);
+            studio.AttachManualUndoExecutor(ExecuteUndoManualMoveAsync);
+            studio.AttachRenameFileExecutor(ExecuteRenameFileAsync);
+            studio.AttachDeleteFileExecutor(ExecuteDeleteFileAsync);
+            studio.AttachOpenFileExecutor(ExecuteOpenFileAsync);
+            studio.AttachRevealFileExecutor(ExecuteRevealFileAsync);
+            studio.AttachPreviewFileExecutor(ExecutePreviewFileAsync);
+            studio.AttachCutFileExecutor(ExecuteCutFileAsync);
+            studio.AttachPasteFileExecutor(ExecutePasteFileAsync);
         }
     }
 
@@ -283,7 +379,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         {
             if (_store is not null)
             {
-                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => ApplySnapshot(_store.Snapshot));
+                await SetUIStateAsync(() => ApplySnapshot(_store.Snapshot));
             }
         }
     }
@@ -301,7 +397,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         {
             if (_store is not null)
             {
-                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => ApplySnapshot(_store.Snapshot));
+                await SetUIStateAsync(() => ApplySnapshot(_store.Snapshot));
             }
         }
     }
@@ -318,32 +414,377 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         finally
         {
             if (_store is not null)
-                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => ApplySnapshot(_store.Snapshot));
+                await SetUIStateAsync(() => ApplySnapshot(_store.Snapshot));
         }
     }
 
-    private async Task ExecuteRemoveMappedReferenceAsync(WorkspaceFileItemViewModel file)
+    private async Task ExecuteDeleteFileAsync(WorkspaceFileItemViewModel file)
     {
         if (_manualCoordinator is null)
             throw new InvalidOperationException("Manual organization is not initialized.");
 
         try
         {
-            await _manualCoordinator.RemoveMappedReferenceAsync(file.Id).ConfigureAwait(false);
+            if (file.IsManaged)
+            {
+                await _manualCoordinator.DeleteManagedFileAsync(file.Id).ConfigureAwait(false);
+            }
+            else
+            {
+                await _manualCoordinator.RemoveMappedReferenceAsync(file.Id).ConfigureAwait(false);
+            }
         }
         finally
         {
             if (_store is not null)
-                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => ApplySnapshot(_store.Snapshot));
+                await SetUIStateAsync(() => ApplySnapshot(_store.Snapshot));
+        }
+    }
+
+    private async Task ExecuteOpenFileAsync(WorkspaceFileItemViewModel file)
+    {
+        if (file is null || string.IsNullOrWhiteSpace(file.Path))
+        {
+            if (Studio is not null)
+                Studio.FileActionNotice = Localizer["Files.NoFileSelectedNotice"];
+            return;
+        }
+
+        try
+        {
+            await Platform.PlatformFileActions.OpenAsync(file.Path).ConfigureAwait(false);
+            if (Studio is not null)
+            {
+                await SetUIStateAsync(() =>
+                {
+                    Studio.FileActionNotice = Localizer.GetString("Files.OpenSuccessNotice", file.Name);
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            if (Studio is not null)
+            {
+                await SetUIStateAsync(() =>
+                {
+                    Studio.FileActionNotice = Localizer.GetString("Files.ActionFailedNotice", ex.Message);
+                });
+            }
+        }
+    }
+
+    private async Task ExecuteRevealFileAsync(WorkspaceFileItemViewModel file)
+    {
+        await Platform.PlatformFileActions.RevealAsync(file.Path).ConfigureAwait(false);
+        if (Studio is not null)
+            await SetUIStateAsync(() => Studio.FileActionNotice =
+                Localizer.GetString("Files.RevealSuccessNotice", file.Name));
+    }
+
+    private async Task ExecutePreviewFileAsync(WorkspaceFileItemViewModel file)
+    {
+        if (file is null || string.IsNullOrWhiteSpace(file.Path))
+        {
+            if (Studio is not null)
+                Studio.FileActionNotice = Localizer["Files.NoFileSelectedNotice"];
+            return;
+        }
+
+        try
+        {
+            var preview = await Platform.PlatformFileActions.ReadPreviewAsync(file.Path).ConfigureAwait(false);
+            if (Studio is not null)
+            {
+                await SetUIStateAsync(() =>
+                {
+                    Studio.ShowFilePreview(preview);
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            if (Studio is not null)
+            {
+                await SetUIStateAsync(() =>
+                {
+                    Studio.FileActionNotice = Localizer.GetString("Files.ActionFailedNotice", ex.Message);
+                });
+            }
+        }
+    }
+
+    private async Task ExecuteCutFileAsync(WorkspaceFileItemViewModel file)
+    {
+        if (file is null || string.IsNullOrWhiteSpace(file.Path))
+        {
+            if (Studio is not null)
+                Studio.FileActionNotice = Localizer["Files.NoFileSelectedNotice"];
+            return;
+        }
+
+        var clipboard = GetClipboard();
+        if (clipboard is null)
+        {
+            if (Studio is not null)
+                Studio.FileActionNotice = Studio.CutFileStatusNotice;
+            return;
+        }
+
+        string rawPath = file.Path;
+        if (rawPath.Contains("://") ||
+            rawPath.StartsWith("http:", StringComparison.OrdinalIgnoreCase) ||
+            rawPath.StartsWith("https:", StringComparison.OrdinalIgnoreCase) ||
+            rawPath.StartsWith("file:", StringComparison.OrdinalIgnoreCase) ||
+            rawPath.StartsWith("ftp:", StringComparison.OrdinalIgnoreCase))
+        {
+            if (Studio is not null)
+                Studio.FileActionNotice = Localizer["Files.ClipboardUriRejected"];
+            return;
+        }
+
+        if (!Path.IsPathFullyQualified(rawPath))
+        {
+            if (Studio is not null)
+                Studio.FileActionNotice = Localizer["Files.ClipboardUnsupportedPayload"];
+            return;
+        }
+
+        string fullPath = Path.GetFullPath(rawPath);
+        if (!File.Exists(fullPath) && !Directory.Exists(fullPath))
+        {
+            if (Studio is not null)
+                Studio.FileActionNotice = Localizer["Validation.FileNotFound"];
+            return;
+        }
+
+        for (string? current = fullPath; current is not null; current = Path.GetDirectoryName(current))
+        {
+            if (File.Exists(current) || Directory.Exists(current))
+            {
+                if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
+                {
+                    if (Studio is not null)
+                        Studio.FileActionNotice = Localizer["Files.ClipboardReparseRejected"];
+                    return;
+                }
+            }
+        }
+
+        try
+        {
+            var payload = new WorkspaceClipboardPayload
+            {
+                Paths = [fullPath],
+                IsCut = true,
+                SourceFileId = file.Id,
+                SourceSpaceId = file.SpaceId
+            };
+            await AvaloniaClipboardBridge.SetFilePayloadAsync(clipboard, payload).ConfigureAwait(false);
+            if (Studio is not null)
+            {
+                await SetUIStateAsync(() =>
+                {
+                    Studio.FileActionNotice = Localizer.GetString("Files.CutSuccessNotice", file.Name);
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            if (Studio is not null)
+            {
+                await SetUIStateAsync(() =>
+                {
+                    Studio.FileActionNotice = Localizer.GetString("Files.ActionFailedNotice", ex.Message);
+                });
+            }
+        }
+    }
+
+    private async Task ExecutePasteFileAsync(SpaceItemViewModel targetSpace)
+    {
+        if (_manualCoordinator is null)
+            throw new InvalidOperationException("Manual organization is not initialized.");
+
+        if (targetSpace is null)
+        {
+            if (Studio is not null)
+                Studio.FileActionNotice = Localizer["Files.NoSpaceSelectedNotice"];
+            return;
+        }
+
+        var clipboard = GetClipboard();
+        if (clipboard is null)
+        {
+            if (Studio is not null)
+                Studio.FileActionNotice = Studio.PasteFileStatusNotice;
+            return;
+        }
+
+        try
+        {
+            var payload = await AvaloniaClipboardBridge.TryGetFilePayloadAsync(clipboard).ConfigureAwait(false);
+            if (payload is null || payload.Paths is null || payload.Paths.Count == 0)
+            {
+                if (Studio is not null)
+                    Studio.FileActionNotice = Localizer["Files.ClipboardEmptyOrInvalid"];
+                return;
+            }
+
+            if (payload.Paths.Count > 1)
+            {
+                if (Studio is not null)
+                    Studio.FileActionNotice = Localizer["Files.ClipboardMultiFileRejected"];
+                return;
+            }
+
+            if (!payload.IsCut)
+            {
+                if (Studio is not null)
+                    Studio.FileActionNotice = Localizer["Files.CopyGatedNotice"];
+                return;
+            }
+
+            string rawPath = payload.Paths[0];
+            if (string.IsNullOrWhiteSpace(rawPath))
+            {
+                if (Studio is not null)
+                    Studio.FileActionNotice = Localizer["Files.ClipboardEmptyOrInvalid"];
+                return;
+            }
+
+            // Refuse remote or URI schemes
+            if (rawPath.Contains("://") ||
+                rawPath.StartsWith("http:", StringComparison.OrdinalIgnoreCase) ||
+                rawPath.StartsWith("https:", StringComparison.OrdinalIgnoreCase) ||
+                rawPath.StartsWith("file:", StringComparison.OrdinalIgnoreCase) ||
+                rawPath.StartsWith("ftp:", StringComparison.OrdinalIgnoreCase))
+            {
+                if (Studio is not null)
+                    Studio.FileActionNotice = Localizer["Files.ClipboardUriRejected"];
+                return;
+            }
+
+            if (!Path.IsPathFullyQualified(rawPath))
+            {
+                if (Studio is not null)
+                    Studio.FileActionNotice = Localizer["Files.ClipboardUnsupportedPayload"];
+                return;
+            }
+
+            string fullPath = Path.GetFullPath(rawPath);
+            if (!File.Exists(fullPath) && !Directory.Exists(fullPath))
+            {
+                if (Studio is not null)
+                    Studio.FileActionNotice = Localizer["Validation.FileNotFound"];
+                return;
+            }
+
+            // Check for reparse point / symlink on path and ancestors
+            for (string? current = fullPath; current is not null; current = Path.GetDirectoryName(current))
+            {
+                if (File.Exists(current) || Directory.Exists(current))
+                {
+                    if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
+                    {
+                        if (Studio is not null)
+                            Studio.FileActionNotice = Localizer["Files.ClipboardReparseRejected"];
+                        return;
+                    }
+                }
+            }
+
+            var snapshot = _store!.Snapshot;
+            var targetSpaceModel = snapshot.Spaces.FirstOrDefault(s => s.Id == targetSpace.Id);
+            if (targetSpaceModel is null)
+            {
+                if (Studio is not null)
+                    Studio.FileActionNotice = Localizer["Files.NoSpaceSelectedNotice"];
+                return;
+            }
+
+            // Validate target space
+            string targetFolder = Path.GetFullPath(targetSpaceModel.Folder);
+            if (!Directory.Exists(targetFolder))
+            {
+                if (Studio is not null)
+                    Studio.FileActionNotice = Localizer["Validation.FileNotFound"];
+                return;
+            }
+
+            // Never fall back to another item when a clipboard identifier/path is stale or inconsistent.
+            WorkspaceFile? file = AvaloniaClipboardBridge.ResolveCutSource(payload, snapshot);
+
+            if (file is null)
+            {
+                if (Studio is not null)
+                    Studio.FileActionNotice = Localizer["Files.ClipboardFileNotFoundInWorkspace"];
+                return;
+            }
+
+            if (file.SpaceId == targetSpaceModel.Id)
+            {
+                if (Studio is not null)
+                    Studio.FileActionNotice = Localizer["Files.PasteSameSpaceNotice"];
+                return;
+            }
+
+            await _manualCoordinator.MoveFileAsync(file.Id, targetSpaceModel.Id,
+                expectedWorkspaceRevision: snapshot.Revision).ConfigureAwait(false);
+            try { await clipboard.ClearAsync().ConfigureAwait(false); } catch { }
+
+            if (_store is not null)
+            {
+                await SetUIStateAsync(() =>
+                {
+                    ApplySnapshot(_store.Snapshot);
+                    if (Studio is not null)
+                    {
+                        var updatedSpace = Studio.AllSpaces.FirstOrDefault(s => s.Id == targetSpaceModel.Id);
+                        if (updatedSpace is not null)
+                        {
+                            Studio.SelectSpace(updatedSpace);
+                            var updatedFile = updatedSpace.Files.FirstOrDefault(f => f.Name == file.Name);
+                            if (updatedFile is not null)
+                            {
+                                Studio.SelectFile(updatedFile);
+                            }
+                        }
+
+                        Studio.FileActionNotice = Localizer.GetString(
+                            "Files.PasteCutSuccessNotice", file.Name, targetSpaceModel.Name);
+                    }
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            if (Studio is not null)
+            {
+                await SetUIStateAsync(() =>
+                {
+                    Studio.FileActionNotice = Localizer.GetString("Files.ActionFailedNotice", ex.Message);
+                });
+            }
+            if (_store is not null)
+            {
+                await SetUIStateAsync(() => ApplySnapshot(_store.Snapshot));
+            }
         }
     }
 
     public async Task<WorkspaceState> UpdateStoreAsync(Func<WorkspaceState, WorkspaceState> update)
     {
+        if (_stateUpdater != null)
+        {
+            var next = await _stateUpdater(update).ConfigureAwait(false);
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => ApplySnapshot(next));
+            return next;
+        }
+
         if (_store == null) throw new InvalidOperationException("WorkspaceStore is not open.");
-        var next = await _store.UpdateAsync(update);
-        ApplySnapshot(next);
-        return next;
+        var nextStore = await _store.UpdateAsync(update);
+        ApplySnapshot(nextStore);
+        return nextStore;
     }
 
     partial void OnSelectedLanguageChanged(LanguageInfo value)
@@ -367,6 +808,40 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     public string StatusNoticeText => HasStartupError ? Localizer["Status.NoticeError"] : Localizer["Status.NoticeP2"];
 
     [RelayCommand]
+    public async Task InspectRecoveryEvidenceAsync()
+    {
+        await _startupGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (_disposed || !IsRecoveryRequired || _dataDirectory is null) return;
+            var sections = new List<string> { _dataDirectory };
+            // Fixed names only. Never follow source/destination paths supplied by journal content.
+            string[] names = ["copy-recovery.json", "organization-recovery.json",
+                "organization-recovery.json.bak", "organization-recovery.json.rollback-started",
+                "organization-recovery.json.recovery-required", "workspace.json.recovery-required"];
+            foreach (string name in names)
+            {
+                string path = Path.Combine(_dataDirectory, name);
+                if (!File.Exists(path) && !Directory.Exists(path)) continue;
+                try
+                {
+                    var preview = await DeskNest.Platform.PlatformFileActions.ReadPreviewAsync(
+                        path, maximumBytes: 16_384, maximumEntries: 1).ConfigureAwait(false);
+                    await SetUIStateAsync(() => sections.Add(path + Environment.NewLine +
+                        (preview.Kind == "text" ? preview.Content : Localizer["Files.PreviewMetadataOnly"]) +
+                        (preview.Truncated ? Environment.NewLine + Localizer["Files.PreviewTruncatedNotice"] : string.Empty)));
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+                {
+                    sections.Add(path + Environment.NewLine + ex.Message);
+                }
+            }
+            await SetUIStateAsync(() => RecoveryEvidenceText = string.Join(Environment.NewLine + Environment.NewLine, sections));
+        }
+        finally { _startupGate.Release(); }
+    }
+
+    [RelayCommand]
     public async Task RetryStartupAsync()
     {
         await InitializeWorkspaceAsync(_dataDirectory);
@@ -382,27 +857,32 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     }
 
     [RelayCommand]
-    public void OpenDataFolder()
+    public async Task OpenDataFolderAsync()
     {
         try
         {
-            var dir = _dataDirectory ?? WorkspaceStore.DefaultDataDirectory();
-            if (Directory.Exists(dir))
-            {
-                Process.Start(new ProcessStartInfo { FileName = dir, UseShellExecute = true });
-            }
+            var dir = _store?.DataDirectory ?? _dataDirectory ?? WorkspaceStore.DefaultDataDirectory();
+            await DeskNest.Platform.PlatformFileActions.OpenAsync(dir);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            StartupErrorMessage = Localizer.GetString("Files.ActionFailedNotice", ex.Message);
+        }
     }
 
     public async ValueTask DisposeAsync()
     {
-        if (_ownsStore && _store != null)
+        await _startupGate.WaitAsync().ConfigureAwait(false);
+        try
         {
-            var s = _store;
+            if (_disposed) return;
+            _disposed = true;
+            if (_ownsStore && _store != null)
+                await _store.DisposeAsync().ConfigureAwait(false);
             _store = null;
-            await s.DisposeAsync();
+            _manualCoordinator = null;
         }
+        finally { _startupGate.Release(); }
     }
 
     private void OnLanguageChanged(object? sender, string langCode)

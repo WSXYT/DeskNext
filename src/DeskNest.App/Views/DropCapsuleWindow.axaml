@@ -1,0 +1,106 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:DeskNest.App.ViewModels"
+        xmlns:loc="using:DeskNest.App.Localization"
+        x:Class="DeskNest.App.Views.DropCapsuleWindow"
+        x:DataType="vm:DropCapsuleViewModel"
+        Title="DeskNext"
+        Width="360"
+        SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        WindowDecorations="None"
+        ExtendClientAreaToDecorationsHint="False"
+        Background="Transparent"
+        Foreground="{DynamicResource TextPrimaryBrush}"
+        FlowDirection="{Binding CurrentFlowDirection}">
+
+    <Border Margin="8"
+            CornerRadius="{DynamicResource RadiusLarge}"
+            Background="{DynamicResource SurfaceBrush}"
+            BorderBrush="{DynamicResource BorderSubtleBrush}"
+            BorderThickness="1"
+            BoxShadow="0 6 20 0 #24000000">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto" Margin="14">
+            <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto"
+                  PointerPressed="OnTitleBarPointerPressed"
+                  Background="Transparent"
+                  Margin="0,0,0,12">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <PathIcon Data="{StaticResource IconDeskNext}" Width="18" Height="18"
+                              Foreground="{DynamicResource AccentPrimaryBrush}"/>
+                    <TextBlock Text="DeskNext" FontWeight="SemiBold" FontSize="12"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding Localizer[Capsule.Title]}" FontSize="11"
+                               Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <Panel Grid.Column="1" Background="Transparent"/>
+
+                <Button Grid.Column="2"
+                        Classes="WindowChromeButton CloseButton"
+                        Width="26" Height="26"
+                        Click="OnCloseButtonClick"
+                        ToolTip.Tip="{Binding Localizer[Action.Close]}"
+                        Focusable="False">
+                    <PathIcon Data="{StaticResource IconChromeClose}"
+                              Width="8" Height="8"
+                              Foreground="{DynamicResource TextSecondaryBrush}"/>
+                </Button>
+            </Grid>
+
+            <Border Grid.Row="1"
+                    x:Name="DropCapsuleBorder"
+                    DragDrop.AllowDrop="True"
+                    CornerRadius="{DynamicResource RadiusPrimary}"
+                    Background="{DynamicResource WindowBackgroundBrush}"
+                    BorderBrush="{DynamicResource BorderSubtleBrush}"
+                    BorderThickness="1"
+                    Padding="16,18">
+                <StackPanel Spacing="8" HorizontalAlignment="Center">
+                    <PathIcon Data="{StaticResource IconFolder}" Width="22" Height="22"
+                              IsVisible="{Binding !IsDragOverCapsule}"
+                              Foreground="{DynamicResource AccentPrimaryBrush}"
+                              HorizontalAlignment="Center"/>
+                    <TextBlock Text="{Binding Localizer[Capsule.Instruction]}"
+                               IsVisible="{Binding !IsDragOverCapsule}"
+                               FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                               TextAlignment="Center" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding Localizer[Drop.CapsuleTargetHint]}"
+                               IsVisible="{Binding IsDragOverCapsule}"
+                               FontWeight="SemiBold" FontSize="11"
+                               Foreground="{DynamicResource AccentTextBrush}"
+                               TextAlignment="Center" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+            <!-- 3. Path Input & Submit Row -->
+            <Grid Grid.Row="2" ColumnDefinitions="*,6,Auto" Margin="0,10,0,0">
+                <TextBox Grid.Column="0"
+                         Text="{Binding CapsuleInputPath}"
+                         PlaceholderText="{Binding Localizer[Capsule.Placeholder]}"
+                         CornerRadius="{DynamicResource RadiusSmall}"
+                         FontFamily="Consolas,Menlo,Monospace"
+                         FontSize="11"
+                         FlowDirection="LeftToRight"/>
+                <Button Grid.Column="2"
+                        Classes="PrimaryAction"
+                        Content="{Binding Localizer[Capsule.Submit]}"
+                        Command="{Binding SubmitCapsuleCommand}"
+                        Padding="12,5"
+                        FontSize="11"/>
+            </Grid>
+
+            <!-- 4. Notice & Boundary Info -->
+            <StackPanel Grid.Row="3" Spacing="4" Margin="0,8,0,0">
+                <TextBlock Text="{Binding CapsuleNotice}"
+                           IsVisible="{Binding HasCapsuleNotice}"
+                           Foreground="{DynamicResource AccentTextBrush}"
+                           FontSize="11" TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding Localizer[Capsule.Notice]}"
+                           FontSize="10" Foreground="{DynamicResource TextTertiaryBrush}"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

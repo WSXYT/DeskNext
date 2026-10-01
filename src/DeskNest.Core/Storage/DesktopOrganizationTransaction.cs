@@ -1,5 +1,9 @@
+using System.ComponentModel;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
+using Microsoft.Win32.SafeHandles;
 
 namespace DeskNest.Core.Storage;
 
@@ -10,8 +14,12 @@ public sealed record FileIdentity(
     long LastWriteTimeUtcTicks,
     string Sha256)
 {
-    public static FileIdentity Capture(string path)
+    // Null is legacy evidence on Windows; it cannot authorize recovery or undo.
+    public string? NativeId { get; init; }
+
+    public static FileIdentity Capture(string path, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var info = new FileInfo(path);
         if (!info.Exists)
         {
@@ -30,8 +38,84 @@ public sealed record FileIdentity(
             FileShare.Read,
             64 * 1024,
             FileOptions.SequentialScan);
-        string hash = Convert.ToHexString(SHA256.HashData(stream));
-        return new FileIdentity(info.Length, info.LastWriteTimeUtc.Ticks, hash);
+        using var hashAlgorithm = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        byte[] buffer = new byte[64 * 1024];
+        int bytesRead;
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            bytesRead = stream.Read(buffer);
+            if (bytesRead == 0)
+                break;
+            hashAlgorithm.AppendData(buffer, 0, bytesRead);
+        }
+        string hash = Convert.ToHexString(hashAlgorithm.GetHashAndReset());
+        if (OperatingSystem.IsWindows())
+        {
+            var (nativeId, lastWriteTicks) = WindowsFileIdentity.Capture(stream.SafeFileHandle);
+            return new FileIdentity(stream.Length, lastWriteTicks, hash) { NativeId = nativeId };
+        }
+        return new FileIdentity(stream.Length, info.LastWriteTimeUtc.Ticks, hash);
+    }
+}
+
+internal static class WindowsFileIdentity
+{
+    private enum FileInfoClass { FileBasicInfo = 0, FileIdInfo = 18 }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct FileBasicInfo
+    {
+        public long CreationTime;
+        public long LastAccessTime;
+        public long LastWriteTime;
+        public long ChangeTime;
+        public uint FileAttributes;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct FileIdInfo
+    {
+        public ulong VolumeSerialNumber;
+        public ulong Low;
+        public ulong High;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetFileInformationByHandleEx(SafeFileHandle handle, FileInfoClass infoClass,
+        out FileIdInfo info, uint size);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetFileInformationByHandleEx(SafeFileHandle handle, FileInfoClass infoClass,
+        out FileBasicInfo info, uint size);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetVolumeInformationByHandleW(SafeFileHandle handle, StringBuilder? volumeName,
+        uint volumeNameSize, out uint serial, out uint maxComponentLength, out uint flags,
+        StringBuilder fileSystemName, uint fileSystemNameSize);
+
+    internal static (string NativeId, long LastWriteTicks) Capture(SafeFileHandle handle)
+    {
+        var filesystem = new StringBuilder(32);
+        if (!GetVolumeInformationByHandleW(handle, null, 0, out _, out _, out _, filesystem,
+                (uint)filesystem.Capacity))
+            throw new IOException("Cannot verify the source filesystem.",
+                new Win32Exception(Marshal.GetLastWin32Error()));
+        if (!string.Equals(filesystem.ToString(), "NTFS", StringComparison.OrdinalIgnoreCase))
+            throw new NotSupportedException("Native file identity requires a local NTFS volume.");
+        if (!GetFileInformationByHandleEx(handle, FileInfoClass.FileIdInfo, out FileIdInfo info,
+                (uint)Marshal.SizeOf<FileIdInfo>()))
+            throw new IOException("Cannot capture a native file ID.",
+                new Win32Exception(Marshal.GetLastWin32Error()));
+        if (!GetFileInformationByHandleEx(handle, FileInfoClass.FileBasicInfo, out FileBasicInfo basic,
+                (uint)Marshal.SizeOf<FileBasicInfo>()))
+            throw new IOException("Cannot capture file timestamps from the open handle.",
+                new Win32Exception(Marshal.GetLastWin32Error()));
+        return ($"{info.VolumeSerialNumber:X16}:{info.High:X16}{info.Low:X16}",
+            DateTime.FromFileTimeUtc(basic.LastWriteTime).Ticks);
     }
 }
 
@@ -153,7 +237,7 @@ public sealed class DesktopOrganizationTransaction
                     "A recovery journal exists; recover or discard it explicitly before starting another operation.");
             }
 
-            var prepared = Prepare(requestedMoves);
+            var prepared = Prepare(requestedMoves, cancellationToken);
             var operationId = Guid.NewGuid();
             var journal = new OrganizationRecoveryJournal(
                 operationId,
@@ -219,7 +303,7 @@ public sealed class DesktopOrganizationTransaction
             if (HasRecoveryJournal)
                 throw new InvalidOperationException("A recovery journal exists; recover it before starting another operation.");
 
-            var prepared = PrepareDirectories(requestedMoves);
+            var prepared = PrepareDirectories(requestedMoves, cancellationToken);
             var operationId = Guid.NewGuid();
             var journal = new OrganizationRecoveryJournal(
                 operationId, "Prepared", [], DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, prepared);
@@ -312,7 +396,7 @@ public sealed class DesktopOrganizationTransaction
             foreach (var pending in journal.Moves.Where(m => !m.Completed || m.Restored))
             {
                 if (!File.Exists(pending.SourcePath) || File.Exists(pending.DestinationPath) ||
-                    Directory.Exists(pending.DestinationPath) || FileIdentity.Capture(pending.SourcePath) != pending.Identity)
+                    Directory.Exists(pending.DestinationPath) || !IdentityMatches(pending.SourcePath, pending.Identity))
                     throw new IOException("Unacknowledged move requires manual reconciliation; journal retained.");
             }
             foreach (var pending in journal.DirectoryMoves?.Where(m => !m.Completed || m.Restored) ?? [])
@@ -342,6 +426,8 @@ public sealed class DesktopOrganizationTransaction
                     throw new IOException($"Directory recovery paths are not safe: {move.DestinationPath}");
                 if (!DirectoryManifestMatches(move.DestinationPath, move.Files, move.Directories))
                     throw new IOException($"Directory recovery refused because the destination changed: {move.DestinationPath}");
+                FileSystemVolume.RequireNoReparsePoints(move.DestinationPath);
+                FileSystemVolume.RequireNoReparsePoints(move.SourcePath);
                 Directory.CreateDirectory(Path.GetDirectoryName(move.SourcePath)!);
                 FileSystemVolume.RequireSameVolume(move.DestinationPath, move.SourcePath);
                 Directory.Move(move.DestinationPath, move.SourcePath);
@@ -365,19 +451,17 @@ public sealed class DesktopOrganizationTransaction
                     throw new IOException($"Recovery destination is missing: {move.DestinationPath}");
                 }
 
-                var actual = FileIdentity.Capture(move.DestinationPath);
-                if (actual != move.Identity)
+                if (!IdentityMatches(move.DestinationPath, move.Identity))
                 {
                     throw new IOException(
                         $"Recovery refused because the destination changed: {move.DestinationPath}");
                 }
 
                 if (File.Exists(move.SourcePath) || Directory.Exists(move.SourcePath))
-                {
-                    throw new IOException(
-                        $"Recovery refused because the source path is occupied: {move.SourcePath}");
-                }
+                    throw new IOException($"Recovery refused because the source path is occupied: {move.SourcePath}");
 
+                FileSystemVolume.RequireNoReparsePoints(move.DestinationPath);
+                FileSystemVolume.RequireNoReparsePoints(move.SourcePath);
                 Directory.CreateDirectory(Path.GetDirectoryName(move.SourcePath)!);
                 FileSystemVolume.RequireSameVolume(move.DestinationPath, move.SourcePath);
                 File.Move(move.DestinationPath, move.SourcePath);
@@ -401,13 +485,14 @@ public sealed class DesktopOrganizationTransaction
     }
 
     private static List<OrganizationDirectoryMoveReceipt> PrepareDirectories(
-        IReadOnlyList<OrganizationDirectoryMove> requestedMoves)
+        IReadOnlyList<OrganizationDirectoryMove> requestedMoves, CancellationToken cancellationToken)
     {
         var result = new List<OrganizationDirectoryMoveReceipt>(requestedMoves.Count);
         var sources = new HashSet<string>(GetPathComparer());
         var destinations = new HashSet<string>(GetPathComparer());
         foreach (var move in requestedMoves)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             string source = Normalize(move.SourcePath);
             string destination = Normalize(move.DestinationPath);
             if (!Directory.Exists(source) || File.Exists(source))
@@ -418,9 +503,11 @@ public sealed class DesktopOrganizationTransaction
                 throw new IOException($"Destination already exists: {destination}");
             if (IsPathInside(destination, source))
                 throw new InvalidDataException("A directory cannot be moved inside itself.");
+            FileSystemVolume.RequireNoReparsePoints(source);
+            FileSystemVolume.RequireNoReparsePoints(destination);
             FileSystemVolume.RequireSameVolume(source, destination);
 
-            var snapshot = CaptureDirectorySnapshot(source);
+            var snapshot = CaptureDirectorySnapshot(source, cancellationToken);
             result.Add(new OrganizationDirectoryMoveReceipt(source, destination, snapshot.Files, false)
             {
                 Directories = snapshot.Directories
@@ -437,8 +524,9 @@ public sealed class DesktopOrganizationTransaction
     internal const int MaximumDirectoryDepth = 128;
 
     public static (IReadOnlyList<DirectoryFileReceipt> Files, IReadOnlyList<string> Directories)
-        CaptureDirectorySnapshot(string root)
+        CaptureDirectorySnapshot(string root, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         root = Normalize(root);
         var files = new List<DirectoryFileReceipt>();
         var directories = new List<string>();
@@ -446,6 +534,7 @@ public sealed class DesktopOrganizationTransaction
         pending.Push((root, 0));
         while (pending.TryPop(out var current))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var attributes = File.GetAttributes(current.Path);
             if ((attributes & FileAttributes.ReparsePoint) != 0 ||
                 (attributes & FileAttributes.Directory) == 0)
@@ -453,6 +542,7 @@ public sealed class DesktopOrganizationTransaction
             // Enumerate one level only. Inspect links before traversing, including empty directories.
             foreach (string path in Directory.EnumerateFileSystemEntries(current.Path))
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (files.Count + directories.Count >= MaximumDirectoryEntries ||
                     current.Depth >= MaximumDirectoryDepth)
                     throw new IOException("Directory snapshot exceeds its entry or depth budget.");
@@ -468,7 +558,7 @@ public sealed class DesktopOrganizationTransaction
                 }
                 else
                 {
-                    files.Add(new DirectoryFileReceipt(relative, FileIdentity.Capture(path)));
+                    files.Add(new DirectoryFileReceipt(relative, FileIdentity.Capture(path, cancellationToken)));
                 }
             }
         }
@@ -483,8 +573,18 @@ public sealed class DesktopOrganizationTransaction
     {
         ValidateDirectoryManifest(files, directories);
         var actual = CaptureDirectorySnapshot(root);
-        return actual.Files.SequenceEqual(files) && actual.Directories.SequenceEqual(directories!);
+        return actual.Files.Count == files.Count &&
+            actual.Files.Zip(files).All(pair => pair.First.RelativePath == pair.Second.RelativePath &&
+                pair.First.Identity == pair.Second.Identity && HasNativeEvidence(pair.Second.Identity)) &&
+            actual.Directories.SequenceEqual(directories!);
     }
+
+    internal static bool IdentityMatches(string path, FileIdentity expected) =>
+        HasNativeEvidence(expected) && FileIdentity.Capture(path) == expected;
+
+    private static bool HasNativeEvidence(FileIdentity expected) =>
+        !OperatingSystem.IsWindows() || expected.NativeId is { Length: 49 } id &&
+        id[16] == ':' && id.Where((_, index) => index != 16).All(Uri.IsHexDigit);
 
     internal static bool IsValidManifestPath(string? path) =>
         !string.IsNullOrWhiteSpace(path) && path.Length <= 4_096 &&
@@ -531,6 +631,8 @@ public sealed class DesktopOrganizationTransaction
             throw new IOException($"Destination appeared during directory move: {move.DestinationPath}");
         if (!DirectoryManifestMatches(move.SourcePath, move.Files, move.Directories))
             throw new IOException($"Directory changed before move: {move.SourcePath}");
+        FileSystemVolume.RequireNoReparsePoints(move.SourcePath);
+        FileSystemVolume.RequireNoReparsePoints(move.DestinationPath);
         Directory.CreateDirectory(Path.GetDirectoryName(move.DestinationPath)!);
         FileSystemVolume.RequireSameVolume(move.SourcePath, move.DestinationPath);
         Directory.Move(move.SourcePath, move.DestinationPath);
@@ -543,13 +645,15 @@ public sealed class DesktopOrganizationTransaction
             OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
     }
 
-    private static List<OrganizationMoveReceipt> Prepare(IReadOnlyList<OrganizationMove> requestedMoves)
+    private static List<OrganizationMoveReceipt> Prepare(
+        IReadOnlyList<OrganizationMove> requestedMoves, CancellationToken cancellationToken)
     {
         var result = new List<OrganizationMoveReceipt>(requestedMoves.Count);
         var sources = new HashSet<string>(GetPathComparer());
         var destinations = new HashSet<string>(GetPathComparer());
         foreach (var move in requestedMoves)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             string source = Normalize(move.SourcePath);
             string destination = Normalize(move.DestinationPath);
             if (source == destination || !sources.Add(source) || !destinations.Add(destination))
@@ -572,8 +676,10 @@ public sealed class DesktopOrganizationTransaction
                 throw new IOException($"Destination has no parent directory: {destination}");
             }
 
+            FileSystemVolume.RequireNoReparsePoints(source);
+            FileSystemVolume.RequireNoReparsePoints(destination);
             FileSystemVolume.RequireSameVolume(source, destination);
-            var identity = FileIdentity.Capture(source);
+            var identity = FileIdentity.Capture(source, cancellationToken);
             result.Add(new OrganizationMoveReceipt(source, destination, identity, false));
         }
 
@@ -585,12 +691,13 @@ public sealed class DesktopOrganizationTransaction
         if (_moveGuard is not null && !_moveGuard(move))
             throw new IOException($"Fault injection refused move: {move.SourcePath}");
 
+        FileSystemVolume.RequireNoReparsePoints(move.SourcePath);
+        FileSystemVolume.RequireNoReparsePoints(move.DestinationPath);
         Directory.CreateDirectory(Path.GetDirectoryName(move.DestinationPath)!);
         if (File.Exists(move.DestinationPath) || Directory.Exists(move.DestinationPath))
             throw new IOException($"Destination appeared during transaction: {move.DestinationPath}");
 
-        var current = FileIdentity.Capture(move.SourcePath);
-        if (current != move.Identity)
+        if (!IdentityMatches(move.SourcePath, move.Identity))
             throw new IOException($"Source changed before move: {move.SourcePath}");
 
         FileSystemVolume.RequireSameVolume(move.SourcePath, move.DestinationPath);

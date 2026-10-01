@@ -7,11 +7,27 @@ public enum TriageReason { FilenameAmbiguous, CategoriesInsufficient, NearTie }
 public enum ProposedOperationStatus { Proposed, PendingUser, Completed, Undone, RecoveryRequired }
 
 public sealed record WorkspaceSpace(Guid Id, string Name, string Description, SpaceStorageMode Mode, string Folder);
-public sealed record WorkspaceFile(Guid Id, Guid SpaceId, string Name, string Path, bool IsDirectory);
+public sealed record WorkspacePublishedNodeIdentity(string RelativePath, string NativeId, bool IsDirectory,
+    long Length, long LastWriteTimeUtcTicks, string Sha256);
+public sealed record WorkspacePublicationEvidence(string NativeId, string VolumePath, long Length,
+    long LastWriteTimeUtcTicks, string Sha256, string? ParentNativeId,
+    List<WorkspacePublishedNodeIdentity>? DirectoryNodes)
+{
+    public List<string> AncestorNativeIds { get; init; } = [];
+}
+public sealed record WorkspaceFile(Guid Id, Guid SpaceId, string Name, string Path, bool IsDirectory)
+{
+    public bool IsInTrash { get; init; }
+    // Creation-time evidence, not permission to undo or delete by path. Null on legacy metadata.
+    public WorkspacePublicationEvidence? Publication { get; init; }
+}
 public sealed record PendingFile(Guid Id, string Name, string Path, TriageReason Reason,
     Guid? SuggestedSpaceId, DateTimeOffset SeenAt);
 public sealed record WorkspaceDirectoryFileIdentity(
-    string RelativePath, long Length, long LastWriteTimeUtcTicks, string Sha256);
+    string RelativePath, long Length, long LastWriteTimeUtcTicks, string Sha256)
+{
+    public string? NativeId { get; init; }
+}
 public sealed record ProposedOperation(Guid Id, Guid FileId, Guid? TargetSpaceId,
     ProposedOperationStatus Status, DateTimeOffset CreatedAt)
 {
@@ -23,6 +39,7 @@ public sealed record ProposedOperation(Guid Id, Guid FileId, Guid? TargetSpaceId
     public long? OriginalLength { get; init; }
     public long? OriginalLastWriteUtcTicks { get; init; }
     public string? OriginalSha256 { get; init; }
+    public string? OriginalNativeId { get; init; }
     public List<WorkspaceDirectoryFileIdentity>? OriginalDirectoryManifest { get; init; }
     // Absent on legacy operations; undo must not invent empty-directory evidence.
     public List<string>? OriginalDirectoryPaths { get; init; }

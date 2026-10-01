@@ -28,6 +28,9 @@ public sealed partial class WorkspaceFileItemViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isSelected;
 
+    [ObservableProperty]
+    private bool _isInTrash;
+
     public LocalizationManager Localizer => LocalizationManager.Instance;
 
     public bool IsManaged => StorageMode == SpaceStorageMode.Managed;
@@ -63,7 +66,8 @@ public sealed partial class WorkspaceFileItemViewModel : ViewModelBase
         string name,
         string path,
         bool isDirectory,
-        SpaceStorageMode storageMode = SpaceStorageMode.Managed)
+        SpaceStorageMode storageMode = SpaceStorageMode.Managed,
+        bool isInTrash = false)
     {
         _id = id;
         _spaceId = spaceId;
@@ -71,6 +75,7 @@ public sealed partial class WorkspaceFileItemViewModel : ViewModelBase
         _path = path;
         _isDirectory = isDirectory;
         _storageMode = storageMode;
+        _isInTrash = isInTrash;
 
         Localizer.LanguageChanged += (_, _) =>
         {

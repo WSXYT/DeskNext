@@ -64,9 +64,14 @@ public sealed class SmokeTestResult
     public bool ManualUndoGatedCallbackBoundaryVerified { get; set; }
     public bool OperationUndoneStatusVerified { get; set; }
     public bool WorkspaceFileCapabilityGatesTruthful { get; set; }
+    public bool ClipboardSubjectBindingVerified { get; set; }
+    public bool StartupRecoveryRetryVerified { get; set; }
+    public bool CompanionLifetimeVerified { get; set; }
     public bool WorkspaceFileCallbacksInvoked { get; set; }
     public bool WorkspaceFileManagedVsMappedVerified { get; set; }
     public bool WorkspaceFileSelectionRetentionVerified { get; set; }
+    public bool WorkspaceFileConfirmationDialogVerified { get; set; }
+    public bool WorkspaceFileTrashAndHistoryVerified { get; set; }
     public string VirtualDpiStatus { get; set; } = "Unverified (Avalonia.Headless does not expose configurable per-window RenderScaling API; physical 100%/150%/200% DPI matrix remains open for physical display verification)";
     public double HeadlessScale { get; set; } = 1.0;
     public bool HeadlessOffscreenRenderRequested { get; set; }
@@ -90,6 +95,190 @@ public sealed class SmokeTestResult
 
 public static class HeadlessSmokeRunner
 {
+    private static void AwaitOnUIThread(Task task, string operationName, int timeoutSeconds = 5)
+    {
+        var sw = Stopwatch.StartNew();
+        while (!task.IsCompleted)
+        {
+            Dispatcher.UIThread.RunJobs();
+            Thread.Sleep(5);
+            if (sw.Elapsed > TimeSpan.FromSeconds(timeoutSeconds))
+                throw new TimeoutException($"Timed out waiting for {operationName} to complete (exceeded {timeoutSeconds}s).");
+        }
+        Dispatcher.UIThread.RunJobs();
+        task.GetAwaiter().GetResult();
+    }
+
+    private static void VerifyStartupRecoveryRetry()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "DeskNext-startup-retry-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string intent = Path.Combine(root, "copy-recovery.json");
+        string damagedIntent = "{" + new string('x', 20_000);
+        File.WriteAllText(intent, damagedIntent);
+        MainWindow? recoveryWindow = null;
+        var vm = new MainWindowViewModel(StartupState.RecoveryRequired, "isolated retry fixture");
+        try
+        {
+            AwaitOnUIThread(vm.InitializeWorkspaceAsync(root), "initial recovery refusal");
+            AwaitOnUIThread(Task.WhenAll(vm.RetryStartupAsync(), vm.RetryStartupAsync()), "serialized recovery retries");
+            if (!vm.IsRecoveryRequired || vm.IsLockConflict || vm.IsStudioActive || vm.IsOnboardingActive ||
+                File.ReadAllText(intent) != damagedIntent)
+                throw new InvalidOperationException("Retry must retain recovery evidence, not acquire its own lock or expose workspace actions.");
+            bool locked = false;
+            var competing = WorkspaceStore.OpenAsync(root);
+            try { AwaitOnUIThread(competing, "competing workspace owner"); }
+            catch (IOException) { locked = true; }
+            if (!locked)
+            {
+                AwaitOnUIThread(competing.Result.DisposeAsync().AsTask(), "unexpected competing owner cleanup");
+                throw new InvalidOperationException("Recovery retry released the exclusive workspace owner.");
+            }
+
+            var artifactsBefore = Directory.GetFileSystemEntries(root).OrderBy(path => path).ToArray();
+            AwaitOnUIThread(vm.InspectRecoveryEvidenceAsync(), "read-only recovery evidence");
+            if (!vm.HasRecoveryEvidence || !vm.RecoveryEvidenceText.Contains(intent) ||
+                !vm.RecoveryEvidenceText.Contains(LocalizationManager.Instance["Files.PreviewTruncatedNotice"]) ||
+                vm.RecoveryEvidenceText.Length > 20_000 || File.ReadAllText(intent) != damagedIntent ||
+                !artifactsBefore.SequenceEqual(Directory.GetFileSystemEntries(root).OrderBy(path => path)))
+                throw new InvalidOperationException("Recovery inspection must be bounded and must not change evidence.");
+            recoveryWindow = new MainWindow(vm);
+            recoveryWindow.Show();
+            Dispatcher.UIThread.RunJobs();
+            var evidenceBox = recoveryWindow.FindControl<TextBox>("RecoveryEvidenceTextBox");
+            if (evidenceBox is null || !evidenceBox.IsReadOnly || !evidenceBox.IsEffectivelyVisible ||
+                evidenceBox.FlowDirection != Avalonia.Media.FlowDirection.LeftToRight || evidenceBox.Text != vm.RecoveryEvidenceText)
+                throw new InvalidOperationException("Production recovery evidence control must be visible, read-only and LTR.");
+
+            // Test-fixture removal simulates external remediation; no production command deletes evidence.
+            File.Delete(intent);
+            AwaitOnUIThread(vm.RetryStartupAsync(), "retry after fixture remediation");
+            if (vm.StartupState != StartupState.Ready || vm.HasStartupError || !vm.IsOnboardingActive)
+                throw new InvalidOperationException("Recovery retry did not reuse its existing store successfully.");
+            AwaitOnUIThread(vm.DisposeAsync().AsTask(), "owned startup store disposal");
+            AwaitOnUIThread(vm.RetryStartupAsync(), "retry after disposal");
+            var reopenedTask = WorkspaceStore.OpenAsync(root);
+            AwaitOnUIThread(reopenedTask, "reopen disposed owner");
+            var reopened = reopenedTask.Result;
+            try
+            {
+                var borrowed = new MainWindowViewModel(reopened);
+                try { AwaitOnUIThread(borrowed.InitializeWorkspaceAsync(root), "borrowed owner retry"); }
+                finally { AwaitOnUIThread(borrowed.DisposeAsync().AsTask(), "borrowed view disposal"); }
+                AwaitOnUIThread(reopened.UpdateAsync(state => state), "borrowed store remains usable");
+            }
+            finally { AwaitOnUIThread(reopened.DisposeAsync().AsTask(), "fixture store disposal"); }
+        }
+        finally
+        {
+            recoveryWindow?.Close();
+            AwaitOnUIThread(vm.DisposeAsync().AsTask(), "retry fixture disposal");
+            Directory.Delete(root, recursive: true);
+        }
+
+        // Opening the store can fail before ownership is acquired as well.
+        string unopenedRoot = Path.Combine(Path.GetTempPath(), "DeskNext-startup-marker-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(unopenedRoot);
+        string marker = Path.Combine(unopenedRoot, "workspace.json.recovery-required");
+        File.WriteAllText(marker, "preserve");
+        var unopenedVm = new MainWindowViewModel(StartupState.RecoveryRequired, "isolated marker fixture");
+        try
+        {
+            AwaitOnUIThread(unopenedVm.InitializeWorkspaceAsync(unopenedRoot), "startup marker refusal");
+            AwaitOnUIThread(unopenedVm.InspectRecoveryEvidenceAsync(), "startup marker inspection");
+            if (!unopenedVm.IsRecoveryRequired || !unopenedVm.RecoveryEvidenceText.Contains(marker) ||
+                File.ReadAllText(marker) != "preserve")
+                throw new InvalidOperationException("Pre-open recovery evidence must remain inspectable without opening the store.");
+            File.Delete(marker); // Test-only simulated remediation.
+            AwaitOnUIThread(unopenedVm.RetryStartupAsync(), "pre-open refusal retry");
+            if (unopenedVm.StartupState != StartupState.Ready)
+                throw new InvalidOperationException("Retry after a pre-open refusal did not initialize the store.");
+        }
+        finally
+        {
+            AwaitOnUIThread(unopenedVm.DisposeAsync().AsTask(), "pre-open retry disposal");
+            Directory.Delete(unopenedRoot, recursive: true);
+        }
+    }
+
+    private static void VerifyCompanionLifetime()
+    {
+        var owner = new MainWindowViewModel(new WorkspaceState { OnboardingComplete = true, OnboardingStep = 5 });
+        string language = LocalizationManager.Instance.CurrentLanguage;
+        try
+        {
+            var studio = owner.Studio ?? throw new InvalidOperationException("Missing companion studio fixture.");
+            studio.CapsuleNotice = "before close";
+            var window = new DropCapsuleWindow(studio);
+            var owned = (DropCapsuleViewModel)window.DataContext!;
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            window.Close();
+            int changed = 0;
+            owned.PropertyChanged += (_, _) => changed++;
+            studio.CapsuleNotice = "after close";
+            LocalizationManager.Instance.CurrentLanguage = language == "zh-CN" ? "en-US" : "zh-CN";
+            AwaitOnUIThread(owned.DropPathsOnCapsuleAsync(["unused"]), "closed companion refusal");
+            if (changed != 0 || owned.CapsuleNotice != "before close")
+                throw new InvalidOperationException("Closed companion still observes studio/localization changes.");
+
+            int submitted = 0;
+            using var borrowed = new DropCapsuleViewModel(null, _ => { submitted++; return Task.CompletedTask; });
+            var borrowedWindow = new DropCapsuleWindow(borrowed);
+            borrowedWindow.Show();
+            borrowedWindow.Close();
+            borrowed.CapsuleInputPath = "metadata-only fixture";
+            AwaitOnUIThread(borrowed.SubmitCapsuleAsync(), "borrowed companion remains usable");
+            if (submitted != 1) throw new InvalidOperationException("Closing a borrowing window disposed its caller-owned view model.");
+            borrowed.Dispose();
+            borrowed.CapsuleInputPath = "metadata-only fixture";
+            AwaitOnUIThread(borrowed.SubmitCapsuleAsync(), "disposed companion refusal");
+            if (submitted != 1) throw new InvalidOperationException("Disposed companion invoked a callback.");
+        }
+        finally
+        {
+            LocalizationManager.Instance.CurrentLanguage = language;
+            AwaitOnUIThread(owner.DisposeAsync().AsTask(), "companion fixture disposal");
+        }
+    }
+
+    private static void VerifyClipboardSubjectBinding()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "DeskNext-clipboard-metadata-fixture"); // No disk I/O.
+        Guid space = Guid.NewGuid();
+        var first = new WorkspaceFile(Guid.NewGuid(), space, "first.txt", Path.Combine(root, "first.txt"), false);
+        var second = new WorkspaceFile(Guid.NewGuid(), space, "second.txt", Path.Combine(root, "second.txt"), false);
+        var state = new WorkspaceState { Files = [first, second] };
+        WorkspaceClipboardPayload Payload(Guid? id, Guid? from, string path, bool cut = true) =>
+            new() { SourceFileId = id, SourceSpaceId = from, Paths = [path], IsCut = cut };
+        if (AvaloniaClipboardBridge.ResolveCutSource(Payload(first.Id, space, first.Path), state)?.Id != first.Id)
+            throw new InvalidOperationException("Matching clipboard source did not resolve.");
+        WorkspaceClipboardPayload[] invalid = [
+            Payload(first.Id, space, second.Path), Payload(Guid.NewGuid(), space, first.Path),
+            Payload(first.Id, Guid.NewGuid(), first.Path), Payload(null, space, first.Path),
+            Payload(first.Id, null, first.Path), Payload(first.Id, space, "relative.txt"),
+            Payload(first.Id, space, "https://example.invalid/file"), Payload(first.Id, space, first.Path, cut: false)
+        ];
+        if (invalid.Any(payload => AvaloniaClipboardBridge.ResolveCutSource(payload, state) is not null) ||
+            AvaloniaClipboardBridge.ResolveCutSource(Payload(first.Id, space, first.Path),
+                state with { Files = [first with { IsInTrash = true }, second] }) is not null)
+            throw new InvalidOperationException("Mismatched or stale clipboard source was accepted.");
+
+        string json = JsonSerializer.Serialize(Payload(first.Id, space, first.Path));
+        var parsed = AvaloniaClipboardBridge.ParsePayload(json.PadRight(AvaloniaClipboardBridge.MaximumPayloadCharacters));
+        if (parsed is null || AvaloniaClipboardBridge.ResolveCutSource(parsed, state)?.Id != first.Id)
+            throw new InvalidOperationException("An exactly bounded clipboard payload failed to resolve.");
+        string?[] rejected = [null, "", "{", "null", "{\"Paths\":null}", "{\"Paths\":[]}",
+            json.PadRight(AvaloniaClipboardBridge.MaximumPayloadCharacters + 1),
+            json[..^1] + ",\"unexpected\":true}",
+            JsonSerializer.Serialize(new WorkspaceClipboardPayload { Paths = [first.Path, second.Path] }),
+            JsonSerializer.Serialize(Payload(first.Id, space, "relative.txt")),
+            JsonSerializer.Serialize(Payload(first.Id, space, first.Path + "\0")),
+            JsonSerializer.Serialize(Payload(first.Id, space, first.Path + new string('x', 4096)))];
+        if (rejected.Any(input => AvaloniaClipboardBridge.ParsePayload(input) is not null))
+            throw new InvalidOperationException("Malformed or oversized clipboard input was accepted.");
+    }
+
     public static async Task<int> RunSmokeAsync(string[] args)
     {
         var sw = Stopwatch.StartNew();
@@ -144,6 +333,11 @@ public static class HeadlessSmokeRunner
                     throw new ArgumentException("Option --render-headless-png requires a non-empty directory path.");
                 }
             }
+            else if (arg.Equals("--render-ui-review", StringComparison.OrdinalIgnoreCase))
+            {
+                renderHeadlessPngRequested = true;
+                requestedRenderPngDir = "artifacts/ui-review";
+            }
         }
 
         var result = new SmokeTestResult
@@ -164,6 +358,8 @@ public static class HeadlessSmokeRunner
 
         try
         {
+            VerifyClipboardSubjectBinding();
+            result.ClipboardSubjectBindingVerified = true;
             // 1. Initialize Avalonia in headless mode
             Console.WriteLine("[STEP 1] Initializing Avalonia with Skia & Headless platform...");
             var builder = AppBuilder.Configure<App>()
@@ -171,6 +367,10 @@ public static class HeadlessSmokeRunner
                 .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
 
             builder.SetupWithoutStarting();
+            VerifyStartupRecoveryRetry();
+            result.StartupRecoveryRetryVerified = true;
+            VerifyCompanionLifetime();
+            result.CompanionLifetimeVerified = true;
             result.HeadlessInitialized = (Application.Current != null);
             Console.WriteLine($"  ✓ Avalonia Application.Current active: {result.HeadlessInitialized}");
 
@@ -185,8 +385,11 @@ public static class HeadlessSmokeRunner
             if (!themeMgr.IsDark)
                 throw new InvalidOperationException("Theme did not switch to Dark.");
 
+            // Reset back to primary neutral Light default
+            themeMgr.CurrentThemeMode = AppThemeMode.Light;
+
             result.ThemeSwitchingVerified = true;
-            Console.WriteLine("  ✓ Theme switching verified successfully.");
+            Console.WriteLine("  ✓ Theme switching verified successfully (neutral Light default restored).");
 
             // 3. Test Localization across 12 languages, RTL detection, and 100% Key Parity
             Console.WriteLine("[STEP 3] Verifying 12-Language Localization Engine, RTL detection & Dictionary Parity...");
@@ -691,39 +894,23 @@ public static class HeadlessSmokeRunner
                             }
                         }
 
-                        // Verify 750-char description is bounded within left rail (320px)
-                        var descTb = tbs.FirstOrDefault(t => t.Text != null && t.Text.StartsWith("LongDescription_"));
-                        if (descTb != null && descTb.Bounds.Width > 320.0)
-                        {
-                            throw new InvalidOperationException($"Long description width {descTb.Bounds.Width} exceeded left rail bound 320 in {testLang}");
-                        }
+                        // The space rail contains only compact names; the description lives in the detail pane.
+                        var spaceList = sv.GetVisualDescendants().OfType<ListBox>()
+                            .FirstOrDefault(box => ReferenceEquals(box.ItemsSource, stressStudioVm.FilteredSpaces));
+                        var railName = spaceList?.GetVisualDescendants().OfType<TextBlock>()
+                            .FirstOrDefault(t => t.Text == longName && t.IsEffectivelyVisible);
+                        if (railName is null || railName.Bounds.Width > 240.0)
+                            throw new InvalidOperationException($"Long space name escaped the 260px space rail in {testLang}");
 
-                        // Verify 150-char space name is bounded within left rail (320px)
-                        var nameTb = tbs.FirstOrDefault(t => t.Text == longName);
-                        if (nameTb != null && nameTb.Bounds.Width > 320.0)
-                        {
-                            throw new InvalidOperationException($"Long space name width {nameTb.Bounds.Width} exceeded left rail bound 320 in {testLang}");
-                        }
+                        var descTb = tbs.FirstOrDefault(t => t.Text?.StartsWith("LongDescription_") == true);
+                        if (descTb is null || descTb.Bounds.Width > maxW - 444.0)
+                            throw new InvalidOperationException($"Long description escaped the detail pane in {testLang}");
 
-                        // Verify file row grid layout: fileNameTb and filePathTb must not overlap
-                        var fileRows = sv.GetVisualDescendants()
-                            .OfType<Grid>()
-                            .Where(g => g.ColumnDefinitions != null && g.ColumnDefinitions.Count == 3 &&
-                                        g.Children.OfType<TextBlock>().Any(t => t.Text == Path.GetFileName(longPath)))
-                            .ToList();
-
-                        foreach (var row in fileRows)
-                        {
-                            var fNameTb = row.Children.OfType<TextBlock>().FirstOrDefault(t => t.Text == Path.GetFileName(longPath));
-                            var fPathTb = row.Children.OfType<TextBlock>().FirstOrDefault(t => t.Text == longPath);
-                            if (fNameTb != null && fPathTb != null && fNameTb.IsEffectivelyVisible && fPathTb.IsEffectivelyVisible)
-                            {
-                                if (fNameTb.Bounds.Right > fPathTb.Bounds.Left + 1.0)
-                                {
-                                    throw new InvalidOperationException($"File row text overlap: Name.Right ({fNameTb.Bounds.Right}) > Path.Left ({fPathTb.Bounds.Left}) in {testLang}");
-                                }
-                            }
-                        }
+                        var fileList = sv.FindControl<ListBox>("FilesListBox");
+                        var fileNameTb = fileList?.GetVisualDescendants().OfType<TextBlock>()
+                            .FirstOrDefault(t => t.Text == Path.GetFileName(longPath) && t.IsEffectivelyVisible);
+                        if (fileNameTb is null || fileNameTb.Bounds.Width > maxW - 444.0)
+                            throw new InvalidOperationException($"Long filename escaped the file row in {testLang}");
                     }
 
                     VerifyVisualBounds(testWin1280, 1280, 720);
@@ -1105,6 +1292,13 @@ public static class HeadlessSmokeRunner
                     .FirstOrDefault(lb => lb.Name == "OperationsListBox");
 
                 // The production MainWindow is wired to the Core coordinator; verify that it is ready.
+                if (mainVm.Studio.OnRevealFile is null)
+                    throw new InvalidOperationException("Open containing folder must be attached to the platform boundary.");
+                if (mainVm.Studio.OnCopyFile is not null || mainVm.Studio.CanCopyFile ||
+                    mainVm.Studio.CopyFileStatusNotice != localizer["Files.CopyGatedNotice"])
+                    throw new InvalidOperationException("Production copy must remain gated until the P3 path-race review is resolved.");
+                if (mainVm.Studio.OnCutFile is null || mainVm.Studio.OnPasteFile is null)
+                    throw new InvalidOperationException("Cut/paste must remain attached to the journaled move boundary.");
                 if (!mainVm.Studio.CanExecuteManualMove)
                     throw new InvalidOperationException("MainWindow did not attach the Core manual organization coordinator.");
                 if (mainVm.Studio.ManualMoveStatusNotice != localizer["Operations.ManualMoveReadyNotice"])
@@ -1262,7 +1456,8 @@ public static class HeadlessSmokeRunner
                 // Regression Assertion 11: Truthful WorkspaceFile Capability Gates, Callback Invocations, Managed-vs-Mapped Presentation & Selection Retention (P3 UI Slice)
                 // 1. Verify truthful gated status when unattached
                 var unattachedStudio = new StudioViewModel(new WorkspaceState(), _ => Task.FromResult(new WorkspaceState()));
-                if (unattachedStudio.CanOpenFile || unattachedStudio.CanPreviewFile ||
+                if (unattachedStudio.CanOpenFile || unattachedStudio.CanRevealFile ||
+                    unattachedStudio.CanPreviewFile ||
                     unattachedStudio.CanCopyFile || unattachedStudio.CanCutFile ||
                     unattachedStudio.CanPasteFile || unattachedStudio.CanRenameFile ||
                     unattachedStudio.CanDeleteFile)
@@ -1271,6 +1466,7 @@ public static class HeadlessSmokeRunner
                 }
 
                 if (unattachedStudio.OpenFileStatusNotice != localizer["Files.OpenGatedNotice"] ||
+                    unattachedStudio.RevealFileStatusNotice != localizer["Files.RevealGatedNotice"] ||
                     unattachedStudio.PreviewFileStatusNotice != localizer["Files.PreviewGatedNotice"] ||
                     unattachedStudio.CopyFileStatusNotice != localizer["Files.CopyGatedNotice"] ||
                     unattachedStudio.CutFileStatusNotice != localizer["Files.CutGatedNotice"] ||
@@ -1301,6 +1497,10 @@ public static class HeadlessSmokeRunner
                 if (unattachedStudio.FileActionNotice != localizer["Files.OpenGatedNotice"])
                     throw new InvalidOperationException("Executing unattached open did not set OpenGatedNotice.");
 
+                Task.Run(async () => await unattachedStudio.ExecuteRevealFileAsync(unattachedStudio.SelectedFile)).GetAwaiter().GetResult();
+                if (unattachedStudio.FileActionNotice != localizer["Files.RevealGatedNotice"])
+                    throw new InvalidOperationException("Executing unattached reveal did not set RevealGatedNotice.");
+
                 Task.Run(async () => await unattachedStudio.ExecuteCopyFileAsync(unattachedStudio.SelectedFile)).GetAwaiter().GetResult();
                 if (unattachedStudio.FileActionNotice != localizer["Files.CopyGatedNotice"])
                     throw new InvalidOperationException("Executing unattached copy did not set CopyGatedNotice.");
@@ -1321,6 +1521,7 @@ public static class HeadlessSmokeRunner
 
                 // 2. Verify injectable callback invocation when attached
                 WorkspaceFileItemViewModel? invokedOpenFile = null;
+                WorkspaceFileItemViewModel? invokedRevealFile = null;
                 WorkspaceFileItemViewModel? invokedPreviewFile = null;
                 WorkspaceFileItemViewModel? invokedCopyFile = null;
                 WorkspaceFileItemViewModel? invokedCutFile = null;
@@ -1329,6 +1530,7 @@ public static class HeadlessSmokeRunner
                 WorkspaceFileItemViewModel? invokedDeleteFile = null;
 
                 unattachedStudio.AttachOpenFileExecutor(f => { invokedOpenFile = f; return Task.CompletedTask; });
+                unattachedStudio.AttachRevealFileExecutor(f => { invokedRevealFile = f; return Task.CompletedTask; });
                 unattachedStudio.AttachPreviewFileExecutor(f => { invokedPreviewFile = f; return Task.CompletedTask; });
                 unattachedStudio.AttachCopyFileExecutor(f => { invokedCopyFile = f; return Task.CompletedTask; });
                 unattachedStudio.AttachCutFileExecutor(f => { invokedCutFile = f; return Task.CompletedTask; });
@@ -1336,12 +1538,13 @@ public static class HeadlessSmokeRunner
                 unattachedStudio.AttachRenameFileExecutor((f, name) => { invokedRename = (f, name); return Task.CompletedTask; });
                 unattachedStudio.AttachDeleteFileExecutor(f => { invokedDeleteFile = f; return Task.CompletedTask; });
 
-                if (!unattachedStudio.CanOpenFile || !unattachedStudio.CanPreviewFile ||
+                if (!unattachedStudio.CanOpenFile || !unattachedStudio.CanRevealFile ||
+                    !unattachedStudio.CanPreviewFile ||
                     !unattachedStudio.CanCopyFile || !unattachedStudio.CanCutFile ||
                     !unattachedStudio.CanPasteFile || !unattachedStudio.CanRenameFile ||
-                    unattachedStudio.CanDeleteFile)
+                    !unattachedStudio.CanDeleteFile)
                 {
-                    throw new InvalidOperationException("Attached StudioViewModel must gate managed delete and enable the other applicable actions.");
+                    throw new InvalidOperationException("Attached StudioViewModel must enable all applicable actions including delete.");
                 }
 
                 var targetTestFile = unattachedStudio.SelectedFile!;
@@ -1350,6 +1553,10 @@ public static class HeadlessSmokeRunner
                 Task.Run(async () => await unattachedStudio.ExecuteOpenFileAsync(targetTestFile)).GetAwaiter().GetResult();
                 if (invokedOpenFile != targetTestFile)
                     throw new InvalidOperationException("OnOpenFile callback was not invoked with expected file.");
+
+                Task.Run(async () => await unattachedStudio.ExecuteRevealFileAsync(targetTestFile)).GetAwaiter().GetResult();
+                if (invokedRevealFile != targetTestFile)
+                    throw new InvalidOperationException("OnRevealFile callback was not invoked with expected file.");
 
                 Task.Run(async () => await unattachedStudio.ExecutePreviewFileAsync(targetTestFile)).GetAwaiter().GetResult();
                 if (invokedPreviewFile != targetTestFile)
@@ -1371,15 +1578,156 @@ public static class HeadlessSmokeRunner
                 if (invokedRename.file != targetTestFile || invokedRename.newName != "renamed_doc.txt")
                     throw new InvalidOperationException("OnRenameFile callback was not invoked with expected arguments.");
 
+                // Host unattachedStudio in production StudioView inside an active Window to test real layout and visual modal bindings
+                var studioViewHost = new StudioView { DataContext = unattachedStudio };
+                var testWindowHost = new Window { Width = 1280, Height = 720, Content = studioViewHost };
+                testWindowHost.Show();
+                Dispatcher.UIThread.RunJobs();
+
+                var overlay = studioViewHost.FindControl<Border>("DeleteConfirmationOverlay")
+                    ?? throw new InvalidOperationException("DeleteConfirmationOverlay not found in production StudioView.");
+                var deleteModalCancelBtn = studioViewHost.FindControl<Button>("DeleteConfirmationCancelButton")
+                    ?? throw new InvalidOperationException("DeleteConfirmationCancelButton not found in production StudioView.");
+                var deleteModalConfirmBtn = studioViewHost.FindControl<Button>("DeleteConfirmationConfirmButton")
+                    ?? throw new InvalidOperationException("DeleteConfirmationConfirmButton not found in production StudioView.");
+
+                // 2a. Verify Managed Delete Confirmation Dialog, Localized Bindings & Callback Semantics
+                var deleteInitTask = unattachedStudio.ExecuteDeleteFileAsync(targetTestFile);
+                AwaitOnUIThread(deleteInitTask, "ExecuteDeleteFileAsync");
+
+                if (!unattachedStudio.IsDeleteConfirmationDialogOpen)
+                    throw new InvalidOperationException("Executing delete on managed file must open confirmation dialog.");
+                if (!overlay.IsVisible)
+                    throw new InvalidOperationException("DeleteConfirmationOverlay in production StudioView must be visible when dialog is open.");
+                if (unattachedStudio.DeletingFile != targetTestFile)
+                    throw new InvalidOperationException("DeletingFile was not set to targetTestFile.");
+                if (unattachedStudio.SelectedFile != targetTestFile)
+                    throw new InvalidOperationException("SelectedFile was not set to targetTestFile when confirmation dialog opened.");
+                if (invokedDeleteFile != null)
+                    throw new InvalidOperationException("Managed delete callback must NOT be invoked before confirmation acceptance.");
+
+                // Validate localized resource bindings and truthful file prompt formatting
+                var expectedPrompt = localizer.GetString("Files.DeleteConfirmPrompt", targetTestFile.Name);
+                if (unattachedStudio.DeleteConfirmPromptText != expectedPrompt)
+                    throw new InvalidOperationException($"Delete confirmation prompt '{unattachedStudio.DeleteConfirmPromptText}' did not match localized resource template '{expectedPrompt}'.");
+                if (unattachedStudio.DeleteConfirmTitleText != localizer["Files.DeleteConfirmTitle"])
+                    throw new InvalidOperationException("Delete confirmation title did not match localized template.");
+                if (unattachedStudio.DeleteConfirmActionText != localizer["Files.DeleteConfirmAction"])
+                    throw new InvalidOperationException("Delete confirmation action text did not match localized template.");
+                if (!unattachedStudio.DeleteConfirmPromptText.Contains(targetTestFile.Name))
+                    throw new InvalidOperationException("Delete confirmation prompt did not include file name.");
+
+                // Validate that all 12 locales provide non-empty delete confirmation keys with format placeholder
+                var origLanguage = localizer.CurrentLanguage;
+                foreach (var lang in LocalizationManager.SupportedLanguages)
+                {
+                    localizer.CurrentLanguage = lang.Code;
+                    var locPromptFormat = localizer["Files.DeleteConfirmPrompt"];
+                    var locTitle = localizer["Files.DeleteConfirmTitle"];
+                    var locAction = localizer["Files.DeleteConfirmAction"];
+                    if (string.IsNullOrWhiteSpace(locPromptFormat) || !locPromptFormat.Contains("{0}"))
+                        throw new InvalidOperationException($"Locale '{lang.Code}' has invalid or missing Files.DeleteConfirmPrompt format placeholder.");
+                    if (string.IsNullOrWhiteSpace(locTitle))
+                        throw new InvalidOperationException($"Locale '{lang.Code}' is missing Files.DeleteConfirmTitle.");
+                    if (string.IsNullOrWhiteSpace(locAction))
+                        throw new InvalidOperationException($"Locale '{lang.Code}' is missing Files.DeleteConfirmAction.");
+                }
+                localizer.CurrentLanguage = origLanguage;
+
+                // Verify Confirmation Cancel callback/command and production view dismissal
+                unattachedStudio.CloseDeleteConfirmationDialog();
+                Dispatcher.UIThread.RunJobs();
+
+                if (unattachedStudio.IsDeleteConfirmationDialogOpen)
+                    throw new InvalidOperationException("CloseDeleteConfirmationDialog must close confirmation dialog.");
+                if (overlay.IsVisible)
+                    throw new InvalidOperationException("DeleteConfirmationOverlay in production StudioView must be hidden after cancel.");
+                if (unattachedStudio.DeletingFile != null)
+                    throw new InvalidOperationException("Canceling delete confirmation must clear DeletingFile.");
+                if (invokedDeleteFile != null)
+                    throw new InvalidOperationException("Canceling delete confirmation must not invoke delete callback.");
+
+                // Verify busy re-entrance protection on repeated confirm/cancel invocations
+                int deleteCallbackInvocations = 0;
+                var deleteGateTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+                unattachedStudio.AttachDeleteFileExecutor(async f =>
+                {
+                    Interlocked.Increment(ref deleteCallbackInvocations);
+                    invokedDeleteFile = f;
+                    await deleteGateTcs.Task;
+                });
+
+                unattachedStudio.OpenDeleteConfirmationDialog(targetTestFile);
+                Dispatcher.UIThread.RunJobs();
+
+                if (!unattachedStudio.IsDeleteConfirmationDialogOpen)
+                    throw new InvalidOperationException("OpenDeleteConfirmationDialog did not set IsDeleteConfirmationDialogOpen.");
+                if (!overlay.IsVisible)
+                    throw new InvalidOperationException("DeleteConfirmationOverlay must be visible in production view after OpenDeleteConfirmationDialog.");
+
+                var inFlightTask = unattachedStudio.ConfirmDeleteFileAsync();
+                Dispatcher.UIThread.RunJobs();
+
+                if (!unattachedStudio.IsDeleteConfirmationBusy)
+                    throw new InvalidOperationException("IsDeleteConfirmationBusy must be true while delete executor is in flight.");
+                if (unattachedStudio.CanDeleteFile)
+                    throw new InvalidOperationException("CanDeleteFile must be false while IsDeleteConfirmationBusy is true.");
+                if (deleteModalCancelBtn.IsEnabled)
+                    throw new InvalidOperationException("Delete confirmation Cancel button in production view must be disabled while busy.");
+                if (deleteModalConfirmBtn.IsEnabled)
+                    throw new InvalidOperationException("Delete confirmation Confirm button in production view must be disabled while busy.");
+
+                // Concurrent confirm and cancel while busy must be safely ignored
+                var secondConfirmTask = unattachedStudio.ConfirmDeleteFileAsync();
+                Dispatcher.UIThread.RunJobs();
+
+                unattachedStudio.CloseDeleteConfirmationDialog();
+                Dispatcher.UIThread.RunJobs();
+
+                if (!unattachedStudio.IsDeleteConfirmationDialogOpen || !overlay.IsVisible)
+                    throw new InvalidOperationException("CloseDeleteConfirmationDialog must not dismiss modal while busy.");
+
+                // Complete the in-flight delete executor
+                deleteGateTcs.TrySetResult(true);
+
+                // Dispatcher pumping with bounded watchdog to complete in-flight tasks without deadlocking AvaloniaSynchronizationContext
+                AwaitOnUIThread(inFlightTask, "ConfirmDeleteFileAsync");
+                AwaitOnUIThread(secondConfirmTask, "second ConfirmDeleteFileAsync");
+
+                // Assert exactly one callback invocation was performed, proving no double execution
+                if (deleteCallbackInvocations != 1)
+                    throw new InvalidOperationException($"Expected exactly 1 callback invocation, got {deleteCallbackInvocations}.");
+
+                if (invokedDeleteFile != targetTestFile)
+                    throw new InvalidOperationException("ConfirmDeleteFileAsync must invoke delete callback with targetTestFile.");
+                if (unattachedStudio.IsDeleteConfirmationDialogOpen)
+                    throw new InvalidOperationException("ConfirmDeleteFileAsync must close dialog on success.");
+                if (overlay.IsVisible)
+                    throw new InvalidOperationException("DeleteConfirmationOverlay in production StudioView must be hidden after successful deletion.");
+                if (unattachedStudio.IsDeleteConfirmationBusy)
+                    throw new InvalidOperationException("IsDeleteConfirmationBusy must be false after completion.");
+                if (unattachedStudio.DeletingFile != null)
+                    throw new InvalidOperationException("Successful confirm delete must clear DeletingFile.");
+
+                // Restore non-blocking mock executor for subsequent tests
+                unattachedStudio.AttachDeleteFileExecutor(f => { invokedDeleteFile = f; return Task.CompletedTask; });
+                result.WorkspaceFileConfirmationDialogVerified = true;
+
+                // 2b. Verify Mapped File removal semantics (no trash confirmation dialog, unmaps reference)
+                invokedDeleteFile = null;
                 var mappedSpaceItem = unattachedStudio.AllSpaces.First(s => s.IsMapped);
                 unattachedStudio.SelectSpace(mappedSpaceItem);
                 var mappedTargetFile = mappedSpaceItem.Files.First();
                 unattachedStudio.SelectFile(mappedTargetFile);
                 if (!unattachedStudio.CanDeleteFile)
                     throw new InvalidOperationException("Attached StudioViewModel must enable mapped-reference removal.");
-                Task.Run(async () => await unattachedStudio.ExecuteDeleteFileAsync(mappedTargetFile)).GetAwaiter().GetResult();
+                var mappedDeleteTask = unattachedStudio.ExecuteDeleteFileAsync(mappedTargetFile);
+                AwaitOnUIThread(mappedDeleteTask, "ExecuteDeleteFileAsync (mapped)");
                 if (invokedDeleteFile != mappedTargetFile)
                     throw new InvalidOperationException("OnDeleteFile callback was not invoked with expected mapped file.");
+                if (unattachedStudio.IsDeleteConfirmationDialogOpen)
+                    throw new InvalidOperationException("Mapped file removal must not open managed trash confirmation dialog.");
 
                 result.WorkspaceFileCallbacksInvoked = true;
 
@@ -1414,6 +1762,116 @@ public static class HeadlessSmokeRunner
                     throw new InvalidOperationException("SelectedFile was not retained across RefreshFromState.");
 
                 result.WorkspaceFileSelectionRetentionVerified = true;
+
+                // 5. Verify Trash visibility exclusion and Operation History undo availability
+                var trashOpId = Guid.NewGuid();
+                var trashedManagedFile = dummyManagedFile with { IsInTrash = true };
+                var stateWithTrashedFile = new WorkspaceState
+                {
+                    Spaces = [dummyManagedSpace, dummyMappedSpace],
+                    Files = [trashedManagedFile, dummyMappedFile],
+                    Operations =
+                    [
+                        new ProposedOperation(trashOpId, trashedManagedFile.Id, dummyManagedSpace.Id,
+                            ProposedOperationStatus.Completed, DateTimeOffset.UtcNow)
+                        {
+                            SourceSpaceId = dummyManagedSpace.Id,
+                            SourcePath = dummyManagedFile.Path,
+                            DestinationPath = Path.Combine(dummyManagedSpace.Folder, ".desknest-trash", trashOpId.ToString("N"), dummyManagedFile.Name)
+                        }
+                    ]
+                };
+
+                unattachedStudio.RefreshFromState(stateWithTrashedFile);
+                var managedSpaceAfterTrash = unattachedStudio.AllSpaces.First(s => s.Id == dummyManagedSpace.Id);
+
+                // Trashed file must be excluded from regular space files and counts
+                if (managedSpaceAfterTrash.Files.Any(f => f.Id == trashedManagedFile.Id))
+                    throw new InvalidOperationException("Trashed file must be excluded from space Files collection.");
+                if (managedSpaceAfterTrash.ItemCount != 0)
+                    throw new InvalidOperationException($"Managed space ItemCount expected 0 for trashed item, got {managedSpaceAfterTrash.ItemCount}.");
+                if (!managedSpaceAfterTrash.IsEmpty)
+                    throw new InvalidOperationException("Managed space IsEmpty must be true when all files are in trash.");
+
+                // Trashed file must remain available in Operation History with undo capability
+                var trashHistoryOp = unattachedStudio.OperationHistory.FirstOrDefault(o => o.Id == trashOpId);
+                if (trashHistoryOp == null)
+                    throw new InvalidOperationException("Delete operation was not found in OperationHistory.");
+                if (trashHistoryOp.FileName != trashedManagedFile.Name)
+                    throw new InvalidOperationException($"History item FileName expected '{trashedManagedFile.Name}', got '{trashHistoryOp.FileName}'.");
+                if (!trashHistoryOp.CanUndo)
+                    throw new InvalidOperationException("Completed delete operation in history must have CanUndo = true.");
+
+                // Simulate undo restoration (undo clears IsInTrash and marks operation Undone)
+                var restoredState = stateWithTrashedFile with
+                {
+                    Files = [trashedManagedFile with { IsInTrash = false }, dummyMappedFile],
+                    Operations = stateWithTrashedFile.Operations.Select(o => o.Id == trashOpId
+                        ? o with { Status = ProposedOperationStatus.Undone }
+                        : o).ToList()
+                };
+
+                unattachedStudio.RefreshFromState(restoredState);
+                var managedSpaceAfterRestore = unattachedStudio.AllSpaces.First(s => s.Id == dummyManagedSpace.Id);
+
+                if (!managedSpaceAfterRestore.Files.Any(f => f.Id == trashedManagedFile.Id))
+                    throw new InvalidOperationException("Restored file must reappear in space Files collection.");
+                if (managedSpaceAfterRestore.ItemCount != 1)
+                    throw new InvalidOperationException($"Managed space ItemCount expected 1 after restore, got {managedSpaceAfterRestore.ItemCount}.");
+                if (managedSpaceAfterRestore.IsEmpty)
+                    throw new InvalidOperationException("Managed space IsEmpty must be false after restore.");
+
+                var restoredHistoryOp = unattachedStudio.OperationHistory.FirstOrDefault(o => o.Id == trashOpId);
+                if (restoredHistoryOp == null || restoredHistoryOp.CanUndo)
+                    throw new InvalidOperationException("Restored operation must have CanUndo = false.");
+
+                // 6. Verify action error catching into localized feedback preserving selection
+                unattachedStudio.AttachDeleteFileExecutor(f => throw new IOException("Disk quota exceeded"));
+                unattachedStudio.SelectSpace(managedSpaceAfterRestore);
+                var selFile = managedSpaceAfterRestore.Files.First();
+                unattachedStudio.SelectFile(selFile);
+                unattachedStudio.OpenDeleteConfirmationDialog(selFile);
+                Dispatcher.UIThread.RunJobs();
+
+                var errorDeleteTask = unattachedStudio.ConfirmDeleteFileAsync();
+                AwaitOnUIThread(errorDeleteTask, "ConfirmDeleteFileAsync (error test)");
+
+                if (string.IsNullOrWhiteSpace(unattachedStudio.DeleteConfirmationDialogError) ||
+                    !unattachedStudio.DeleteConfirmationDialogError.Contains("Disk quota exceeded"))
+                {
+                    throw new InvalidOperationException("Action error was not captured in DeleteConfirmationDialogError.");
+                }
+                if (unattachedStudio.SelectedFile != selFile)
+                    throw new InvalidOperationException("Selection was not preserved upon action error.");
+                if (!unattachedStudio.IsDeleteConfirmationDialogOpen || !overlay.IsVisible)
+                    throw new InvalidOperationException("Confirmation dialog and production overlay must remain visible after action error.");
+
+                unattachedStudio.CloseDeleteConfirmationDialog();
+                Dispatcher.UIThread.RunJobs();
+                if (unattachedStudio.IsDeleteConfirmationDialogOpen || overlay.IsVisible)
+                    throw new InvalidOperationException("Closing dialog after error must dismiss modal in VM and production view.");
+
+                // 7. Verify vanished target during RefreshFromState does not retain stale enabled target after failure
+                unattachedStudio.OpenDeleteConfirmationDialog(selFile);
+                Dispatcher.UIThread.RunJobs();
+                if (!unattachedStudio.IsDeleteConfirmationDialogOpen || unattachedStudio.DeletingFile != selFile || !overlay.IsVisible)
+                    throw new InvalidOperationException("OpenDeleteConfirmationDialog failed before vanished-target test.");
+
+                var stateWithoutSelFile = restoredState with { Files = [dummyMappedFile] };
+                unattachedStudio.RefreshFromState(stateWithoutSelFile);
+                Dispatcher.UIThread.RunJobs();
+
+                if (unattachedStudio.IsDeleteConfirmationDialogOpen)
+                    throw new InvalidOperationException("Vanished target must close confirmation dialog during RefreshFromState.");
+                if (overlay.IsVisible)
+                    throw new InvalidOperationException("DeleteConfirmationOverlay in production view must be hidden when target vanishes.");
+                if (unattachedStudio.DeletingFile != null)
+                    throw new InvalidOperationException("Vanished target must clear DeletingFile during RefreshFromState.");
+
+                testWindowHost.Close();
+                Dispatcher.UIThread.RunJobs();
+
+                result.WorkspaceFileTrashAndHistoryVerified = true;
                 result.OperationHistoryStatusesVerified = true;
 
                 // Verify that RecoveryRequired displays actionable warning text, NEVER as success
@@ -1492,75 +1950,84 @@ public static class HeadlessSmokeRunner
                             ]
                         };
 
-                        var fixtureOobeState = fixtureState with
+                        // Render the complete window with per-case settings; MainWindowViewModel
+                        // applies persisted language/theme on construction.
+                        foreach (var (themeMode, themePrefix) in new[] { (AppThemeMode.Light, "light"), (AppThemeMode.Dark, "dark") })
                         {
-                            OnboardingComplete = false,
-                            OnboardingStep = 1
-                        };
-
-                        // Render actual OOBE and Studio across target themes, resolutions and locales
-                        foreach (var (themeMode, themePrefix) in new[] { (AppThemeMode.Dark, "dark"), (AppThemeMode.Light, "light") })
-                        {
-                            themeMgr.CurrentThemeMode = themeMode;
-                            var winBgBrush = themeMode == AppThemeMode.Dark
-                                ? new SolidColorBrush(Color.Parse("#0B0F17"))
-                                : new SolidColorBrush(Color.Parse("#F1F5F9"));
-
-                            foreach (var (loc, suffix) in new[] { ("en-US", "en"), ("de-DE", "de"), ("ar-SA", "ar") })
+                            foreach (var (loc, suffix) in new[] { ("zh-CN", "zh"), ("en-US", "en"), ("de-DE", "de"), ("ar-SA", "ar") })
                             {
-                                localizer.CurrentLanguage = loc;
-
-                                // OOBE at 1280x720
-                                var oobeVm = new OnboardingViewModel(fixtureOobeState, u => Task.FromResult(u(fixtureOobeState)));
-                                var oobeWin = new Window
+                                var renderState = fixtureState with
                                 {
-                                    Content = new OnboardingView { DataContext = oobeVm },
-                                    FlowDirection = localizer.FlowDirectionValue,
-                                    Background = winBgBrush
+                                    Settings = fixtureState.Settings with { Language = loc, Theme = themeMode.ToString() }
                                 };
-                                RenderHeadlessWindow(oobeWin, 1280, 720, $"oobe-1280x720-{themePrefix}-{suffix}.png");
-                                if (themeMode == AppThemeMode.Dark)
+                                var renderOobeState = renderState with { OnboardingComplete = false, OnboardingStep = 1 };
+                                var oobeMainVm = new MainWindowViewModel(renderOobeState);
+                                if (localizer.CurrentLanguage != loc || themeMgr.CurrentThemeMode != themeMode)
+                                    throw new InvalidOperationException("Review render did not apply its requested language and theme.");
+                                var oobeMainWindow = new MainWindow(oobeMainVm);
+                                RenderHeadlessWindow(oobeMainWindow, 1280, 720, $"synthetic-mainwindow-oobe-1280x720-{themePrefix}-{suffix}.png");
+                                File.Copy(Path.Combine(requestedRenderPngDir, $"synthetic-mainwindow-oobe-1280x720-{themePrefix}-{suffix}.png"),
+                                          Path.Combine(requestedRenderPngDir, $"oobe-1280x720-{themePrefix}-{suffix}.png"), true);
+                                if (themeMode == AppThemeMode.Light)
                                 {
-                                    File.Copy(Path.Combine(requestedRenderPngDir, $"oobe-1280x720-{themePrefix}-{suffix}.png"),
+                                    File.Copy(Path.Combine(requestedRenderPngDir, $"synthetic-mainwindow-oobe-1280x720-{themePrefix}-{suffix}.png"),
+                                              Path.Combine(requestedRenderPngDir, $"synthetic-mainwindow-oobe-1280x720-{suffix}.png"), true);
+                                    File.Copy(Path.Combine(requestedRenderPngDir, $"synthetic-mainwindow-oobe-1280x720-{themePrefix}-{suffix}.png"),
                                               Path.Combine(requestedRenderPngDir, $"oobe-1280x720-{suffix}.png"), true);
                                 }
 
-                                // Studio at 1280x720
-                                var studioVm1280 = new StudioViewModel(fixtureState, u => Task.FromResult(u(fixtureState)));
-                                var studioWin1280 = new Window
+                                // 2. Studio inside full MainWindow shell at 1280x720
+                                var studioMainVm1280 = new MainWindowViewModel(renderState);
+                                var studioMainWindow1280 = new MainWindow(studioMainVm1280);
+                                RenderHeadlessWindow(studioMainWindow1280, 1280, 720, $"synthetic-mainwindow-studio-1280x720-{themePrefix}-{suffix}.png");
+                                File.Copy(Path.Combine(requestedRenderPngDir, $"synthetic-mainwindow-studio-1280x720-{themePrefix}-{suffix}.png"),
+                                          Path.Combine(requestedRenderPngDir, $"studio-1280x720-{themePrefix}-{suffix}.png"), true);
+                                if (themeMode == AppThemeMode.Light)
                                 {
-                                    Content = new StudioView { DataContext = studioVm1280 },
-                                    FlowDirection = localizer.FlowDirectionValue,
-                                    Background = winBgBrush
-                                };
-                                RenderHeadlessWindow(studioWin1280, 1280, 720, $"studio-1280x720-{themePrefix}-{suffix}.png");
-                                if (themeMode == AppThemeMode.Dark)
-                                {
-                                    File.Copy(Path.Combine(requestedRenderPngDir, $"studio-1280x720-{themePrefix}-{suffix}.png"),
+                                    File.Copy(Path.Combine(requestedRenderPngDir, $"synthetic-mainwindow-studio-1280x720-{themePrefix}-{suffix}.png"),
+                                              Path.Combine(requestedRenderPngDir, $"synthetic-mainwindow-studio-1280x720-{suffix}.png"), true);
+                                    File.Copy(Path.Combine(requestedRenderPngDir, $"synthetic-mainwindow-studio-1280x720-{themePrefix}-{suffix}.png"),
                                               Path.Combine(requestedRenderPngDir, $"studio-1280x720-{suffix}.png"), true);
                                 }
 
-                                // Studio at 1600x900
-                                var studioVm1600 = new StudioViewModel(fixtureState, u => Task.FromResult(u(fixtureState)));
-                                var studioWin1600 = new Window
+                                // 3. Studio inside full MainWindow shell at 1600x900
+                                var studioMainVm1600 = new MainWindowViewModel(renderState);
+                                var studioMainWindow1600 = new MainWindow(studioMainVm1600);
+                                RenderHeadlessWindow(studioMainWindow1600, 1600, 900, $"synthetic-mainwindow-studio-1600x900-{themePrefix}-{suffix}.png");
+                                File.Copy(Path.Combine(requestedRenderPngDir, $"synthetic-mainwindow-studio-1600x900-{themePrefix}-{suffix}.png"),
+                                          Path.Combine(requestedRenderPngDir, $"studio-1600x900-{themePrefix}-{suffix}.png"), true);
+                                if (themeMode == AppThemeMode.Light)
                                 {
-                                    Content = new StudioView { DataContext = studioVm1600 },
-                                    FlowDirection = localizer.FlowDirectionValue,
-                                    Background = winBgBrush
-                                };
-                                RenderHeadlessWindow(studioWin1600, 1600, 900, $"studio-1600x900-{themePrefix}-{suffix}.png");
-                                if (themeMode == AppThemeMode.Dark)
-                                {
-                                    File.Copy(Path.Combine(requestedRenderPngDir, $"studio-1600x900-{themePrefix}-{suffix}.png"),
+                                    File.Copy(Path.Combine(requestedRenderPngDir, $"synthetic-mainwindow-studio-1600x900-{themePrefix}-{suffix}.png"),
+                                              Path.Combine(requestedRenderPngDir, $"synthetic-mainwindow-studio-1600x900-{suffix}.png"), true);
+                                    File.Copy(Path.Combine(requestedRenderPngDir, $"synthetic-mainwindow-studio-1600x900-{themePrefix}-{suffix}.png"),
                                               Path.Combine(requestedRenderPngDir, $"studio-1600x900-{suffix}.png"), true);
+                                }
+
+                                // 4. Real Independent Desktop Drop Capsule Companion Window
+                                using var capsuleVm = new DropCapsuleViewModel();
+                                var capsuleWin = new DropCapsuleWindow(capsuleVm);
+                                RenderHeadlessWindow(capsuleWin, 380, 280, $"synthetic-companion-capsule-{themePrefix}-{suffix}.png");
+                                if (themeMode == AppThemeMode.Light)
+                                {
+                                    File.Copy(Path.Combine(requestedRenderPngDir, $"synthetic-companion-capsule-{themePrefix}-{suffix}.png"),
+                                              Path.Combine(requestedRenderPngDir, $"synthetic-companion-capsule-{suffix}.png"), true);
                                 }
                             }
                         }
 
+                        // Write honest README explaining synthetic offscreen nature
+                        File.WriteAllText(Path.Combine(requestedRenderPngDir, "README.txt"),
+                            "Synthetic offscreen Avalonia.Headless Skia rasterizations (zh/en/de/ar).\n" +
+                            "MainWindow captures render the complete application frame and the isolated synthetic workspace; their theme/locale suffixes are applied as persisted fixture settings.\n" +
+                            "The Drop Capsule companion capture renders the independent desktop companion window.\n" +
+                            "These are synthetic offscreen window renderings produced in a headless harness, not physical desktop-composited screen captures.\n");
+
+                        themeMgr.CurrentThemeMode = AppThemeMode.Light;
                         localizer.CurrentLanguage = origLang;
                         result.HeadlessOffscreenRenderRequested = true;
                         result.HeadlessOffscreenRenderPath = requestedRenderPngDir;
-                        Console.WriteLine($"  ✓ Headless offscreen Skia rasterizations (OOBE & Studio in en/de/ar at 1280x720 & 1600x900) saved to: {requestedRenderPngDir}");
+                        Console.WriteLine($"  ✓ Synthetic offscreen Skia rasterizations (MainWindow Shell & Drop Capsule Companion in zh/en/de/ar at 1280x720 & 1600x900) saved to: {requestedRenderPngDir}");
                     }
                     catch (Exception ex)
                     {

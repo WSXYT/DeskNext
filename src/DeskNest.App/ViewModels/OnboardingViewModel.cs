@@ -78,11 +78,11 @@ public sealed partial class OnboardingViewModel : ViewModelBase
     public bool CanGoNext => CurrentStep < 5;
     public bool IsCompleteStep => CurrentStep == 5;
 
-    public string Step1Bg => IsStep1 ? "#58A6FF" : (CurrentStep > 1 ? "#238636" : "#30363D");
-    public string Step2Bg => IsStep2 ? "#58A6FF" : (CurrentStep > 2 ? "#238636" : "#30363D");
-    public string Step3Bg => IsStep3 ? "#58A6FF" : (CurrentStep > 3 ? "#238636" : "#30363D");
-    public string Step4Bg => IsStep4 ? "#58A6FF" : (CurrentStep > 4 ? "#238636" : "#30363D");
-    public string Step5Bg => IsStep5 ? "#58A6FF" : "#30363D";
+    public string Step1Bg => IsStep1 ? "#6366F1" : (CurrentStep > 1 ? "#10B981" : "#2D3139");
+    public string Step2Bg => IsStep2 ? "#6366F1" : (CurrentStep > 2 ? "#10B981" : "#2D3139");
+    public string Step3Bg => IsStep3 ? "#6366F1" : (CurrentStep > 3 ? "#10B981" : "#2D3139");
+    public string Step4Bg => IsStep4 ? "#6366F1" : (CurrentStep > 4 ? "#10B981" : "#2D3139");
+    public string Step5Bg => IsStep5 ? "#6366F1" : "#2D3139";
 
     partial void OnCurrentStepChanged(int value)
     {

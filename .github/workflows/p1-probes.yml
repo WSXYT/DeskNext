@@ -1,4 +1,4 @@
-name: P1/P2 native and Avalonia probes
+name: P1/P2 native and Avalonia probes plus P3 recovery probe
 
 on:
   workflow_dispatch:
@@ -27,6 +27,38 @@ jobs:
         run: test "$(uname -m)" = arm64
       - name: Run headless Core and inference unit tests
         run: dotnet test DeskNest.sln -c Release -m:1 -p:UseSharedCompilation=false
+      - name: Refuse self-copy through a native volume-root alias
+        if: runner.os == 'Windows'
+        shell: pwsh
+        timeout-minutes: 3
+        run: |
+          # Ephemeral CI runner only; never alter an existing drive mapping.
+          if (Get-PSDrive -Name Z -ErrorAction SilentlyContinue) {
+            throw 'Z: is occupied; refusing to replace it.'
+          }
+          $root = [IO.Path]::GetPathRoot([IO.Path]::GetTempPath())
+          subst.exe Z: $root
+          if ($LASTEXITCODE -ne 0) { throw 'Could not create test alias.' }
+          try {
+            $env:DESKNEXT_TEST_VOLUME_ALIAS = 'Z:\'
+            $project = 'tests/DeskNest.Core.Tests/DeskNest.Core.Tests.csproj'
+            dotnet test $project -c Release --no-build --no-restore `
+              --filter 'FullyQualifiedName~WindowsCopyDestinationTests'
+            if ($LASTEXITCODE -ne 0) { throw 'Native alias tests failed.' }
+          } finally {
+            Remove-Item Env:DESKNEXT_TEST_VOLUME_ALIAS
+            subst.exe Z: /D
+            if ($LASTEXITCODE -ne 0) { throw 'Test alias cleanup failed.' }
+          }
+      - name: Exercise isolated force-kill recovery boundaries (Windows P3 probe)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        timeout-minutes: 3
+        run: |
+          dotnet build tests/DeskNest.RecoveryProbe/DeskNest.RecoveryProbe.csproj -c Release -m:1 -p:UseSharedCompilation=false
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node tests/recovery-kill.mjs
+          exit $LASTEXITCODE
       - name: Build native bridge (Debug, serial)
         run: cmake -S native/pogget-bridge -B artifacts/native-ci -DCMAKE_BUILD_TYPE=Debug
       - name: Compile native bridge and tests
@@ -52,6 +84,18 @@ jobs:
         timeout-minutes: 2
         shell: pwsh
         run: '& "./artifacts/publish-ui/DeskNest.App.exe" --native-window-smoke'
+      - name: Installed unsigned package and recovery probe (P3)
+        if: runner.os == 'Windows'
+        timeout-minutes: 15
+        shell: pwsh
+        run: |
+          node --version
+          $version = "0.3.0-ci-${{ github.run_id }}"
+          $bundle = "artifacts/packages/ci"
+          & ./build/Publish-Windows.ps1 -Version $version `
+            -OutputRoot $bundle -IncludeRecoveryProbe
+          & ./build/windows/Test-Package.ps1 `
+            -Bundle "$bundle/DeskNest-win-x64" -NativeWindow -RecoveryProbe
       - name: Start X11 window under Xvfb with isolated state (P2)
         if: runner.os == 'Linux'
         timeout-minutes: 2

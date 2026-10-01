@@ -19,11 +19,13 @@ public static class NativeWindowSmokeRunner
     public static bool IsActive { get; private set; }
     public static WorkspaceStore? ActiveTempStore { get; private set; }
     private static int _exitCode = 1;
+    private static bool _inspectRecovery;
 
     public static int Run(string[] args)
     {
         IsActive = true;
         _exitCode = 1;
+        _inspectRecovery = args.Contains("--inspect-recovery", StringComparer.Ordinal);
         var tempDir = Path.Combine(Path.GetTempPath(), "DeskNest.NativeSmoke." + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempDir);
 
@@ -45,6 +47,8 @@ public static class NativeWindowSmokeRunner
                 return store;
             }).GetAwaiter().GetResult();
 
+            if (_inspectRecovery)
+                File.WriteAllText(Path.Combine(tempDir, "copy-recovery.json"), "{");
             var builder = Program.BuildAvaloniaApp();
             builder.StartWithClassicDesktopLifetime(args, ShutdownMode.OnMainWindowClose);
             return _exitCode;
@@ -115,11 +119,8 @@ public static class NativeWindowSmokeRunner
 
         window.Opened += (s, e) =>
         {
-            // Cancel watchdog once window has opened
-            watchdogTimer.Dispose();
-
-            // Run after layout and render frame
-            Dispatcher.UIThread.Post(() =>
+            // Keep the watchdog active through optional UI recovery work.
+            Dispatcher.UIThread.Post(async () =>
             {
                 try
                 {
@@ -139,8 +140,25 @@ public static class NativeWindowSmokeRunner
                         throw new InvalidOperationException($"Invalid native window render bounds: {bounds.Width}x{bounds.Height}.");
                     }
 
+                    bool recoveryInspected = false;
+                    if (_inspectRecovery)
+                    {
+                        if (window.DataContext is not MainWindowViewModel vm || ActiveTempStore is null)
+                            throw new InvalidOperationException("Recovery inspection requires the isolated production view model.");
+                        await vm.InitializeWorkspaceAsync(ActiveTempStore.DataDirectory);
+                        await vm.InspectRecoveryEvidenceAsync();
+                        await vm.RetryStartupAsync();
+                        await vm.InspectRecoveryEvidenceAsync();
+                        var evidenceBox = window.FindControl<TextBox>("RecoveryEvidenceTextBox");
+                        if (!vm.IsRecoveryRequired || vm.IsLockConflict || vm.IsStudioActive || !vm.HasRecoveryEvidence ||
+                            evidenceBox is null || !evidenceBox.IsVisible || !evidenceBox.IsReadOnly ||
+                            evidenceBox.Text != vm.RecoveryEvidenceText ||
+                            File.ReadAllText(Path.Combine(ActiveTempStore.DataDirectory, "copy-recovery.json")) != "{")
+                            throw new InvalidOperationException("Native recovery inspection/retry modified evidence or exposed workspace actions.");
+                        recoveryInspected = true;
+                    }
                     Console.WriteLine("================================================================================");
-                    Console.WriteLine($"栖格 · DeskNest - P2 Native Window Real-OS Startup Smoke ({RuntimeInformation.OSDescription})");
+                    Console.WriteLine($"DeskNext - Native Window Real-OS Startup Smoke ({RuntimeInformation.OSDescription})");
                     Console.WriteLine("================================================================================");
                     Console.WriteLine($"  ✓ Window Manager Native Window Opened: Handle=0x{platformHandle.Value.ToInt64():X}");
                     Console.WriteLine($"  ✓ Native Window Render Bounds: {bounds.Width:F0}x{bounds.Height:F0}");
@@ -152,6 +170,8 @@ public static class NativeWindowSmokeRunner
                     var jsonResult = new
                     {
                         Success = true,
+                        RecoveryInspectionVerified = recoveryInspected,
+                        InputMethod = "Production view-model commands in a native window; not physical keyboard/mouse injection",
                         HostOS = RuntimeInformation.OSDescription,
                         HostRID = RuntimeInformation.RuntimeIdentifier,
                         Architecture = RuntimeInformation.ProcessArchitecture.ToString(),
@@ -189,6 +209,7 @@ public static class NativeWindowSmokeRunner
                 }
                 finally
                 {
+                    watchdogTimer.Dispose();
                     desktop.Shutdown(_exitCode);
                 }
             }, DispatcherPriority.Render);

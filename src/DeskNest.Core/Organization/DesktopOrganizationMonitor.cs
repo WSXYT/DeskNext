@@ -7,7 +7,8 @@ public sealed record DesktopOrganizationMonitorOptions(
     IReadOnlyList<string> Roots,
     IReadOnlyList<string> ExcludedFolders,
     int QueueCapacity = 256,
-    TimeSpan? StabilityWindow = null)
+    TimeSpan? StabilityWindow = null,
+    int DirectoryEntryLimit = 10_000)
 {
     public TimeSpan EffectiveStabilityWindow => StabilityWindow ?? TimeSpan.FromMilliseconds(250);
 }
@@ -43,6 +44,8 @@ public sealed class DesktopOrganizationMonitor : IAsyncDisposable
         _onCandidates = onCandidates ?? throw new ArgumentNullException(nameof(onCandidates));
         if (_options.QueueCapacity is < 1 or > 16_384)
             throw new ArgumentOutOfRangeException(nameof(options), "Queue capacity must be between 1 and 16384.");
+        if (_options.DirectoryEntryLimit is < 1 or > 100_000)
+            throw new ArgumentOutOfRangeException(nameof(options), "Directory entry limit must be between 1 and 100000.");
 
         _events = Channel.CreateBounded<string>(new BoundedChannelOptions(_options.QueueCapacity)
         {
@@ -119,13 +122,16 @@ public sealed class DesktopOrganizationMonitor : IAsyncDisposable
                     continue;
 
                 bool isDirectory = Directory.Exists(path);
-                bool stable = await WaitForStabilityAsync(path, _stop.Token).ConfigureAwait(false);
+                var stability = await WaitForStabilityAsync(path, isDirectory, _stop.Token).ConfigureAwait(false);
                 var exclusion = isDirectory
-                    ? DesktopOrganizationExclusionReason.Folder
-                    : stable ? DesktopOrganizationExclusionReason.None : DesktopOrganizationExclusionReason.SlowItem;
+                    ? stability.ReparsePoint ? DesktopOrganizationExclusionReason.ReparsePoint
+                    : stability.Stable ? DesktopOrganizationExclusionReason.Folder
+                    : stability.WithinBudget ? DesktopOrganizationExclusionReason.SlowItem
+                    : DesktopOrganizationExclusionReason.BatchLimit
+                    : stability.Stable ? DesktopOrganizationExclusionReason.None : DesktopOrganizationExclusionReason.SlowItem;
                 await _onCandidates([
                     new DesktopOrganizationMonitorCandidate(
-                        path, isDirectory, DesktopOrganizationSourceScope.Personal, stable, exclusion)
+                        path, isDirectory, DesktopOrganizationSourceScope.Personal, stability.Stable, exclusion)
                 ]).ConfigureAwait(false);
             }
             finally
@@ -135,11 +141,17 @@ public sealed class DesktopOrganizationMonitor : IAsyncDisposable
         }
     }
 
-    private async Task<bool> WaitForStabilityAsync(string path, CancellationToken cancellationToken)
+    internal async Task<(bool Stable, bool WithinBudget, bool ReparsePoint)> WaitForStabilityAsync(
+        string path, bool isDirectory, CancellationToken cancellationToken,
+        Func<CancellationToken, Task>? waitBetweenSamples = null)
     {
-        var first = GetFingerprint(path);
-        await Task.Delay(_options.EffectiveStabilityWindow, cancellationToken).ConfigureAwait(false);
-        return first == GetFingerprint(path);
+        var first = GetFingerprint(path, isDirectory, _options.DirectoryEntryLimit, cancellationToken);
+        // An internal wait seam lets tests mutate between actual samples, not race a watcher timer.
+        await (waitBetweenSamples?.Invoke(cancellationToken) ??
+            Task.Delay(_options.EffectiveStabilityWindow, cancellationToken)).ConfigureAwait(false);
+        var second = GetFingerprint(path, isDirectory, _options.DirectoryEntryLimit, cancellationToken);
+        return (first.Value is not null && first == second, first.WithinBudget && second.WithinBudget,
+            first.ReparsePoint || second.ReparsePoint);
     }
 
     private void OnChanged(object sender, FileSystemEventArgs args) => Enqueue(args.FullPath);
@@ -177,22 +189,53 @@ public sealed class DesktopOrganizationMonitor : IAsyncDisposable
         return paths;
     }
 
-    private static string? GetFingerprint(string path)
+    private static Fingerprint GetFingerprint(string path, bool isDirectory, int entryLimit,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            if (Directory.Exists(path))
+            var attributes = File.GetAttributes(path);
+            if ((attributes & FileAttributes.ReparsePoint) != 0)
+                return new Fingerprint(null, false, true);
+            if (!isDirectory)
             {
-                var directory = new DirectoryInfo(path);
-                return directory.Exists ? $"dir:{directory.LastWriteTimeUtc.Ticks}" : null;
+                var file = new FileInfo(path);
+                return new Fingerprint(file.Exists ? $"file:{file.Length}:{file.LastWriteTimeUtc.Ticks}" : null, true, false);
             }
 
-            var file = new FileInfo(path);
-            return file.Exists ? $"file:{file.Length}:{file.LastWriteTimeUtc.Ticks}" : null;
+            var entries = new List<string>();
+            var pending = new Stack<string>([path]);
+            while (pending.TryPop(out var current))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
+                    return new Fingerprint(null, true, true);
+                foreach (var entry in Directory.EnumerateFileSystemEntries(current))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (entries.Count >= entryLimit)
+                        return new Fingerprint(null, false, false);
+                    var entryAttributes = File.GetAttributes(entry);
+                    if ((entryAttributes & FileAttributes.ReparsePoint) != 0)
+                        return new Fingerprint(null, true, true);
+                    bool directory = (entryAttributes & FileAttributes.Directory) != 0;
+                    FileSystemInfo info = directory ? new DirectoryInfo(entry) : new FileInfo(entry);
+                    long length = info is FileInfo file ? file.Length : 0;
+                    string relative = Path.GetRelativePath(path, entry);
+                    entries.Add($"{relative.Length}:{relative}:{length}:{info.LastWriteTimeUtc.Ticks}:{(directory ? 'd' : 'f')}");
+                    if (directory)
+                        pending.Push(entry);
+                }
+            }
+            entries.Sort(StringComparer.Ordinal);
+            return new Fingerprint($"dir:{string.Join('|', entries)}", true, false);
         }
-        catch (IOException) { return null; }
-        catch (UnauthorizedAccessException) { return null; }
+        catch (IOException) { return new Fingerprint(null, false, false); }
+        catch (UnauthorizedAccessException) { return new Fingerprint(null, false, false); }
     }
+
+    private readonly record struct Fingerprint(string? Value, bool WithinBudget, bool ReparsePoint);
 
     private static IReadOnlyList<string> NormalizeRoots(IReadOnlyList<string> paths) =>
         paths.Where(path => !string.IsNullOrWhiteSpace(path))

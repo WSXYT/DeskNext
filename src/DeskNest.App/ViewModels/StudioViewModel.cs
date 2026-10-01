@@ -23,6 +23,7 @@ public sealed partial class StudioViewModel : ViewModelBase
 {
     private readonly Func<Func<WorkspaceState, WorkspaceState>, Task<WorkspaceState>> _updateStore;
     public Action? OnRequestReopenOnboarding { get; set; }
+    public Action? OnRequestOpenDropCapsuleCompanion { get; set; }
 
     public LocalizationManager Localizer => LocalizationManager.Instance;
     public ThemeManager ThemeMgr => ThemeManager.Instance;
@@ -58,6 +59,10 @@ public sealed partial class StudioViewModel : ViewModelBase
     // ==========================================
     [ObservableProperty]
     private SpaceFilterMode _filterMode = SpaceFilterMode.All;
+
+    public bool IsAllFilter => FilterMode == SpaceFilterMode.All;
+    public bool IsManagedFilter => FilterMode == SpaceFilterMode.Managed;
+    public bool IsMappedFilter => FilterMode == SpaceFilterMode.Mapped;
 
     [ObservableProperty]
     private SpaceItemViewModel? _selectedSpace;
@@ -197,6 +202,12 @@ public sealed partial class StudioViewModel : ViewModelBase
         ? Localizer["Files.OpenReadyNotice"]
         : Localizer["Files.OpenGatedNotice"];
 
+    public Func<WorkspaceFileItemViewModel, Task>? OnRevealFile { get; set; }
+    public bool CanRevealFile => OnRevealFile != null && SelectedFile != null;
+    public string RevealFileStatusNotice => CanRevealFile
+        ? Localizer["Files.RevealReadyNotice"]
+        : Localizer["Files.RevealGatedNotice"];
+
     public Func<WorkspaceFileItemViewModel, Task>? OnPreviewFile { get; set; }
     public bool CanPreviewFile => OnPreviewFile != null && SelectedFile != null;
     public string PreviewFileStatusNotice => CanPreviewFile
@@ -222,13 +233,13 @@ public sealed partial class StudioViewModel : ViewModelBase
         : Localizer["Files.PasteGatedNotice"];
 
     public Func<WorkspaceFileItemViewModel, string, Task>? OnRenameFile { get; set; }
-    public bool CanRenameFile => OnRenameFile != null && SelectedFile?.IsManaged == true;
+    public bool CanRenameFile => OnRenameFile != null && SelectedFile?.IsManaged == true && !SelectedFile.IsInTrash;
     public string RenameFileStatusNotice => CanRenameFile
         ? Localizer["Files.RenameReadyNotice"]
         : Localizer["Files.RenameGatedNotice"];
 
     public Func<WorkspaceFileItemViewModel, Task>? OnDeleteFile { get; set; }
-    public bool CanDeleteFile => OnDeleteFile != null && SelectedFile?.IsMapped == true;
+    public bool CanDeleteFile => OnDeleteFile != null && SelectedFile != null && !SelectedFile.IsInTrash && !IsDeleteConfirmationBusy;
     public string DeleteFileStatusNotice => CanDeleteFile
         ? Localizer["Files.DeleteReadyNotice"]
         : Localizer["Files.DeleteGatedNotice"];
@@ -246,6 +257,12 @@ public sealed partial class StudioViewModel : ViewModelBase
     public void AttachOpenFileExecutor(Func<WorkspaceFileItemViewModel, Task> executor)
     {
         OnOpenFile = executor ?? throw new ArgumentNullException(nameof(executor));
+        NotifyFileActionGates();
+    }
+
+    public void AttachRevealFileExecutor(Func<WorkspaceFileItemViewModel, Task> executor)
+    {
+        OnRevealFile = executor ?? throw new ArgumentNullException(nameof(executor));
         NotifyFileActionGates();
     }
 
@@ -289,6 +306,8 @@ public sealed partial class StudioViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(CanOpenFile));
         OnPropertyChanged(nameof(OpenFileStatusNotice));
+        OnPropertyChanged(nameof(CanRevealFile));
+        OnPropertyChanged(nameof(RevealFileStatusNotice));
         OnPropertyChanged(nameof(CanPreviewFile));
         OnPropertyChanged(nameof(PreviewFileStatusNotice));
         OnPropertyChanged(nameof(CanCopyFile));
@@ -303,6 +322,71 @@ public sealed partial class StudioViewModel : ViewModelBase
         OnPropertyChanged(nameof(DeleteFileStatusNotice));
         OnPropertyChanged(nameof(SelectedFileDeleteActionText));
         OnPropertyChanged(nameof(SelectedFileCapabilitySummary));
+        OnPropertyChanged(nameof(DeleteConfirmTitleText));
+        OnPropertyChanged(nameof(DeleteConfirmPromptText));
+        OnPropertyChanged(nameof(DeleteConfirmActionText));
+    }
+
+    // ==========================================
+    // PREVIEW BOUNDED RESULT SURFACE (P3 UI)
+    // ==========================================
+    [ObservableProperty]
+    private bool _isPreviewDialogOpen;
+
+    [ObservableProperty]
+    private string _previewFileName = string.Empty;
+
+    [ObservableProperty]
+    private string _previewKind = string.Empty;
+
+    [ObservableProperty]
+    private string _previewContent = string.Empty;
+
+    [ObservableProperty]
+    private string _previewDetails = string.Empty;
+
+    [ObservableProperty]
+    private bool _isPreviewTruncated;
+
+    public void ShowFilePreview(DeskNest.Platform.FilePreview preview)
+    {
+        ArgumentNullException.ThrowIfNull(preview);
+        PreviewFileName = preview.Name;
+        PreviewKind = preview.Kind;
+        PreviewContent = preview.Content;
+        IsPreviewTruncated = preview.Truncated;
+
+        if (preview.Kind == "directory")
+        {
+            var truncatedNotice = preview.Truncated ? $" ({Localizer["Files.PreviewTruncatedNotice"]})" : string.Empty;
+            PreviewDetails = Localizer.GetString("Files.PreviewDirectorySummary", truncatedNotice);
+        }
+        else if (preview.Kind == "text")
+        {
+            PreviewDetails = preview.Truncated
+                ? Localizer["Files.PreviewTruncatedNotice"]
+                : (preview.Length.HasValue ? Localizer.GetString("Files.PreviewMetadataSummary", preview.Length.Value) : string.Empty);
+        }
+        else
+        {
+            PreviewDetails = preview.Length.HasValue
+                ? Localizer.GetString("Files.PreviewMetadataSummary", preview.Length.Value)
+                : Localizer["Files.PreviewMetadataOnly"];
+        }
+
+        IsPreviewDialogOpen = true;
+        FileActionNotice = Localizer.GetString("Files.PreviewSuccessNotice", preview.Name);
+    }
+
+    [RelayCommand]
+    public void ClosePreviewDialog()
+    {
+        IsPreviewDialogOpen = false;
+        PreviewFileName = string.Empty;
+        PreviewKind = string.Empty;
+        PreviewContent = string.Empty;
+        PreviewDetails = string.Empty;
+        IsPreviewTruncated = false;
     }
 
     // Rename Dialog Fields
@@ -317,6 +401,37 @@ public sealed partial class StudioViewModel : ViewModelBase
 
     [ObservableProperty]
     private string? _renameDialogError;
+
+    // Delete Confirmation Dialog Fields (P3 UI)
+    [ObservableProperty]
+    private bool _isDeleteConfirmationDialogOpen;
+
+    [ObservableProperty]
+    private WorkspaceFileItemViewModel? _deletingFile;
+
+    [ObservableProperty]
+    private string? _deleteConfirmationDialogError;
+
+    [ObservableProperty]
+    private bool _isDeleteConfirmationBusy;
+
+    partial void OnIsDeleteConfirmationBusyChanged(bool value)
+    {
+        NotifyFileActionGates();
+    }
+
+    public string DeleteConfirmTitleText => Localizer["Files.DeleteConfirmTitle"];
+
+    public string DeleteConfirmPromptText => DeletingFile != null
+        ? Localizer.GetString("Files.DeleteConfirmPrompt", DeletingFile.Name)
+        : string.Empty;
+
+    public string DeleteConfirmActionText => Localizer["Files.DeleteConfirmAction"];
+
+    partial void OnDeletingFileChanged(WorkspaceFileItemViewModel? value)
+    {
+        OnPropertyChanged(nameof(DeleteConfirmPromptText));
+    }
 
     // ==========================================
     // DROP CAPSULE ENTRYPOINT
@@ -501,11 +616,11 @@ public sealed partial class StudioViewModel : ViewModelBase
 
         foreach (var s in state.Spaces)
         {
-            var filesInSpace = state.Files.Where(f => f.SpaceId == s.Id).ToList();
+            var filesInSpace = state.Files.Where(f => f.SpaceId == s.Id && !f.IsInTrash).ToList();
             var spaceVm = new SpaceItemViewModel(s, filesInSpace.Count);
             foreach (var f in filesInSpace)
             {
-                spaceVm.Files.Add(new WorkspaceFileItemViewModel(f.Id, f.SpaceId, f.Name, f.Path, f.IsDirectory, s.Mode));
+                spaceVm.Files.Add(new WorkspaceFileItemViewModel(f.Id, f.SpaceId, f.Name, f.Path, f.IsDirectory, s.Mode, f.IsInTrash));
             }
             spaceVm.NotifyFilesChanged();
             AllSpaces.Add(spaceVm);
@@ -527,12 +642,46 @@ public sealed partial class StudioViewModel : ViewModelBase
             ?? FilteredSpaces.FirstOrDefault();
         SelectSpace(matchedSpace);
 
-        if (prevFileId.HasValue && SelectedSpace != null)
+        if (SelectedSpace != null)
         {
-            var matchedFile = SelectedSpace.Files.FirstOrDefault(f => f.Id == prevFileId.Value);
-            if (matchedFile != null)
+            var matchedFile = prevFileId.HasValue
+                ? SelectedSpace.Files.FirstOrDefault(f => f.Id == prevFileId.Value)
+                : SelectedSpace.Files.FirstOrDefault();
+            SelectFile(matchedFile);
+        }
+        else
+        {
+            SelectFile(null);
+        }
+
+        // Preserve or gracefully reconcile in-flight dialog targets across state refresh
+        if (DeletingFile != null)
+        {
+            var matchedDeleting = SelectedSpace?.Files.FirstOrDefault(f => f.Id == DeletingFile.Id)
+                ?? AllSpaces.SelectMany(s => s.Files).FirstOrDefault(f => f.Id == DeletingFile.Id);
+            if (matchedDeleting != null)
             {
-                SelectFile(matchedFile);
+                DeletingFile = matchedDeleting;
+            }
+            else
+            {
+                // Target has vanished from available spaces: dismiss programmatic confirmation,
+                // do not retain stale enabled target
+                DismissDeleteConfirmationDialog();
+            }
+        }
+
+        if (RenamingFile != null)
+        {
+            var matchedRenaming = SelectedSpace?.Files.FirstOrDefault(f => f.Id == RenamingFile.Id)
+                ?? AllSpaces.SelectMany(s => s.Files).FirstOrDefault(f => f.Id == RenamingFile.Id);
+            if (matchedRenaming != null)
+            {
+                RenamingFile = matchedRenaming;
+            }
+            else
+            {
+                CloseRenameDialog();
             }
         }
 
@@ -581,6 +730,9 @@ public sealed partial class StudioViewModel : ViewModelBase
     // ==========================================
     partial void OnFilterModeChanged(SpaceFilterMode value)
     {
+        OnPropertyChanged(nameof(IsAllFilter));
+        OnPropertyChanged(nameof(IsManagedFilter));
+        OnPropertyChanged(nameof(IsMappedFilter));
         ApplySpaceFilter();
     }
 
@@ -845,6 +997,20 @@ public sealed partial class StudioViewModel : ViewModelBase
         CapsuleInputPath = string.Empty;
     }
 
+    [RelayCommand]
+    public void OpenDropCapsuleCompanion()
+    {
+        if (OnRequestOpenDropCapsuleCompanion != null)
+        {
+            OnRequestOpenDropCapsuleCompanion();
+        }
+        else
+        {
+            var companion = new Views.DropCapsuleWindow(this);
+            companion.Show();
+        }
+    }
+
     public async Task RegisterPathToTriageAsync(string path)
     {
         if (string.IsNullOrWhiteSpace(path) || !Path.IsPathFullyQualified(path))
@@ -1023,13 +1189,20 @@ public sealed partial class StudioViewModel : ViewModelBase
             return;
         }
 
-        if (parameter is ValueTuple<Guid, Guid> pair)
+        try
         {
-            await OnExecuteManualMove(pair.Item1, pair.Item2);
+            if (parameter is ValueTuple<Guid, Guid> pair)
+            {
+                await OnExecuteManualMove(pair.Item1, pair.Item2);
+            }
+            else if (parameter is (Guid fileId, Guid targetSpaceId))
+            {
+                await OnExecuteManualMove(fileId, targetSpaceId);
+            }
         }
-        else if (parameter is (Guid fileId, Guid targetSpaceId))
+        catch (Exception ex)
         {
-            await OnExecuteManualMove(fileId, targetSpaceId);
+            FileActionNotice = Localizer.GetString("Files.ActionFailedNotice", ex.Message);
         }
     }
 
@@ -1059,7 +1232,14 @@ public sealed partial class StudioViewModel : ViewModelBase
 
         if (operationId != Guid.Empty)
         {
-            await OnUndoManualMove(operationId);
+            try
+            {
+                await OnUndoManualMove(operationId);
+            }
+            catch (Exception ex)
+            {
+                FileActionNotice = Localizer.GetString("Files.ActionFailedNotice", ex.Message);
+            }
         }
     }
 
@@ -1082,8 +1262,44 @@ public sealed partial class StudioViewModel : ViewModelBase
             return;
         }
 
-        await OnOpenFile(target);
-        FileActionNotice = OpenFileStatusNotice;
+        try
+        {
+            await OnOpenFile(target);
+            if (string.IsNullOrWhiteSpace(FileActionNotice))
+                FileActionNotice = OpenFileStatusNotice;
+        }
+        catch (Exception ex)
+        {
+            FileActionNotice = Localizer.GetString("Files.ActionFailedNotice", ex.Message);
+        }
+    }
+
+    [RelayCommand]
+    public async Task ExecuteRevealFileAsync(object? parameter)
+    {
+        var target = ResolveFileParameter(parameter) ?? SelectedFile;
+        if (target == null)
+        {
+            FileActionNotice = Localizer["Files.NoFileSelectedNotice"];
+            return;
+        }
+
+        if (OnRevealFile == null)
+        {
+            FileActionNotice = RevealFileStatusNotice;
+            return;
+        }
+
+        try
+        {
+            await OnRevealFile(target);
+            if (string.IsNullOrWhiteSpace(FileActionNotice))
+                FileActionNotice = RevealFileStatusNotice;
+        }
+        catch (Exception ex)
+        {
+            FileActionNotice = Localizer.GetString("Files.ActionFailedNotice", ex.Message);
+        }
     }
 
     [RelayCommand]
@@ -1102,13 +1318,44 @@ public sealed partial class StudioViewModel : ViewModelBase
             return;
         }
 
-        await OnPreviewFile(target);
-        FileActionNotice = PreviewFileStatusNotice;
+        try
+        {
+            await OnPreviewFile(target);
+            if (string.IsNullOrWhiteSpace(FileActionNotice))
+                FileActionNotice = PreviewFileStatusNotice;
+        }
+        catch (Exception ex)
+        {
+            FileActionNotice = Localizer.GetString("Files.ActionFailedNotice", ex.Message);
+        }
     }
 
     [RelayCommand]
     public async Task ExecuteCopyFileAsync(object? parameter)
     {
+        if (parameter is System.Collections.IEnumerable list && !(parameter is string))
+        {
+            int count = 0;
+            WorkspaceFileItemViewModel? singleItem = null;
+            foreach (var item in list)
+            {
+                if (item is WorkspaceFileItemViewModel f)
+                {
+                    count++;
+                    singleItem = f;
+                }
+            }
+            if (count > 1)
+            {
+                FileActionNotice = Localizer["Files.ClipboardMultiFileRejected"];
+                return;
+            }
+            if (count == 1 && singleItem != null)
+            {
+                parameter = singleItem;
+            }
+        }
+
         var target = ResolveFileParameter(parameter) ?? SelectedFile;
         if (target == null)
         {
@@ -1122,13 +1369,44 @@ public sealed partial class StudioViewModel : ViewModelBase
             return;
         }
 
-        await OnCopyFile(target);
-        FileActionNotice = CopyFileStatusNotice;
+        try
+        {
+            await OnCopyFile(target);
+            if (string.IsNullOrWhiteSpace(FileActionNotice))
+                FileActionNotice = CopyFileStatusNotice;
+        }
+        catch (Exception ex)
+        {
+            FileActionNotice = Localizer.GetString("Files.ActionFailedNotice", ex.Message);
+        }
     }
 
     [RelayCommand]
     public async Task ExecuteCutFileAsync(object? parameter)
     {
+        if (parameter is System.Collections.IEnumerable list && !(parameter is string))
+        {
+            int count = 0;
+            WorkspaceFileItemViewModel? singleItem = null;
+            foreach (var item in list)
+            {
+                if (item is WorkspaceFileItemViewModel f)
+                {
+                    count++;
+                    singleItem = f;
+                }
+            }
+            if (count > 1)
+            {
+                FileActionNotice = Localizer["Files.ClipboardMultiFileRejected"];
+                return;
+            }
+            if (count == 1 && singleItem != null)
+            {
+                parameter = singleItem;
+            }
+        }
+
         var target = ResolveFileParameter(parameter) ?? SelectedFile;
         if (target == null)
         {
@@ -1142,8 +1420,16 @@ public sealed partial class StudioViewModel : ViewModelBase
             return;
         }
 
-        await OnCutFile(target);
-        FileActionNotice = CutFileStatusNotice;
+        try
+        {
+            await OnCutFile(target);
+            if (string.IsNullOrWhiteSpace(FileActionNotice))
+                FileActionNotice = CutFileStatusNotice;
+        }
+        catch (Exception ex)
+        {
+            FileActionNotice = Localizer.GetString("Files.ActionFailedNotice", ex.Message);
+        }
     }
 
     [RelayCommand]
@@ -1162,8 +1448,16 @@ public sealed partial class StudioViewModel : ViewModelBase
             return;
         }
 
-        await OnPasteFile(targetSpace);
-        FileActionNotice = PasteFileStatusNotice;
+        try
+        {
+            await OnPasteFile(targetSpace);
+            if (string.IsNullOrWhiteSpace(FileActionNotice))
+                FileActionNotice = PasteFileStatusNotice;
+        }
+        catch (Exception ex)
+        {
+            FileActionNotice = Localizer.GetString("Files.ActionFailedNotice", ex.Message);
+        }
     }
 
     [RelayCommand]
@@ -1208,13 +1502,52 @@ public sealed partial class StudioViewModel : ViewModelBase
             return;
         }
 
-        await OnRenameFile(target, newName);
-        FileActionNotice = RenameFileStatusNotice;
+        try
+        {
+            await OnRenameFile(target, newName);
+            FileActionNotice = RenameFileStatusNotice;
+            RenameDialogError = null;
+        }
+        catch (Exception ex)
+        {
+            FileActionNotice = Localizer.GetString("Files.ActionFailedNotice", ex.Message);
+            RenameDialogError = ex.Message;
+        }
     }
 
     [RelayCommand]
     public async Task ExecuteDeleteFileAsync(object? parameter)
     {
+        if (IsDeleteConfirmationBusy)
+            return;
+
+        if (parameter is ValueTuple<WorkspaceFileItemViewModel, bool> (WorkspaceFileItemViewModel f, bool confirmed) && confirmed)
+        {
+            if (OnDeleteFile == null)
+            {
+                FileActionNotice = DeleteFileStatusNotice;
+                return;
+            }
+
+            try
+            {
+                IsDeleteConfirmationBusy = true;
+                await OnDeleteFile(f);
+                FileActionNotice = Localizer.GetString(f.IsManaged
+                    ? "Files.DeleteManagedSuccessNotice"
+                    : "Files.DeleteMappedSuccessNotice", f.Name);
+            }
+            catch (Exception ex)
+            {
+                FileActionNotice = Localizer.GetString("Files.ActionFailedNotice", ex.Message);
+            }
+            finally
+            {
+                IsDeleteConfirmationBusy = false;
+            }
+            return;
+        }
+
         var target = ResolveFileParameter(parameter) ?? SelectedFile;
         if (target == null)
         {
@@ -1228,8 +1561,29 @@ public sealed partial class StudioViewModel : ViewModelBase
             return;
         }
 
-        await OnDeleteFile(target);
-        FileActionNotice = DeleteFileStatusNotice;
+        if (target.IsManaged)
+        {
+            // Managed delete requires explicit confirmation to move to app recovery area
+            OpenDeleteConfirmationDialog(target);
+            return;
+        }
+
+        // Mapped file removal unmaps reference without touching source file
+        try
+        {
+            IsDeleteConfirmationBusy = true;
+            SelectFile(target);
+            await OnDeleteFile(target);
+            FileActionNotice = Localizer.GetString("Files.DeleteMappedSuccessNotice", target.Name);
+        }
+        catch (Exception ex)
+        {
+            FileActionNotice = Localizer.GetString("Files.ActionFailedNotice", ex.Message);
+        }
+        finally
+        {
+            IsDeleteConfirmationBusy = false;
+        }
     }
 
     [RelayCommand]
@@ -1273,9 +1627,120 @@ public sealed partial class StudioViewModel : ViewModelBase
         }
 
         var file = RenamingFile;
-        IsRenameDialogOpen = false;
-        RenamingFile = null;
-        await ExecuteRenameFileAsync((file, trimmed));
+        try
+        {
+            await ExecuteRenameFileAsync((file, trimmed));
+            if (string.IsNullOrWhiteSpace(RenameDialogError))
+            {
+                IsRenameDialogOpen = false;
+                RenamingFile = null;
+                RenameDialogError = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            RenameDialogError = ex.Message;
+        }
+    }
+
+    // ==========================================
+    // DELETE CONFIRMATION DIALOG METHODS (P3 UI)
+    // ==========================================
+    [RelayCommand]
+    public void OpenDeleteConfirmationDialog(object? parameter = null)
+    {
+        if (IsDeleteConfirmationBusy)
+            return;
+
+        var target = ResolveFileParameter(parameter) ?? SelectedFile;
+        if (target == null)
+        {
+            FileActionNotice = Localizer["Files.NoFileSelectedNotice"];
+            return;
+        }
+
+        SelectFile(target);
+        DeletingFile = target;
+        DeleteConfirmationDialogError = null;
+        OnPropertyChanged(nameof(DeleteConfirmTitleText));
+        OnPropertyChanged(nameof(DeleteConfirmPromptText));
+        OnPropertyChanged(nameof(DeleteConfirmActionText));
+        IsDeleteConfirmationDialogOpen = true;
+    }
+
+    [RelayCommand]
+    public void CloseDeleteConfirmationDialog()
+    {
+        // User cancel command: blocked while deletion execution is in flight
+        if (IsDeleteConfirmationBusy)
+            return;
+
+        DismissDeleteConfirmationDialog();
+    }
+
+    private void DismissDeleteConfirmationDialog()
+    {
+        IsDeleteConfirmationDialogOpen = false;
+        DeletingFile = null;
+        DeleteConfirmationDialogError = null;
+    }
+
+    [RelayCommand]
+    public async Task ConfirmDeleteFileAsync()
+    {
+        if (IsDeleteConfirmationBusy)
+            return;
+
+        if (DeletingFile == null)
+        {
+            DismissDeleteConfirmationDialog();
+            return;
+        }
+
+        var file = DeletingFile;
+        if (OnDeleteFile == null)
+        {
+            FileActionNotice = DeleteFileStatusNotice;
+            DismissDeleteConfirmationDialog();
+            return;
+        }
+
+        try
+        {
+            IsDeleteConfirmationBusy = true;
+            await OnDeleteFile(file);
+
+            FileActionNotice = Localizer.GetString(file.IsManaged
+                ? "Files.DeleteManagedSuccessNotice"
+                : "Files.DeleteMappedSuccessNotice", file.Name);
+
+            // Busy resets before programmatic close
+            IsDeleteConfirmationBusy = false;
+            DismissDeleteConfirmationDialog();
+        }
+        catch (Exception ex)
+        {
+            IsDeleteConfirmationBusy = false;
+
+            // Re-verify whether the target file still exists in workspace after failed operation
+            var targetStillExists = SelectedSpace?.Files.Any(f => f.Id == file.Id) == true ||
+                                    AllSpaces.SelectMany(s => s.Files).Any(f => f.Id == file.Id);
+            if (!targetStillExists)
+            {
+                // Target has vanished: dismiss modal, do not retain stale enabled target after failure
+                DismissDeleteConfirmationDialog();
+            }
+            else
+            {
+                DeleteConfirmationDialogError = ex.Message;
+            }
+
+            FileActionNotice = Localizer.GetString("Files.ActionFailedNotice", ex.Message);
+        }
+        finally
+        {
+            IsDeleteConfirmationBusy = false;
+        }
     }
 
     private WorkspaceFileItemViewModel? ResolveFileParameter(object? parameter)

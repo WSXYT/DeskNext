@@ -19,7 +19,7 @@ public sealed class ThemeManager : INotifyPropertyChanged
     private static readonly Lazy<ThemeManager> _lazy = new(() => new ThemeManager());
     public static ThemeManager Instance => _lazy.Value;
 
-    private AppThemeMode _currentThemeMode = AppThemeMode.Dark;
+    private AppThemeMode _currentThemeMode = AppThemeMode.Light;
 
     public event PropertyChangedEventHandler? PropertyChanged;
     public event EventHandler<AppThemeMode>? ThemeChanged;
@@ -59,7 +59,7 @@ public sealed class ThemeManager : INotifyPropertyChanged
         {
             AppThemeMode.Light => ThemeVariant.Light,
             AppThemeMode.Dark => ThemeVariant.Dark,
-            _ => ThemeVariant.Default
+            _ => ThemeVariant.Light
         };
 
         if (Dispatcher.UIThread.CheckAccess())

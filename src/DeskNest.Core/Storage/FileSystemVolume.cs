@@ -15,6 +15,30 @@ internal static class FileSystemVolume
             throw new NotSupportedException("Cross-volume moves require verified copy/commit support and are disabled.");
     }
 
+    internal static void RequireNoReparsePoints(string path)
+    {
+        if (!Path.IsPathFullyQualified(path))
+            throw new ArgumentException("Reparse-point lookup requires an absolute path.", nameof(path));
+        string current = Path.GetFullPath(path);
+        while (!File.Exists(current) && !Directory.Exists(current))
+        {
+            current = Path.GetDirectoryName(current)
+                ?? throw new IOException("No existing ancestor for reparse-point lookup.");
+        }
+        while (true)
+        {
+            var attributes = File.GetAttributes(current);
+            if ((attributes & FileAttributes.ReparsePoint) != 0)
+                throw new IOException($"Reparse-point path components are not eligible: {current}");
+            string? parent = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(current));
+            if (parent is null || string.Equals(parent, current,
+                    OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+                break;
+            current = parent;
+        }
+    }
+
+
     internal static string Identify(string path)
     {
         if (!Path.IsPathFullyQualified(path))

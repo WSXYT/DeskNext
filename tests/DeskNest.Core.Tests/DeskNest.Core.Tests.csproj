@@ -10,5 +10,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/DeskNest.Core/DeskNest.Core.csproj" />
+    <ProjectReference Include="../../src/DeskNest.Platform/DeskNest.Platform.csproj" />
   </ItemGroup>
 </Project>
