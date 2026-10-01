@@ -23,17 +23,28 @@ function Invoke-Probe([string]$Exe, [string]$Argument, [string]$LogName) {
     $start.RedirectStandardOutput = $true
     $start.RedirectStandardError = $true
     $process = [Diagnostics.Process]::Start($start)
-    $stdout = $process.StandardOutput.ReadToEndAsync()
-    $stderr = $process.StandardError.ReadToEndAsync()
-    if (!$process.WaitForExit(60000)) {
-        $process.Kill()
-        throw 'Installed application probe timed out.'
+    try {
+        $stdout = $process.StandardOutput.ReadToEndAsync()
+        $stderr = $process.StandardError.ReadToEndAsync()
+        $timedOut = !$process.WaitForExit(60000)
+        if ($timedOut) {
+            $process.Kill()
+            if (!$process.WaitForExit(5000)) { throw ('Probe did not terminate: ' + $LogName) }
+        }
+        $streams = [Threading.Tasks.Task[]]@($stdout, $stderr)
+        if (![Threading.Tasks.Task]::WaitAll($streams, 5000)) {
+            throw ('Probe output did not close: ' + $LogName)
+        }
+        $content = $stdout.GetAwaiter().GetResult() + $stderr.GetAwaiter().GetResult()
+        [IO.File]::WriteAllText($log, $content)
+        if ($timedOut -or $process.ExitCode -ne 0) {
+            Write-Host $content
+            throw ('Installed probe failed (timeout=' + $timedOut + '). Evidence: ' + $log)
+        }
+        return $log
+    } finally {
+        $process.Dispose()
     }
-    [IO.File]::WriteAllText($log, ($stdout.GetAwaiter().GetResult() + $stderr.GetAwaiter().GetResult()))
-    $exit = $process.ExitCode
-    $process.Dispose()
-    if ($exit -ne 0) { throw ('Installed application probe failed. Evidence: ' + $log) }
-    return $log
 }
 # Evidence is retained, even on failure. No test touches the user's workspace.
 & $installer -Payload (Join-Path $Bundle 'payload') -InstallRoot $installRoot
