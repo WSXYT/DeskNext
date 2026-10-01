@@ -31,6 +31,8 @@ jobs:
         run: |
           physical_temp="$(cd "$RUNNER_TEMP" && pwd -P)"
           printf 'TMPDIR=%s/\n' "$physical_temp" >> "$GITHUB_ENV"
+      - name: Verify probe driver rejects missing or false evidence
+        run: node --test tests/app-probe-driver.test.mjs
       - name: Run headless Core and inference unit tests
         run: dotnet test DeskNest.sln -c Release -m:1 -p:UseSharedCompilation=false
       - name: Refuse self-copy through a native volume-root alias
@@ -58,20 +60,34 @@ jobs:
       - name: Run UI + native load (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
-        run: '& "./artifacts/publish-ui/DeskNest.App.exe" --headless-smoke --native-library "./artifacts/native-ci/Debug/desknest_pogget.dll"'
+        timeout-minutes: 2
+        run: >-
+          node tests/run-app-probe.mjs ./artifacts/publish-ui/DeskNest.App.exe
+          --headless-smoke --native-library
+          ./artifacts/native-ci/Debug/desknest_pogget.dll
       - name: Run UI + native load (Linux)
         if: runner.os == 'Linux'
         shell: bash
-        run: ./artifacts/publish-ui/DeskNest.App --headless-smoke --native-library ./artifacts/native-ci/libdesknest_pogget.so
+        timeout-minutes: 2
+        run: >-
+          node tests/run-app-probe.mjs ./artifacts/publish-ui/DeskNest.App
+          --headless-smoke --native-library
+          ./artifacts/native-ci/libdesknest_pogget.so
       - name: Run UI + native load (macOS)
         if: runner.os == 'macOS'
         shell: bash
-        run: ./artifacts/publish-ui/DeskNest.App --headless-smoke --native-library ./artifacts/native-ci/libdesknest_pogget.dylib
+        timeout-minutes: 2
+        run: >-
+          node tests/run-app-probe.mjs ./artifacts/publish-ui/DeskNest.App
+          --headless-smoke --native-library
+          ./artifacts/native-ci/libdesknest_pogget.dylib
       - name: Start real Windows window with isolated state (P2)
         if: runner.os == 'Windows'
         timeout-minutes: 2
         shell: pwsh
-        run: '& "./artifacts/publish-ui/DeskNest.App.exe" --native-window-smoke'
+        run: >-
+          node tests/run-app-probe.mjs ./artifacts/publish-ui/DeskNest.App.exe
+          --native-window-smoke
       - name: Installed unsigned package and recovery probe (P3)
         if: runner.os == 'Windows'
         timeout-minutes: 15
@@ -90,9 +106,12 @@ jobs:
         shell: bash
         run: >-
           xvfb-run -a -s '-screen 0 1600x900x24'
-          timeout 60s ./artifacts/publish-ui/DeskNest.App --native-window-smoke
+          node tests/run-app-probe.mjs ./artifacts/publish-ui/DeskNest.App
+          --native-window-smoke
       - name: Start macOS window with isolated state (P2)
         if: runner.os == 'macOS'
         timeout-minutes: 2
         shell: bash
-        run: ./artifacts/publish-ui/DeskNest.App --native-window-smoke
+        run: >-
+          node tests/run-app-probe.mjs ./artifacts/publish-ui/DeskNest.App
+          --native-window-smoke

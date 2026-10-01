@@ -35,11 +35,25 @@ function Invoke-Probe([string]$Exe, [string]$Argument, [string]$LogName) {
         if (![Threading.Tasks.Task]::WaitAll($streams, 5000)) {
             throw ('Probe output did not close: ' + $LogName)
         }
-        $content = $stdout.GetAwaiter().GetResult() + $stderr.GetAwaiter().GetResult()
+        $output = $stdout.GetAwaiter().GetResult()
+        $content = $output + $stderr.GetAwaiter().GetResult()
         [IO.File]::WriteAllText($log, $content)
+        Write-Host $content
         if ($timedOut -or $process.ExitCode -ne 0) {
-            Write-Host $content
             throw ('Installed probe failed (timeout=' + $timedOut + '). Evidence: ' + $log)
+        }
+        if ($Argument.StartsWith('--headless-smoke') -or $Argument.StartsWith('--native-window-smoke')) {
+            $marker = if ($Argument.StartsWith('--headless-smoke')) { 'PROBE_RESULT_JSON:' } else { 'NATIVE_WINDOW_RESULT_JSON:' }
+            $parts = $output.Split([string[]]@($marker), [StringSplitOptions]::None)
+            if ($parts.Count -ne 2) { throw ('Missing terminal probe evidence: ' + $log) }
+            $result = $parts[1].Trim() | ConvertFrom-Json
+            if ($result.Success -isnot [bool] -or !$result.Success) {
+                throw ('Probe did not report success: ' + $log)
+            }
+            if ($Argument.Contains('--inspect-recovery') -and
+                ($result.RecoveryInspectionVerified -isnot [bool] -or !$result.RecoveryInspectionVerified)) {
+                throw ('Recovery inspection was not verified: ' + $log)
+            }
         }
         return $log
     } finally {
