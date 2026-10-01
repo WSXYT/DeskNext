@@ -27,8 +27,12 @@ public sealed class DesktopOrganizationMonitorTests
         await monitor.StartAsync();
         Assert.Contains(Path.Combine(root.Path, "existing.txt"), monitor.BaselinePaths);
 
+        // Publish a closed, complete file: creating then writing races the first sample on inotify.
+        using var staging = new TemporaryDirectory();
+        string prepared = Path.Combine(staging.Path, "prepared.txt");
+        await File.WriteAllTextAsync(prepared, "new");
         string newPath = Path.Combine(root.Path, "new.txt");
-        await File.WriteAllTextAsync(newPath, "new");
+        File.Move(prepared, newPath);
         var observed = await Task.WhenAny(candidates.Task, Task.Delay(TimeSpan.FromSeconds(3)));
 
         Assert.Same(candidates.Task, observed);

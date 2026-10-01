@@ -134,17 +134,25 @@ public sealed class DesktopOrganizationTransactionTests
             OrganizationDirectoryMoveSupport.SameVolumeAtomicWithManifest,
             transaction.DirectoryMoveSupport);
 
-        string sourceRoot = Path.GetPathRoot(root.Path)!;
+        string sourceVolume = FileSystemVolume.Identify(source);
         string? alternateRoot = DriveInfo.GetDrives()
             .Select(drive => drive.RootDirectory.FullName)
-            .FirstOrDefault(candidate => !string.Equals(candidate, sourceRoot,
-                StringComparison.OrdinalIgnoreCase));
+            .FirstOrDefault(candidate =>
+            {
+                try { return !string.Equals(FileSystemVolume.Identify(candidate), sourceVolume, StringComparison.Ordinal); }
+                catch (IOException) { return false; } // e.g. Linux procfs is not an eligible local volume.
+                catch (NotSupportedException) { return false; }
+                catch (UnauthorizedAccessException) { return false; }
+            });
         if (alternateRoot is null)
             return;
 
+        string destination = Path.Combine(alternateRoot, "DeskNext-test-" + Guid.NewGuid().ToString("N"), "destination");
         await Assert.ThrowsAsync<NotSupportedException>(() => transaction.ExecuteDirectoriesAsync([
-            new OrganizationDirectoryMove(source, Path.Combine(alternateRoot, "DeskNest-test-destination"))]));
+            new OrganizationDirectoryMove(source, destination)]));
         Assert.True(Directory.Exists(source));
+        Assert.False(Directory.Exists(Path.GetDirectoryName(destination)));
+        Assert.False(transaction.HasRecoveryJournal);
     }
 
     [Fact]

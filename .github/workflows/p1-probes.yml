@@ -25,6 +25,12 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         run: test "$(uname -m)" = arm64
+      - name: Use a physical macOS temporary directory for no-link tests
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          physical_temp="$(cd "$RUNNER_TEMP" && pwd -P)"
+          printf 'TMPDIR=%s/\n' "$physical_temp" >> "$GITHUB_ENV"
       - name: Run headless Core and inference unit tests
         run: dotnet test DeskNest.sln -c Release -m:1 -p:UseSharedCompilation=false
       - name: Refuse self-copy through a native volume-root alias
@@ -37,7 +43,11 @@ jobs:
             throw 'Z: is occupied; refusing to replace it.'
           }
           $root = [IO.Path]::GetPathRoot([IO.Path]::GetTempPath())
-          subst.exe Z: $root
+          $volume = (mountvol.exe $root /L | Out-String).Trim()
+          if (!$volume.StartsWith('\\?\Volume{') -or
+              !$volume.EndsWith('}\')) { throw 'Missing native volume GUID.' }
+          # Direct volume mapping, not SUBST (OBJ_DONT_REPARSE rejects SUBST).
+          mountvol.exe Z:\ $volume
           if ($LASTEXITCODE -ne 0) { throw 'Could not create test alias.' }
           try {
             $env:DESKNEXT_TEST_VOLUME_ALIAS = 'Z:\'
@@ -47,7 +57,7 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw 'Native alias tests failed.' }
           } finally {
             Remove-Item Env:DESKNEXT_TEST_VOLUME_ALIAS
-            subst.exe Z: /D
+            mountvol.exe Z:\ /D
             if ($LASTEXITCODE -ne 0) { throw 'Test alias cleanup failed.' }
           }
       - name: Exercise isolated force-kill recovery boundaries (Windows P3 probe)
