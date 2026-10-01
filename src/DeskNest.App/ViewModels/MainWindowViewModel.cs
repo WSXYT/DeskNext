@@ -586,7 +586,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
 
         try
         {
-            var payload = await AvaloniaClipboardBridge.TryGetFilePayloadAsync(clipboard).ConfigureAwait(false);
+            // Clipboard and view-model continuations belong to the invoking UI dispatcher.
+            var payload = await AvaloniaClipboardBridge.TryGetFilePayloadAsync(clipboard);
             if (payload is null || payload.Paths is null || payload.Paths.Count == 0)
             {
                 if (Studio is not null)
@@ -666,9 +667,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
                 return;
             }
 
-            // Validate target space
+            // New managed folders are created by the guarded Core transaction, never by the UI.
+            // A missing mapped folder remains an unavailable external directory.
             string targetFolder = Path.GetFullPath(targetSpaceModel.Folder);
-            if (!Directory.Exists(targetFolder))
+            if (File.Exists(targetFolder) ||
+                (targetSpaceModel.Mode == SpaceStorageMode.Mapped && !Directory.Exists(targetFolder)))
             {
                 if (Studio is not null)
                     Studio.FileActionNotice = Localizer["Validation.FileNotFound"];
@@ -693,8 +696,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             }
 
             await _manualCoordinator.MoveFileAsync(file.Id, targetSpaceModel.Id,
-                expectedWorkspaceRevision: snapshot.Revision).ConfigureAwait(false);
-            try { await clipboard.ClearAsync().ConfigureAwait(false); } catch { }
+                expectedWorkspaceRevision: snapshot.Revision);
+            try { await clipboard.ClearAsync(); } catch { }
 
             if (_store is not null)
             {

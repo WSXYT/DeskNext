@@ -7,7 +7,7 @@
 - Preserve corruption evidence. Rollback checkpoints `Restored` plus `.rollback-started`; delete backup, primary, then fence. Uncheckpointed renames require reconciliation. Recovery inspection is read-only; retry reuses its owned store.
 - Sorted directory topology: 100,000 entries/depth 128. Legacy null topology loads but cannot authorize undo/recovery.
 - Managed deletion uses app recovery storage, not OS trash. Open/reveal/preview rejects relative/URI/reparse paths; previews are bounded. Production Copy/copy-Paste stays gated. Unsupported streams fail closed. Retain intents; never auto-adopt/delete unconfirmed copies. Validate native destination ancestry before creating parents.
-- Catalog only existing in-root items; external space import stays gated.
+- Catalog only existing in-root items; external import stays gated. Clipboard uses the UI thread; Core creates managed folders.
 - Release singleton subscriptions with their UI owners.
 - Monitoring supports Desktop and selected folders: whitelist, baseline, health, pause/rescan, target binding. No takeover before S01–S08.
 - CI uses physical macOS temp paths and hosted-CI-only aliases. Require terminal probe JSON; skips aren't native evidence.

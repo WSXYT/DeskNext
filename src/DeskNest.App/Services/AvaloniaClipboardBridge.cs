@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using DeskNest.Core.Workspace;
 
 namespace DeskNest.App.Services;
@@ -25,6 +26,7 @@ public sealed class WorkspaceClipboardPayload
 
 /// <summary>
 /// Production Avalonia 12 clipboard bridge using modern IClipboard and DataTransfer APIs.
+/// Called on the UI dispatcher; preserve its context through native clipboard calls and disposal.
 /// Correctly disposes IAsyncDataTransfer returned by TryGetDataAsync to release native system handles.
 /// </summary>
 public static class AvaloniaClipboardBridge
@@ -70,6 +72,7 @@ public static class AvaloniaClipboardBridge
     {
         ArgumentNullException.ThrowIfNull(clipboard);
         ArgumentNullException.ThrowIfNull(payload);
+        Dispatcher.UIThread.VerifyAccess();
 
         if (payload.Paths is not { Count: 1 } || !IsSupportedPath(payload.Paths[0]))
         {
@@ -83,11 +86,11 @@ public static class AvaloniaClipboardBridge
         item.SetText(payload.Paths[0]);
 
         dataTransfer.Add(item);
-        await clipboard.SetDataAsync(dataTransfer).ConfigureAwait(false);
+        await clipboard.SetDataAsync(dataTransfer);
 
         try
         {
-            await clipboard.FlushAsync().ConfigureAwait(false);
+            await clipboard.FlushAsync();
         }
         catch
         {
@@ -98,23 +101,24 @@ public static class AvaloniaClipboardBridge
     public static async Task<WorkspaceClipboardPayload?> TryGetFilePayloadAsync(IClipboard clipboard)
     {
         ArgumentNullException.ThrowIfNull(clipboard);
+        Dispatcher.UIThread.VerifyAccess();
 
         IAsyncDataTransfer? dataTransfer = null;
         try
         {
-            dataTransfer = await clipboard.TryGetDataAsync().ConfigureAwait(false);
+            dataTransfer = await clipboard.TryGetDataAsync();
             if (dataTransfer is null)
                 return null;
 
             if (dataTransfer.Contains(WorkspaceFileFormat))
             {
-                var json = await dataTransfer.TryGetValueAsync(WorkspaceFileFormat).ConfigureAwait(false);
+                var json = await dataTransfer.TryGetValueAsync(WorkspaceFileFormat);
                 // A malformed application marker is not permission to reinterpret fallback data.
                 return ParsePayload(json);
             }
 
             // Fallback: check platform file transfer items (e.g. from system file manager)
-            var storageFiles = await dataTransfer.TryGetFilesAsync().ConfigureAwait(false);
+            var storageFiles = await dataTransfer.TryGetFilesAsync();
             if (storageFiles is not null)
             {
                 var paths = new List<string>();
@@ -147,7 +151,7 @@ public static class AvaloniaClipboardBridge
             }
 
             // Fallback: check plain text
-            var text = await dataTransfer.TryGetTextAsync().ConfigureAwait(false);
+            var text = await dataTransfer.TryGetTextAsync();
             if (!string.IsNullOrWhiteSpace(text) && text.Length <= MaximumPayloadCharacters)
             {
                 var lines = text.Split(new[] { "\r\n", "\r", "\n" }, 3, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -171,7 +175,7 @@ public static class AvaloniaClipboardBridge
             }
             else if (dataTransfer is IAsyncDisposable asyncDisposable)
             {
-                await asyncDisposable.DisposeAsync().ConfigureAwait(false);
+                await asyncDisposable.DisposeAsync();
             }
         }
     }

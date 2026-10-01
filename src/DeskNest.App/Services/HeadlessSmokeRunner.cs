@@ -70,6 +70,7 @@ public sealed class SmokeTestResult
     public bool SpaceMetadataBoundaryVerified { get; set; }
     public bool FileRowLifetimeVerified { get; set; }
     public bool WorkspaceViewModelLifetimeVerified { get; set; }
+    public bool ManagedClipboardWorkflowVerified { get; set; }
     public bool WorkspaceFileCallbacksInvoked { get; set; }
     public bool WorkspaceFileManagedVsMappedVerified { get; set; }
     public bool WorkspaceFileSelectionRetentionVerified { get; set; }
@@ -484,6 +485,12 @@ public static class HeadlessSmokeRunner
             result.CompanionLifetimeVerified = true;
             VerifySpaceMetadataBoundary();
             result.SpaceMetadataBoundaryVerified = true;
+            foreach (bool directory in new[] { false, true })
+            {
+                using var clipboardFixture = new TempTestDir();
+                AwaitOnUIThread(ManualClipboardSmoke.VerifyAsync(clipboardFixture.Path, directory), "managed clipboard workflow");
+            }
+            result.ManagedClipboardWorkflowVerified = true;
             result.HeadlessInitialized = (Application.Current != null);
             Console.WriteLine($"  ✓ Avalonia Application.Current active: {result.HeadlessInitialized}");
 
