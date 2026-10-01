@@ -91,7 +91,8 @@ public static class PlatformFileActions
         }
     }
 
-    private static string RequireExistingLocalPath(string path)
+    /// <summary>Read-only path validation, not a lease or permission for later filesystem mutation.</summary>
+    public static string RequireExistingLocalPath(string path)
     {
         if (string.IsNullOrWhiteSpace(path) || !Path.IsPathFullyQualified(path))
             throw new ArgumentException("An absolute local filesystem path is required.", nameof(path));

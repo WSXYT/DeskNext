@@ -67,6 +67,7 @@ public sealed class SmokeTestResult
     public bool ClipboardSubjectBindingVerified { get; set; }
     public bool StartupRecoveryRetryVerified { get; set; }
     public bool CompanionLifetimeVerified { get; set; }
+    public bool SpaceMetadataBoundaryVerified { get; set; }
     public bool WorkspaceFileCallbacksInvoked { get; set; }
     public bool WorkspaceFileManagedVsMappedVerified { get; set; }
     public bool WorkspaceFileSelectionRetentionVerified { get; set; }
@@ -198,6 +199,47 @@ public static class HeadlessSmokeRunner
         {
             AwaitOnUIThread(unopenedVm.DisposeAsync().AsTask(), "pre-open retry disposal");
             Directory.Delete(unopenedRoot, recursive: true);
+        }
+    }
+
+    private static void VerifySpaceMetadataBoundary()
+    {
+        using var fixture = new TempTestDir();
+        foreach (var mode in new[] { SpaceStorageMode.Managed, SpaceStorageMode.Mapped })
+        {
+            string folder = Directory.CreateDirectory(Path.Combine(fixture.Path, mode.ToString())).FullName;
+            string sibling = Directory.CreateDirectory(folder + "-sibling").FullName;
+            string outside = Path.Combine(sibling, "outside.txt");
+            File.WriteAllText(outside, "outside stays here");
+            var space = new WorkspaceSpace(Guid.NewGuid(), "Membership fixture", "", mode, folder);
+            var state = new WorkspaceState { Spaces = [space] };
+            var vm = new StudioViewModel(state, update =>
+            {
+                state = update(state) with { Revision = state.Revision + 1 };
+                return Task.FromResult(state);
+            });
+            foreach (string rejected in new[] { outside, folder,
+                Path.Combine(folder, "..", Path.GetFileName(sibling), "outside.txt"), "relative.txt", "https://example.test/file" })
+            {
+                long revision = state.Revision;
+                AwaitOnUIThread(vm.EnrollUserFileMetadataAsync(rejected), "invalid space membership");
+                if (state.Revision != revision || state.Files.Count != 0 || state.Operations.Count != 0)
+                    throw new InvalidOperationException("Rejected metadata enrollment changed the workspace.");
+            }
+            string inside = Path.Combine(folder, "inside.txt");
+            File.WriteAllText(inside, "inside stays here");
+            string child = Directory.CreateDirectory(Path.Combine(folder, "child")).FullName;
+            AwaitOnUIThread(vm.DropPathsOnSpaceAsync([inside, child, inside]), "contained metadata enrollment");
+            if (state.Files.Count != 2 || state.Files.Count(f => f.IsDirectory) != 1 || state.Operations.Count != 0)
+                throw new InvalidOperationException("Contained metadata enrollment lost directory type or duplicated an item.");
+            // The selected projection is stale; use the current space root inside the metadata gate.
+            state = state with { Spaces = [space with { Folder = sibling }], Revision = state.Revision + 1 };
+            long before = state.Revision;
+            AwaitOnUIThread(vm.EnrollUserFileMetadataAsync(inside), "changed space root refusal");
+            if (state.Revision != before || state.Files.Count != 2 ||
+                vm.SpaceDropNotice != LocalizationManager.Instance["Drop.OutsideSpaceNotice"] ||
+                File.ReadAllText(outside) != "outside stays here" || File.ReadAllText(inside) != "inside stays here")
+                throw new InvalidOperationException("A stale space projection authorized enrollment or changed source content.");
         }
     }
 
@@ -371,6 +413,8 @@ public static class HeadlessSmokeRunner
             result.StartupRecoveryRetryVerified = true;
             VerifyCompanionLifetime();
             result.CompanionLifetimeVerified = true;
+            VerifySpaceMetadataBoundary();
+            result.SpaceMetadataBoundaryVerified = true;
             result.HeadlessInitialized = (Application.Current != null);
             Console.WriteLine($"  ✓ Avalonia Application.Current active: {result.HeadlessInitialized}");
 
@@ -471,6 +515,10 @@ public static class HeadlessSmokeRunner
                 // Step 1 -> Advance to 2
                 await using (var s1 = await WorkspaceStore.OpenAsync(oobeDir.Path))
                 {
+                    await s1.UpdateAsync(s => s with
+                    {
+                        Settings = s.Settings with { ManagedRoot = Path.Combine(oobeDir.Path, "Spaces") }
+                    });
                     var oobeVm = new OnboardingViewModel(s1.Snapshot, u => s1.UpdateAsync(u));
                     if (oobeVm.CurrentStep != 1)
                         throw new InvalidOperationException($"Expected OOBE to start at step 1, got {oobeVm.CurrentStep}");
@@ -595,7 +643,8 @@ public static class HeadlessSmokeRunner
                         throw new InvalidOperationException("Triage assignment did not record suggested space ID.");
 
                     // Add real file metadata via enrollment
-                    var realDocPath = Path.Combine(persistDir.Path, "real_document.pdf");
+                    Directory.CreateDirectory(managedSpace.Folder);
+                    var realDocPath = Path.Combine(managedSpace.Folder, "real_document.pdf");
                     File.WriteAllText(realDocPath, "sample metadata target content");
                     studioVm.SelectedSpace = studioVm.AllSpaces[0];
                     await studioVm.EnrollUserFileMetadataAsync(realDocPath);
@@ -1205,8 +1254,21 @@ public static class HeadlessSmokeRunner
                 mainVm.Studio.OnFilesDroppedOnSpace = null;
                 result.DragDropInjectableCallbackVerified = true;
 
-                // Test Drop with default metadata enrollment (no moving files directly, P2 boundary)
-                var secondDropFile = Path.Combine(oobeDir.Path, "drag_test_metadata.txt");
+                // External paths must not be mislabeled as stored in a managed space.
+                var beforeRejectedDrop = activeStore.Snapshot;
+                AwaitOnUIThread(mainVm.Studio.DropPathsOnSpaceAsync([testDropFile]), "external space drop refusal");
+                if (activeStore.Snapshot.Revision != beforeRejectedDrop.Revision ||
+                    mainVm.Studio.SpaceDropNotice != localizer["Drop.OutsideSpaceNotice"] ||
+                    File.ReadAllText(testDropFile) != "sample drop content")
+                    throw new InvalidOperationException("External drop changed metadata/source or hid the refusal.");
+
+                // Only catalog a file already inside this isolated fixture's space.
+                var dropFolder = mainVm.Studio.SelectedSpace!.Folder;
+                if (!Path.GetFullPath(dropFolder).StartsWith(Path.GetFullPath(oobeDir.Path) + Path.DirectorySeparatorChar,
+                    OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+                    throw new InvalidOperationException("Drop fixture escaped its isolated workspace.");
+                Directory.CreateDirectory(dropFolder);
+                var secondDropFile = Path.Combine(dropFolder, "drag_test_metadata.txt");
                 File.WriteAllText(secondDropFile, "metadata enrollment test content");
                 var secondStorageItem = Task.Run(async () => await topLevel!.StorageProvider.TryGetFileFromPathAsync(new Uri(Path.GetFullPath(secondDropFile)))).GetAwaiter().GetResult();
                 var secondFileData = new DataTransfer();
@@ -1214,7 +1276,13 @@ public static class HeadlessSmokeRunner
 
                 var defaultDropArgs = new DragEventArgs(DragDrop.DropEvent, secondFileData, spaceSurface, new Point(10, 10), KeyModifiers.None);
                 spaceSurface.RaiseEvent(defaultDropArgs);
-                Dispatcher.UIThread.RunJobs();
+                var dropWait = Stopwatch.StartNew();
+                while (mainVm.Studio.SelectedSpace?.Files.Any(f => f.Path == secondDropFile) != true &&
+                    dropWait.Elapsed < TimeSpan.FromSeconds(5))
+                {
+                    Dispatcher.UIThread.RunJobs();
+                    Thread.Sleep(5);
+                }
 
                 if (!File.Exists(secondDropFile))
                     throw new InvalidOperationException("Source file was moved or deleted! Expected metadata enrollment only (P2 boundary).");

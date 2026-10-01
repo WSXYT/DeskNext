@@ -873,26 +873,51 @@ public sealed partial class StudioViewModel : ViewModelBase
     [RelayCommand]
     public async Task EnrollUserFileMetadataAsync(string? filePath)
     {
-        if (SelectedSpace == null || string.IsNullOrWhiteSpace(filePath)) return;
-        var path = filePath.Trim();
-        if (!Path.IsPathFullyQualified(path) || (!File.Exists(path) && !Directory.Exists(path)))
+        var target = SelectedSpace;
+        if (target == null)
         {
+            SpaceDropNotice = Localizer["Drop.NoSpaceSelected"];
             return;
         }
+        if (await TryEnrollFileMetadataAsync(filePath, target.Id))
+            SpaceDropNotice = Localizer.GetString("Drop.SpaceSuccessFormat", 1, target.Name);
+    }
 
-        var name = Path.GetFileName(path);
-        if (string.IsNullOrWhiteSpace(name)) name = path;
-        bool isDir = Directory.Exists(path);
-
-        var file = new WorkspaceFile(Guid.NewGuid(), SelectedSpace.Id, name, path, isDir);
-        var updated = await _updateStore(state => state with
+    private async Task<bool> TryEnrollFileMetadataAsync(string? filePath, Guid spaceId)
+    {
+        bool outsideSpace = false;
+        try
         {
-            Files = [.. state.Files, file]
-        });
-
-        if (updated != null)
-        {
+            var path = Path.TrimEndingDirectorySeparator(
+                DeskNest.Platform.PlatformFileActions.RequireExistingLocalPath(filePath?.Trim() ?? string.Empty));
+            var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+            var updated = await _updateStore(state =>
+            {
+                var target = state.Spaces.FirstOrDefault(s => s.Id == spaceId)
+                    ?? throw new InvalidDataException(Localizer["Drop.NoSpaceSelected"]);
+                var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(target.Folder));
+                var prefix = Path.EndsInDirectorySeparator(root) ? root : root + Path.DirectorySeparatorChar;
+                if (string.Equals(path, root, comparison) || !path.StartsWith(prefix, comparison))
+                {
+                    outsideSpace = true;
+                    throw new InvalidDataException(Localizer["Drop.OutsideSpaceNotice"]);
+                }
+                // This only catalogs an item already inside the space; it never imports or moves it.
+                if (state.Files.Any(f => f.SpaceId == spaceId && string.Equals(
+                    Path.TrimEndingDirectorySeparator(Path.GetFullPath(f.Path)), path, comparison)))
+                    return state;
+                var file = new WorkspaceFile(Guid.NewGuid(), spaceId, Path.GetFileName(path), path, Directory.Exists(path));
+                return state with { Files = [.. state.Files, file] };
+            });
+            if (updated == null) return false;
             RefreshFromState(updated);
+            return true;
+        }
+        catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException)
+        {
+            SpaceDropNotice = outsideSpace ? Localizer["Drop.OutsideSpaceNotice"]
+                : Localizer.GetString("Files.ActionFailedNotice", error.Message);
+            return false;
         }
     }
 
@@ -917,24 +942,15 @@ public sealed partial class StudioViewModel : ViewModelBase
             return;
         }
 
+        var target = SelectedSpace; // Keep the user's target even if selection changes during persistence.
         int registered = 0;
+        string? refusal = null;
         foreach (var p in paths)
         {
-            if (Path.IsPathFullyQualified(p) && (File.Exists(p) || Directory.Exists(p)))
-            {
-                await EnrollUserFileMetadataAsync(p);
-                registered++;
-            }
+            if (await TryEnrollFileMetadataAsync(p, target.Id)) registered++;
+            else refusal = SpaceDropNotice;
         }
-
-        if (registered > 0)
-        {
-            SpaceDropNotice = Localizer.GetString("Drop.SpaceSuccessFormat", registered, SelectedSpace.Name);
-        }
-        else
-        {
-            SpaceDropNotice = Localizer["Validation.FileNotFound"];
-        }
+        SpaceDropNotice = refusal ?? Localizer.GetString("Drop.SpaceSuccessFormat", registered, target.Name);
     }
 
     // ==========================================
