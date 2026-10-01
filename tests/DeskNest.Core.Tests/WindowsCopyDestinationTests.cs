@@ -41,14 +41,28 @@ public sealed class WindowsCopyDestinationTests : IDisposable
         string originalDrive = Path.GetPathRoot(root)!;
         Assert.Equal(alias, Path.GetPathRoot(alias));
         Assert.False(string.Equals(alias, originalDrive, StringComparison.OrdinalIgnoreCase));
-        using (var original = WindowsDirectoryLease.Open(originalDrive))
-        using (var alternate = WindowsDirectoryLease.Open(alias))
-            Assert.Equal(original.VolumePath, alternate.VolumePath, ignoreCase: true);
         string source = Directory.CreateDirectory(Path.Combine(root, "source")).FullName;
-        File.WriteAllText(Path.Combine(source, "sentinel.txt"), "preserve");
+        string sentinel = Path.Combine(source, "sentinel.txt");
+        File.WriteAllText(sentinel, "preserve");
         string aliasedSource = Path.Combine(alias, source[originalDrive.Length..]);
+        // Positive control through ordinary Win32 file opens: this really is the SAME object,
+        // not a missing drive or an unrelated volume which would make refusal vacuous.
+        Assert.Equal(FileIdentity.Capture(sentinel),
+            FileIdentity.Capture(Path.Combine(aliasedSource, "sentinel.txt")));
         string destination = Path.Combine(aliasedSource, "new", "copy");
-        await Assert.ThrowsAsync<InvalidDataException>(() => WindowsDirectoryCopyLease.CreateAsync(source, destination));
+        var error = await Record.ExceptionAsync(() => WindowsDirectoryCopyLease.CreateAsync(source, destination));
+        Assert.NotNull(error);
+        if (error is InvalidDataException)
+            Assert.Equal("The resolved target is inside the source tree.", error.Message);
+        else
+        {
+            // Some native DOS-device aliases are refused before ancestry traversal.
+            // Only that precise kernel refusal is acceptable, not arbitrary I/O failure.
+            Assert.IsType<IOException>(error);
+            Assert.Contains("NTSTATUS 0xC000050B", error.Message);
+            Assert.IsType<System.ComponentModel.Win32Exception>(error.InnerException);
+        }
+        Assert.False(Directory.Exists(Path.GetDirectoryName(destination)));
         Assert.Equal(new[] { "sentinel.txt" }, Directory.GetFileSystemEntries(source).Select(Path.GetFileName));
         Assert.Equal("preserve", File.ReadAllText(Path.Combine(source, "sentinel.txt")));
     }
