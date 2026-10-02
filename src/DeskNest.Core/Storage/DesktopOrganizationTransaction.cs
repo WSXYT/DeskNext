@@ -97,6 +97,28 @@ internal static class WindowsFileIdentity
         uint volumeNameSize, out uint serial, out uint maxComponentLength, out uint flags,
         StringBuilder fileSystemName, uint fileSystemNameSize);
 
+    internal static FileIdentity CaptureContent(SafeFileHandle handle, CancellationToken token = default)
+    {
+        token.ThrowIfCancellationRequested();
+        WindowsFileHandles.RequireOrdinaryObject(handle, directory: false);
+        var native = Capture(handle);
+        long length = RandomAccess.GetLength(handle), offset = 0;
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        byte[] buffer = new byte[64 * 1024];
+        while (true)
+        {
+            token.ThrowIfCancellationRequested();
+            int read = RandomAccess.Read(handle, buffer, offset);
+            if (read == 0) break;
+            hash.AppendData(buffer, 0, read);
+            offset += read;
+        }
+        if (offset != length || RandomAccess.GetLength(handle) != length || native != Capture(handle))
+            throw new IOException("Object changed while capturing file evidence.");
+        WindowsFileHandles.RequireOrdinaryObject(handle, directory: false);
+        return new FileIdentity(length, native.LastWriteTicks, Convert.ToHexString(hash.GetHashAndReset())) { NativeId = native.NativeId };
+    }
+
     internal static (string NativeId, long LastWriteTicks) Capture(SafeFileHandle handle)
     {
         var filesystem = new StringBuilder(32);
@@ -253,7 +275,7 @@ public sealed class DesktopOrganizationTransaction
                 foreach (var move in prepared)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    MoveOne(move);
+                    MoveOne(move, cancellationToken);
                     completed.Add(move with { Completed = true });
                     await SaveJournalAsync(journal with
                     {
@@ -462,9 +484,14 @@ public sealed class DesktopOrganizationTransaction
 
                 FileSystemVolume.RequireNoReparsePoints(move.DestinationPath);
                 FileSystemVolume.RequireNoReparsePoints(move.SourcePath);
-                Directory.CreateDirectory(Path.GetDirectoryName(move.SourcePath)!);
                 FileSystemVolume.RequireSameVolume(move.DestinationPath, move.SourcePath);
-                File.Move(move.DestinationPath, move.SourcePath);
+                if (OperatingSystem.IsWindows())
+                    WindowsFileHandles.MoveFile(move.DestinationPath, move.SourcePath, move.Identity);
+                else
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(move.SourcePath)!);
+                    File.Move(move.DestinationPath, move.SourcePath);
+                }
                 files[index] = move with { Restored = true };
                 journal = journal with { Moves = files, UpdatedAt = DateTimeOffset.UtcNow };
                 await SaveJournalAsync(journal, CancellationToken.None).ConfigureAwait(false);
@@ -686,17 +713,22 @@ public sealed class DesktopOrganizationTransaction
         return result;
     }
 
-    private void MoveOne(OrganizationMoveReceipt move)
+    private void MoveOne(OrganizationMoveReceipt move, CancellationToken token)
     {
         if (_moveGuard is not null && !_moveGuard(move))
             throw new IOException($"Fault injection refused move: {move.SourcePath}");
 
         FileSystemVolume.RequireNoReparsePoints(move.SourcePath);
         FileSystemVolume.RequireNoReparsePoints(move.DestinationPath);
-        Directory.CreateDirectory(Path.GetDirectoryName(move.DestinationPath)!);
         if (File.Exists(move.DestinationPath) || Directory.Exists(move.DestinationPath))
             throw new IOException($"Destination appeared during transaction: {move.DestinationPath}");
-
+        FileSystemVolume.RequireSameVolume(move.SourcePath, move.DestinationPath);
+        if (OperatingSystem.IsWindows())
+        {
+            WindowsFileHandles.MoveFile(move.SourcePath, move.DestinationPath, move.Identity, token);
+            return;
+        }
+        Directory.CreateDirectory(Path.GetDirectoryName(move.DestinationPath)!);
         if (!IdentityMatches(move.SourcePath, move.Identity))
             throw new IOException($"Source changed before move: {move.SourcePath}");
 

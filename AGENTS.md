@@ -1,8 +1,8 @@
 <!-- pi-agents-md:begin version=1 scope=. -->
 ## Implementation boundaries
-- Display: DeskNext; retain internal `DeskNest.*` names/paths. Follow `PLAN.md` P0–P7; mark phases only after gates pass.
-- Stack: .NET 10/Avalonia, C# Core/Platform/Inference, Pogget C++. Execution arrangements: `PLAN.md`. One writer/worktree; serialize builds; disable shared compilation.
-- P3 remains incomplete. `FileSystemVolume` guards preparation and forward/reverse moves; reject reparse ancestors and unsupported/cross-volume moves. Windows NTFS receipts require handle-derived volume serial/128-bit ID plus hash/size/time; legacy hashes cannot authorize rollback/undo.
+- Display: DeskNext; keep `DeskNest.*` internals/paths. Follow `PLAN.md` P0–P7; complete phases only after gates pass.
+- Stack: .NET 10/Avalonia; C# Core/Platform/Inference; Pogget C++. Execution: `PLAN.md`. One writer/worktree; serialize builds; disable shared compilation.
+- P3 remains incomplete. `FileSystemVolume` guards preparation and forward/reverse moves; reject reparse ancestors and unsupported/cross-volume moves. Windows file moves: handle-relative/no-replace; NTFS receipts: handle-derived volume/128-bit ID+hash/size/time. Legacy hashes cannot authorize rollback/undo.
 - `WorkspaceStore.OrganizationGate` serializes through cleanup. Retain journals until metadata and `CommittedTransactionId` persist together; checkpoint/verify backup before acknowledgement. Cut ID/path/source-space must agree; check revision under both gates.
 - Preserve corruption evidence. Rollback checkpoints `Restored` plus `.rollback-started`; delete backup, primary, then fence. Uncheckpointed renames require reconciliation. Recovery inspection is read-only; retry reuses its owned store.
 - Sorted topology: 100,000 entries/depth 128. Legacy null topology loads but cannot authorize undo/recovery.

@@ -5,7 +5,7 @@ using Microsoft.Win32.SafeHandles;
 
 namespace DeskNest.Core.Storage;
 
-/// <summary>Windows NTFS no-follow opens relative to live directory handles. Internal until safety review.</summary>
+/// <summary>Windows NTFS handle operations for guarded file moves and internal copy experiments.</summary>
 internal static class WindowsFileHandles
 {
     private const uint ReadAttributes = 0x80, Synchronize = 0x100000, Delete = 0x10000;
@@ -79,12 +79,12 @@ internal static class WindowsFileHandles
     }
 
     internal static SafeFileHandle OpenDirectory(SafeFileHandle parent, string name, bool create = false,
-        bool allowDelete = false)
+        bool allowDelete = false, bool shareWrite = false)
     {
         RequireLeaf(name);
         return Open(parent, name, ReadAttributes | Synchronize | 0x21 |
             (allowDelete ? Delete : 0),
-            directory: true, disposition: create ? 3u : 1u);
+            directory: true, disposition: create ? 3u : 1u, shareAccess: shareWrite ? 3u : 1u);
     }
 
     internal static SafeFileHandle CreateDirectory(SafeFileHandle parent, string name, bool allowDelete = false)
@@ -94,17 +94,17 @@ internal static class WindowsFileHandles
             directory: true, disposition: 2); // FILE_CREATE: never adopt a pre-existing temporary directory.
     }
 
-    internal static SafeFileHandle OpenFile(SafeFileHandle parent, string name, bool create = false)
+    internal static SafeFileHandle OpenFile(SafeFileHandle parent, string name, bool create = false, bool allowDelete = false)
     {
         RequireLeaf(name);
-        return Open(parent, name, Synchronize | (create ? 0xC0000000 | Delete : 0x80000000),
+        return Open(parent, name, Synchronize | (create ? 0xC0000000 | Delete : 0x80000000) | (allowDelete ? Delete : 0),
             directory: false, disposition: create ? 2u : 1u);
     }
 
     private static SafeFileHandle Open(SafeFileHandle? parent, string name, uint access,
-        bool directory, uint disposition)
+        bool directory, uint disposition, uint shareAccess = 1)
     {
-        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("Native copy requires Windows NTFS.");
+        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("Native file operations require Windows NTFS.");
         bool retained = false;
         IntPtr text = Marshal.StringToHGlobalUni(name);
         IntPtr descriptor = Marshal.AllocHGlobal(Marshal.SizeOf<UnicodeString>());
@@ -119,10 +119,11 @@ internal static class WindowsFileHandles
                 RootDirectory = parent?.DangerousGetHandle() ?? IntPtr.Zero,
                 ObjectName = descriptor, Attributes = 0x1040 // OBJ_CASE_INSENSITIVE | OBJ_DONT_REPARSE
             };
-            // Deny data writes and deletion/replacement. Attribute-only handles can still
-            // mutate reparse metadata; OBJ_DONT_REPARSE is essential on every relative open.
+            // Files deny writes/replacement. Rename-compatible directory handles share
+            // writes for IopOpenLinkOrRenameTarget, but still deny directory replacement.
+            // Attribute-only handles can mutate reparse metadata even with share-READ.
             int status = NtCreateFile(out var handle, access, ref attributes, out _, IntPtr.Zero,
-                0x80, 1, disposition, directory ? DirectoryOptions : FileOptions, IntPtr.Zero, 0);
+                0x80, shareAccess, disposition, directory ? DirectoryOptions : FileOptions, IntPtr.Zero, 0);
             if (status < 0) { handle.Dispose(); ThrowStatus(status); }
             try
             {
@@ -242,26 +243,63 @@ internal static class WindowsFileHandles
             throw new NotSupportedException("Named data streams are not supported by the current copy protocol.");
     }
 
-    internal static void RenameInDirectory(SafeFileHandle handle, string destinationName)
+    internal static void RenameInDirectory(SafeFileHandle handle, string destinationName) =>
+        Rename(handle, destinationName, null);
+
+    internal static void RenameToDirectory(SafeFileHandle handle, SafeFileHandle parent, string destinationName) =>
+        Rename(handle, destinationName, parent);
+
+    private static void Rename(SafeFileHandle handle, string destinationName, SafeFileHandle? parent)
     {
         RequireLeaf(destinationName);
-        // FILE_RENAME_INFORMATION: false ReplaceIfExists, NULL RootDirectory,
-        // simple leaf name => same parent directory, with no pathname re-resolution.
+        // FILE_RENAME_INFORMATION: no replacement. A NULL root renames in the same
+        // directory; otherwise the simple leaf is resolved relative to the held root.
         int rootOffset = IntPtr.Size == 8 ? 8 : 4;
         int lengthOffset = rootOffset + IntPtr.Size;
         int nameOffset = lengthOffset + sizeof(uint);
         byte[] name = System.Text.Encoding.Unicode.GetBytes(destinationName);
         int size = nameOffset + name.Length + 8;
         IntPtr buffer = Marshal.AllocHGlobal(size);
+        bool retained = false;
         try
         {
+            parent?.DangerousAddRef(ref retained);
             Marshal.Copy(new byte[size], 0, buffer, size);
+            Marshal.WriteIntPtr(buffer, rootOffset, parent?.DangerousGetHandle() ?? IntPtr.Zero);
             Marshal.WriteInt32(buffer, lengthOffset, name.Length);
             Marshal.Copy(name, 0, buffer + nameOffset, name.Length);
             int status = NtSetInformationFile(handle, out _, buffer, (uint)size, 10); // FileRenameInformation
             if (status < 0) ThrowStatus(status);
         }
-        finally { Marshal.FreeHGlobal(buffer); }
+        finally
+        {
+            if (retained) parent!.DangerousRelease();
+            Marshal.FreeHGlobal(buffer);
+        }
+    }
+
+    internal static void MoveFile(string sourcePath, string destinationPath, FileIdentity expected,
+        CancellationToken token = default)
+    {
+        token.ThrowIfCancellationRequested();
+        if (!Path.IsPathFullyQualified(sourcePath) || !Path.IsPathFullyQualified(destinationPath))
+            throw new ArgumentException("A native move requires absolute local paths.");
+        using var sourceParent = WindowsDirectoryLease.Open(Path.GetDirectoryName(sourcePath)!, forRename: true);
+        using var source = OpenFile(sourceParent.Handle, Path.GetFileName(sourcePath), allowDelete: true);
+        if (WindowsFileIdentity.CaptureContent(source, token) != expected)
+            throw new IOException("The opened source does not match its prepared move receipt.");
+        using var targetParent = WindowsDirectoryLease.Open(Path.GetDirectoryName(destinationPath)!, create: true,
+            requiredVolumePath: sourceParent.VolumePath, forRename: true);
+        sourceParent.VerifyPathBinding();
+        targetParent.VerifyPathBinding();
+        token.ThrowIfCancellationRequested();
+        RenameToDirectory(source, targetParent.Handle, Path.GetFileName(destinationPath));
+        // Once renamed, finish verification without cancellation; the caller must record
+        // completion or retain its existing journal for unreceipted-move reconciliation.
+        sourceParent.VerifyPathBinding();
+        targetParent.VerifyPathBinding();
+        if (WindowsFileIdentity.CaptureContent(source) != expected)
+            throw new IOException("The moved object changed before its receipt could be recorded.");
     }
 
     internal static void DeleteOwnedFile(SafeFileHandle handle)
@@ -302,7 +340,7 @@ internal sealed class WindowsDirectoryLease : IDisposable
     internal string VolumePath => WindowsFileHandles.GetVolumePath(handles[0]);
 
     internal static WindowsDirectoryLease Open(string path, bool create = false,
-        string? requiredVolumePath = null, string? forbiddenAncestorNativeId = null)
+        string? requiredVolumePath = null, string? forbiddenAncestorNativeId = null, bool forRename = false)
     {
         if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
         if (!Path.IsPathFullyQualified(path)) throw new ArgumentException("An absolute local directory is required.");
@@ -322,7 +360,7 @@ internal sealed class WindowsDirectoryLease : IDisposable
                 throw new IOException("Directory ancestor chain exceeds its depth budget.");
             foreach (string component in components)
             {
-                lease.handles.Add(WindowsFileHandles.OpenDirectory(lease.Handle, component, create));
+                lease.handles.Add(WindowsFileHandles.OpenDirectory(lease.Handle, component, create, shareWrite: forRename));
                 // Check the actual opened object before creating anything beneath it.
                 // Drive-letter aliases and short names cannot bypass native identity equality.
                 RefuseForbiddenAncestor();

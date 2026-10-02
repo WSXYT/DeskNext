@@ -242,6 +242,41 @@ public sealed class WindowsHandleCopyTests : IDisposable
         Assert.Equal(3, tree.Identities.Count);
     }
 
+    [WindowsHandleFact]
+    public void RelativeRenamePinsParentsAndRefusesAReparseChangedAfterOpening()
+    {
+        string target = Directory.CreateDirectory(Path.Combine(root, "target")).FullName;
+        string outside = Directory.CreateDirectory(Path.Combine(root, "outside")).FullName;
+        try
+        {
+            using var sourceParent = WindowsDirectoryLease.Open(root, forRename: true);
+            using var targetParent = WindowsDirectoryLease.Open(target, forRename: true);
+            using var file = WindowsFileHandles.OpenFile(sourceParent.Handle, "source.txt", create: true);
+            RandomAccess.Write(file, "rename evidence"u8, 0);
+            RandomAccess.FlushToDisk(file);
+            var identity = WindowsFileIdentity.CaptureContent(file);
+            Assert.Throws<IOException>(() => Directory.Move(target, target + "-replaced"));
+            WindowsFileHandles.RenameToDirectory(file, targetParent.Handle, "moved.txt");
+            Assert.Equal(identity, WindowsFileIdentity.CaptureContent(file));
+            File.WriteAllText(Path.Combine(root, "occupied.txt"), "preserve");
+            Assert.Throws<IOException>(() => WindowsFileHandles.RenameToDirectory(file, sourceParent.Handle, "occupied.txt"));
+            WindowsFileHandles.RenameToDirectory(file, sourceParent.Handle, "source.txt");
+
+            using var attributes = CreateFileW(target, 0x100, 7, IntPtr.Zero, 3, 0x02200000, IntPtr.Zero);
+            byte[] buffer = JunctionBuffer(outside);
+            Assert.False(attributes.IsInvalid);
+            Assert.True(DeviceIoControl(attributes, 0x900A4, buffer, buffer.Length, IntPtr.Zero, 0, out _, IntPtr.Zero));
+            Assert.Throws<IOException>(() => WindowsFileHandles.RenameToDirectory(file, targetParent.Handle, "redirected.txt"));
+            Assert.Empty(Directory.GetFileSystemEntries(outside));
+            Assert.True(File.Exists(Path.Combine(root, "source.txt")));
+            Assert.Equal("preserve", File.ReadAllText(Path.Combine(root, "occupied.txt")));
+        }
+        finally
+        {
+            if ((File.GetAttributes(target) & FileAttributes.ReparsePoint) != 0) Directory.Delete(target);
+        }
+    }
+
     private static byte[] JunctionBuffer(string target)
     {
         byte[] substitute = System.Text.Encoding.Unicode.GetBytes(@"\??\" + target);

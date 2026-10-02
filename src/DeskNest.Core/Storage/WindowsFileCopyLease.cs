@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using Microsoft.Win32.SafeHandles;
 
 namespace DeskNest.Core.Storage;
@@ -92,22 +91,9 @@ internal sealed class WindowsFileCopyLease : IDisposable
     {
         token.ThrowIfCancellationRequested();
         WindowsFileHandles.RequireCopyableContent(handle, directory: false);
-        var native = WindowsFileIdentity.Capture(handle);
-        long length = RandomAccess.GetLength(handle), offset = 0;
-        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        byte[] buffer = new byte[64 * 1024];
-        while (true)
-        {
-            token.ThrowIfCancellationRequested();
-            int read = RandomAccess.Read(handle, buffer, offset);
-            if (read == 0) break;
-            hash.AppendData(buffer, 0, read);
-            offset += read;
-        }
-        if (offset != length || RandomAccess.GetLength(handle) != length || native != WindowsFileIdentity.Capture(handle))
-            throw new IOException("Object changed while capturing copy evidence.");
+        var identity = WindowsFileIdentity.CaptureContent(handle, token);
         WindowsFileHandles.RequireCopyableContent(handle, directory: false);
-        return new FileIdentity(length, native.LastWriteTicks, Convert.ToHexString(hash.GetHashAndReset())) { NativeId = native.NativeId };
+        return identity;
     }
 
     public void Dispose()
