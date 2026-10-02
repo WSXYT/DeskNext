@@ -1,7 +1,8 @@
 param(
     [Parameter(Mandatory=$true)][string]$Bundle,
     [switch]$NativeWindow,
-    [switch]$RecoveryProbe
+    [switch]$RecoveryProbe,
+    [switch]$ManualWorkflow
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -50,6 +51,11 @@ function Invoke-Probe([string]$Exe, [string]$Argument, [string]$LogName) {
             if ($result.Success -isnot [bool] -or !$result.Success) {
                 throw ('Probe did not report success: ' + $log)
             }
+            if ($Argument.Contains('--manual-workflow') -and
+                ($result.ManualWorkflowVerified -isnot [bool] -or !$result.ManualWorkflowVerified -or
+                 $result.NativeClipboardRoundTripVerified -isnot [bool] -or !$result.NativeClipboardRoundTripVerified)) {
+                throw ('Native manual workflow and clipboard round-trip were not verified: ' + $log)
+            }
             if ($Argument.Contains('--inspect-recovery') -and
                 ($result.RecoveryInspectionVerified -isnot [bool] -or !$result.RecoveryInspectionVerified)) {
                 throw ('Recovery inspection was not verified: ' + $log)
@@ -67,6 +73,9 @@ Invoke-Probe $exe '--headless-smoke' 'installed-headless.log' | Out-Null
 if ($NativeWindow) {
     Invoke-Probe $exe '--native-window-smoke' 'installed-native.log' | Out-Null
     Invoke-Probe $exe '--native-window-smoke --inspect-recovery' 'installed-native-recovery.log' | Out-Null
+}
+if ($ManualWorkflow) {
+    Invoke-Probe $exe '--native-window-smoke --manual-workflow' 'installed-native-manual.log' | Out-Null
 }
 if ($RecoveryProbe) {
     $driver = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\tests\recovery-kill.mjs'))
@@ -102,6 +111,7 @@ if ((Test-Path -LiteralPath $exe) -or
     installedHeadlessPassed = $true
     nativeWindowRequested = [bool]$NativeWindow
     nativeRecoveryInspectionRequested = [bool]$NativeWindow
+    nativeManualWorkflowRequested = [bool]$ManualWorkflow
     installedRecoveryProbePassed = [bool]$RecoveryProbe
     uninstallPreservedUnknownFiles = $true
     evidenceDirectory = $testRoot

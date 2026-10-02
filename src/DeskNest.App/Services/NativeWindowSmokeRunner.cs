@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Input.Platform;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using DeskNest.App.ViewModels;
@@ -22,6 +23,7 @@ public static class NativeWindowSmokeRunner
     private static int _exitCode = 1;
     private static bool _inspectRecovery;
     private static bool _spaceWindow;
+    private static bool _manualWorkflow;
 
     public static int Run(string[] args)
     {
@@ -29,11 +31,14 @@ public static class NativeWindowSmokeRunner
         _exitCode = 1;
         _inspectRecovery = args.Contains("--inspect-recovery", StringComparer.Ordinal);
         _spaceWindow = args.Contains("--space-window", StringComparer.Ordinal);
+        _manualWorkflow = args.Contains("--manual-workflow", StringComparer.Ordinal);
         var tempDir = Path.Combine(Path.GetTempPath(), "DeskNest.NativeSmoke." + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempDir);
 
         try
         {
+            if (_manualWorkflow && (_inspectRecovery || _spaceWindow))
+                throw new ArgumentException("Run the manual workflow separately from recovery/space-window inspection.");
             var spaceId = Guid.NewGuid();
             var testSpace = new WorkspaceSpace(spaceId, "NativeSmokeSpace", "Temporary space for native window smoke", SpaceStorageMode.Managed, Path.Combine(tempDir, "SmokeSpace"));
 
@@ -55,7 +60,8 @@ public static class NativeWindowSmokeRunner
                     OnboardingComplete = true,
                     OnboardingStep = 5,
                     Spaces = [testSpace],
-                    Files = files
+                    Files = files,
+                    Settings = s.Settings with { ManagedRoot = Path.Combine(tempDir, "Managed") }
                 });
                 return store;
             }).GetAwaiter().GetResult();
@@ -100,6 +106,66 @@ public static class NativeWindowSmokeRunner
             }
             catch { }
             IsActive = false;
+        }
+    }
+
+    // Uses the actual native clipboard, but commands rather than physical key/mouse injection.
+    // Require an empty clipboard; never save/restore arbitrary user clipboard formats.
+    private static async Task VerifyManualWorkflowAsync(Window window)
+    {
+        if (window.DataContext is not MainWindowViewModel main || main.Studio is not { } studio || ActiveTempStore is not { } store)
+            throw new InvalidOperationException("The native manual workflow requires its isolated workspace.");
+        var clipboard = window.Clipboard ?? throw new InvalidOperationException("Native clipboard is unavailable.");
+        if ((await clipboard.GetDataFormatsAsync()).Any())
+            throw new InvalidOperationException("Native manual workflow requires an empty clipboard; existing clipboard content was not changed.");
+        var ownedIds = new HashSet<Guid>();
+        try
+        {
+            var source = store.Snapshot.Spaces.Single();
+            Directory.CreateDirectory(source.Folder);
+            foreach (bool directory in new[] { false, true })
+            {
+                string path = Path.Combine(source.Folder, directory ? "Native project" : "Native document.txt");
+                if (directory) Directory.CreateDirectory(Path.Combine(path, "empty"));
+                string content = directory ? Path.Combine(path, "document.txt") : path;
+                await File.WriteAllTextAsync(content, "native clipboard fixture");
+                studio.SelectSpace(studio.AllSpaces.Single(s => s.Id == source.Id));
+                await studio.DropPathsOnSpaceAsync([path]);
+                var file = store.Snapshot.Files.Single(f => f.Path == path);
+                ownedIds.Add(file.Id);
+                studio.OpenAddSpaceDialog();
+                studio.NewSpaceName = directory ? "Directory destination" : "File destination";
+                await studio.ConfirmAddSpaceAsync();
+                var target = studio.AllSpaces.Single(s => s.Name == studio.NewSpaceName);
+                if (Directory.Exists(target.Folder))
+                    throw new InvalidOperationException("A new managed destination must start without a physical folder.");
+                studio.SelectSpace(studio.AllSpaces.Single(s => s.Id == source.Id));
+                studio.SelectFile(studio.SelectedSpace!.Files.Single(f => f.Id == file.Id));
+                await studio.ExecuteCutFileCommand.ExecuteAsync(studio.SelectedFile);
+                var payload = await AvaloniaClipboardBridge.TryGetFilePayloadAsync(clipboard);
+                if (payload is null || AvaloniaClipboardBridge.ResolveCutSource(payload, store.Snapshot)?.Id != file.Id)
+                    throw new InvalidOperationException("The native clipboard did not round-trip the exact cut subject.");
+                await studio.ExecutePasteFileCommand.ExecuteAsync(target);
+                var moved = store.Snapshot.Files.Single(f => f.Id == file.Id);
+                var operation = store.Snapshot.Operations.Single(o => o.FileId == file.Id);
+                string destination = Path.Combine(target.Folder, file.Name);
+                if (moved.SpaceId != target.Id || moved.Path != destination || File.Exists(path) || Directory.Exists(path) ||
+                    operation.Status != ProposedOperationStatus.Completed ||
+                    await AvaloniaClipboardBridge.TryGetFilePayloadAsync(clipboard) is not null)
+                    throw new InvalidOperationException("Native cut/paste did not commit the move and clear its clipboard payload.");
+                await studio.ExecuteUndoManualMoveCommand.ExecuteAsync(operation.Id);
+                if (File.ReadAllText(content) != "native clipboard fixture" || File.Exists(destination) || Directory.Exists(destination) ||
+                    (directory && !Directory.Exists(Path.Combine(path, "empty"))) ||
+                    store.Snapshot.Files.Single(f => f.Id == file.Id).Path != path ||
+                    store.Snapshot.Operations.Single(o => o.Id == operation.Id).Status != ProposedOperationStatus.Undone)
+                    throw new InvalidOperationException("Native manual undo did not restore the original item.");
+            }
+        }
+        finally
+        {
+            // On a failed test clear only a payload belonging to these temporary fixture files.
+            var remaining = await AvaloniaClipboardBridge.TryGetFilePayloadAsync(clipboard);
+            if (remaining?.SourceFileId is { } id && ownedIds.Contains(id)) await clipboard.ClearAsync();
         }
     }
 
@@ -153,6 +219,12 @@ public static class NativeWindowSmokeRunner
                         throw new InvalidOperationException($"Invalid native window render bounds: {bounds.Width}x{bounds.Height}.");
                     }
 
+                    bool manualWorkflowVerified = false;
+                    if (_manualWorkflow)
+                    {
+                        await VerifyManualWorkflowAsync(window);
+                        manualWorkflowVerified = true;
+                    }
                     bool recoveryInspected = false;
                     if (_inspectRecovery)
                     {
@@ -196,6 +268,8 @@ public static class NativeWindowSmokeRunner
                     {
                         Success = true,
                         RecoveryInspectionVerified = recoveryInspected,
+                        ManualWorkflowVerified = manualWorkflowVerified,
+                        NativeClipboardRoundTripVerified = manualWorkflowVerified,
                         SpaceWindowVerified = spaceHandle is not null,
                         SpaceWindowHandle = spaceHandle,
                         InputMethod = "Production view-model commands in a native window; not physical keyboard/mouse injection",

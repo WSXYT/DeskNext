@@ -20,3 +20,6 @@ if (args.includes('--inspect-recovery') && result.RecoveryInspectionVerified !==
     throw new Error('Requested recovery inspection was not verified.');
 if (args.includes('--space-window') && result.SpaceWindowVerified !== true)
     throw new Error('Requested independent space window was not verified.');
+if (args.includes('--manual-workflow') &&
+    (result.ManualWorkflowVerified !== true || result.NativeClipboardRoundTripVerified !== true))
+    throw new Error('Requested native manual workflow and clipboard round-trip were not verified.');
