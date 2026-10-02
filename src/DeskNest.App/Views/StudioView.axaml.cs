@@ -166,6 +166,40 @@ public partial class StudioView : UserControl
         return paths;
     }
 
+    internal void ApplyModelFolderSelection(string? path)
+    {
+        if (DataContext is not StudioViewModel vm || !vm.IsSettingsTab || path is null) return;
+        path = DeskNest.Platform.PlatformFileActions.RequireExistingLocalPath(path);
+        if (!Directory.Exists(path) || !File.Exists(Path.Combine(path, "manifest.json")))
+            throw new InvalidDataException(vm.Localizer["Classification.Setup"]);
+        // Only a settings draft. The worker still verifies the bundle before inference.
+        vm.SettingsModelCache = path;
+        vm.SettingsSavedFeedback = null;
+    }
+
+    private async void OnBrowseModelFolderClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not StudioViewModel vm || sender is not Button button) return;
+        var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
+        if (storage?.CanPickFolder != true)
+        {
+            vm.SettingsSavedFeedback = vm.Localizer["Spaces.FolderPickerUnavailable"];
+            return;
+        }
+        button.IsEnabled = false;
+        try
+        {
+            var folders = await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions
+                { Title = vm.Localizer["OOBE.Step2.ModelCache"], AllowMultiple = false });
+            using var folder = folders.FirstOrDefault();
+            if (folder is null || DataContext != vm || !vm.IsSettingsTab) return;
+            ApplyModelFolderSelection(folder.TryGetLocalPath()
+                ?? throw new InvalidDataException(vm.Localizer["Validation.ValidAbsolutePathRequired"]));
+        }
+        catch (Exception error) { vm.SettingsSavedFeedback = vm.Localizer.GetString("Files.ActionFailedNotice", error.Message); }
+        finally { button.IsEnabled = true; }
+    }
+
     private async void OnBrowseSpaceFolderClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (DataContext is not StudioViewModel vm || !vm.IsNewSpaceMapped || sender is not Button button) return;

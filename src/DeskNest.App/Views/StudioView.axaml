@@ -653,11 +653,15 @@
                             <TextBlock Text="{Binding Localizer[OOBE.Step2.ModelCache]}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             <TextBlock Text="{Binding Localizer[Classification.Setup]}" TextWrapping="Wrap"
                                        FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            <TextBox Text="{Binding SettingsModelCache}"
-                                     CornerRadius="{DynamicResource RadiusSmall}"
-                                     FontFamily="Consolas,Menlo,Monospace"
-                                     FontSize="11"
-                                     FlowDirection="LeftToRight"/>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBox Name="ModelFolderInput" Text="{Binding SettingsModelCache}"
+                                         CornerRadius="{DynamicResource RadiusSmall}"
+                                         FontFamily="Consolas,Menlo,Monospace" FontSize="11" FlowDirection="LeftToRight"
+                                         AutomationProperties.Name="{Binding Localizer[OOBE.Step2.ModelCache]}"/>
+                                <Button Name="BrowseModelFolderButton" Grid.Column="1" Margin="8,0,0,0"
+                                        Content="{Binding Localizer[Action.Browse]}" Click="OnBrowseModelFolderClick"
+                                        ToolTip.Tip="{Binding Localizer[Classification.Setup]}"/>
+                            </Grid>
                         </StackPanel>
                     </StackPanel>
 

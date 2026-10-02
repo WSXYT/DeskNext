@@ -1924,9 +1924,12 @@ public sealed partial class StudioViewModel : ViewModelBase
             ? SettingsManagedRoot
             : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "DeskNest", "Spaces");
 
-        var cache = string.IsNullOrWhiteSpace(SettingsModelCache)
-            ? null
-            : (Path.IsPathFullyQualified(SettingsModelCache) ? SettingsModelCache : null);
+        var cache = string.IsNullOrWhiteSpace(SettingsModelCache) ? null : SettingsModelCache.Trim();
+        if (cache is not null && !Path.IsPathFullyQualified(cache))
+        {
+            SettingsSavedFeedback = Localizer["Validation.ValidAbsolutePathRequired"];
+            return; // Do not silently erase a previously configured model directory.
+        }
 
         var updated = await _updateStore(state => state with
         {

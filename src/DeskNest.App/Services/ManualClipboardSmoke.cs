@@ -217,6 +217,27 @@ internal static class ManualClipboardSmoke
                 throw new InvalidOperationException("Repeated catalog must preserve existing file identities.");
 
             studio.SelectSpace(studio.AllSpaces.Single(s => s.Id == source.Id));
+            studio.SelectedTabIndex = 3;
+            window.UpdateLayout();
+            if (view.FindControl<Button>("BrowseModelFolderButton")?.IsEffectivelyVisible != true)
+                throw new InvalidOperationException("Model settings must expose their browse action.");
+            string bundle = Directory.CreateDirectory(Path.Combine(root, "ModelBundle")).FullName;
+            File.WriteAllText(Path.Combine(bundle, "manifest.json"), "{}"); // Selection fixture, not a verified model.
+            long modelRevision = store.Snapshot.Revision;
+            view.ApplyModelFolderSelection(bundle);
+            view.ApplyModelFolderSelection(null);
+            if (studio.SettingsModelCache != bundle || store.Snapshot.Revision != modelRevision || store.Snapshot.Settings.ModelCacheDirectory is not null)
+                throw new InvalidOperationException("Picking a model folder must update the draft only.");
+            await studio.SaveSettingsAsync();
+            if (store.Snapshot.Settings.ModelCacheDirectory != bundle)
+                throw new InvalidOperationException("Saving settings did not retain the chosen model folder.");
+            modelRevision = store.Snapshot.Revision;
+            studio.SettingsModelCache = "relative-model-folder";
+            await studio.SaveSettingsAsync();
+            if (store.Snapshot.Revision != modelRevision || store.Snapshot.Settings.ModelCacheDirectory != bundle)
+                throw new InvalidOperationException("An invalid draft silently erased the saved model directory.");
+            studio.SettingsModelCache = bundle;
+            studio.SelectedTabIndex = 0;
             var floating = view.OpenSelectedSpaceWindow() ?? throw new InvalidOperationException("Space window did not open.");
             floating.UpdateLayout();
             var floatingFiles = floating.FindControl<ListBox>("SpaceWindowFiles")!;
