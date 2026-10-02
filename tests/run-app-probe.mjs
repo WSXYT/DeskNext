@@ -18,3 +18,5 @@ if (args.some(a => a === '--native-library' || a.startsWith('--native-library=')
     throw new Error('Requested native library interop was not verified.');
 if (args.includes('--inspect-recovery') && result.RecoveryInspectionVerified !== true)
     throw new Error('Requested recovery inspection was not verified.');
+if (args.includes('--space-window') && result.SpaceWindowVerified !== true)
+    throw new Error('Requested independent space window was not verified.');

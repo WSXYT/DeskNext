@@ -12,6 +12,27 @@ namespace DeskNest.App.Views;
 
 public partial class StudioView : UserControl
 {
+    private readonly Dictionary<Guid, SpaceWindow> _spaceWindows = new();
+
+    private void OnOpenSpaceWindowClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => OpenSelectedSpaceWindow();
+
+    internal SpaceWindow? OpenSelectedSpaceWindow()
+    {
+        if (DataContext is not StudioViewModel studio || studio.SelectedSpace is not { } space ||
+            TopLevel.GetTopLevel(this) is not Window workbench) return null;
+        Guid spaceId = space.Id;
+        if (_spaceWindows.TryGetValue(spaceId, out var existing)) { existing.Activate(); return existing; }
+        int offset = (_spaceWindows.Count % 6) * 24;
+        var window = new SpaceWindow(studio, spaceId, workbench)
+        {
+            Position = workbench.Position + new Avalonia.PixelPoint(40 + offset, 60 + offset)
+        };
+        _spaceWindows.Add(spaceId, window);
+        window.Closed += (_, _) => _spaceWindows.Remove(spaceId);
+        window.Show();
+        return window;
+    }
+
     public StudioView()
     {
         InitializeComponent();

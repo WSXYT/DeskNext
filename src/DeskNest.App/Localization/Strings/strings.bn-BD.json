@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Spaces.OpenWindow": "আলাদা উইন্ডো খুলুন",
+  "Spaces.ReturnToStudio": "কর্মক্ষেত্র",
+  "Spaces.WindowNotice": "আলাদা স্পেস উইন্ডো কর্মক্ষেত্রের সঙ্গে বন্ধ হয়। উইন্ডোর অবস্থান এখনও সংরক্ষিত হয় না।",
   "Classification.Action": "স্থানীয় Laya শ্রেণিবিন্যাসের পূর্বরূপ",
   "Classification.Setup": "বিশ্বস্ত অফলাইন Laya মডেল ফোল্ডার (manifest.json সহ) সংরক্ষণ করে ফাইলে ডান ক্লিক করুন। স্বয়ংক্রিয় ডাউনলোড এখনও উপলব্ধ নয়।",
   "Classification.Running": "স্থানীয় CPU-তে পরামর্শ তৈরি হচ্ছে… প্রসঙ্গ মেনু থেকে বাতিল করুন।",

@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Spaces.OpenWindow": "Separates Fenster öffnen",
+  "Spaces.ReturnToStudio": "Arbeitsbereich",
+  "Spaces.WindowNotice": "Eigenständiges Bereichsfenster; schließt mit dem Arbeitsbereich. Fensterpositionen werden noch nicht gespeichert.",
   "Classification.Action": "Lokale Laya-Klassifikationsvorschau",
   "Classification.Setup": "Ein vertrauenswürdiges Offline-Laya-Modellverzeichnis (mit manifest.json) speichern, dann eine Datei per Rechtsklick prüfen. Automatischer Download ist noch nicht verfügbar.",
   "Classification.Running": "Vorschläge werden auf der lokalen CPU erstellt… Abbrechen im Kontextmenü.",

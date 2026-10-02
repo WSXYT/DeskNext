@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Spaces.OpenWindow": "अलग विंडो खोलें",
+  "Spaces.ReturnToStudio": "कार्यक्षेत्र",
+  "Spaces.WindowNotice": "अलग स्पेस विंडो कार्यक्षेत्र के साथ बंद होती है। विंडो की स्थिति अभी सहेजी नहीं जाती।",
   "Classification.Action": "स्थानीय Laya वर्गीकरण पूर्वावलोकन",
   "Classification.Setup": "विश्वसनीय ऑफ़लाइन Laya मॉडल फ़ोल्डर (manifest.json सहित) सहेजें, फिर फ़ाइल पर दायाँ क्लिक करें। स्वचालित डाउनलोड अभी उपलब्ध नहीं है।",
   "Classification.Running": "स्थानीय CPU पर सुझाव बन रहे हैं… संदर्भ मेनू से रद्द करें।",

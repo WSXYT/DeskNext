@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Spaces.OpenWindow": "Open floating window",
+  "Spaces.ReturnToStudio": "Workbench",
+  "Spaces.WindowNotice": "An independent space window that closes with the workbench. Window positions are not saved yet.",
   "Classification.Action": "Local Laya classification preview",
   "Classification.Setup": "Save a trusted offline Laya model directory (with manifest.json), then right-click a file to preview. Automatic download is not available yet.",
   "Classification.Running": "Generating suggestions on the local CPU… Cancel from the context menu.",

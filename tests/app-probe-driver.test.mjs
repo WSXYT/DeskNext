@@ -38,6 +38,11 @@ test('requested native load needs its own proof', () => {
     assert.equal(run(report({ Success: true, NativeLoadRequested: true, NativeLoadSuccess: true }),
         '--native-library', 'fixture.dll').status, 0);
 });
+test('independent space window needs its own proof', () => {
+    const args = ['--native-window-smoke', '--space-window'];
+    assert.equal(run(report({ Success: true }, 'NATIVE_WINDOW_RESULT_JSON:'), ...args).status, 1);
+    assert.equal(run(report({ Success: true, SpaceWindowVerified: true }, 'NATIVE_WINDOW_RESULT_JSON:'), ...args).status, 0);
+});
 test('native recovery inspection needs its own proof', () => {
     const args = ['--native-window-smoke', '--inspect-recovery'];
     assert.equal(run(report({ Success: true }, 'NATIVE_WINDOW_RESULT_JSON:'), ...args).status, 1);

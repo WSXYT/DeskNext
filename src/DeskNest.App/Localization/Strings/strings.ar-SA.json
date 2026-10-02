@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Spaces.OpenWindow": "فتح نافذة مستقلة",
+  "Spaces.ReturnToStudio": "مساحة العمل",
+  "Spaces.WindowNotice": "نافذة مساحة مستقلة تُغلق مع مساحة العمل. لا تُحفظ مواضع النوافذ بعد.",
   "Classification.Action": "معاينة تصنيف Laya المحلي",
   "Classification.Setup": "احفظ مجلد نموذج Laya موثوقًا دون اتصال (يحتوي على manifest.json)، ثم انقر بزر الفأرة الأيمن على ملف. التنزيل التلقائي غير متاح بعد.",
   "Classification.Running": "جارٍ إنشاء اقتراحات على المعالج المحلي… يمكنك الإلغاء من القائمة السياقية.",

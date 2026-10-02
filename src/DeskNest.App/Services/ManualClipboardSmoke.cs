@@ -186,6 +186,36 @@ internal static class ManualClipboardSmoke
             await studio.CatalogSpaceAsync();
             if (store.Snapshot.Files.Count != 2 || store.Snapshot.Files.Single(f => f.SpaceId == mapped.Id).Id != entry.Id)
                 throw new InvalidOperationException("Repeated catalog must preserve existing file identities.");
+
+            studio.SelectSpace(studio.AllSpaces.Single(s => s.Id == source.Id));
+            var floating = view.OpenSelectedSpaceWindow() ?? throw new InvalidOperationException("Space window did not open.");
+            floating.UpdateLayout();
+            var floatingFiles = floating.FindControl<ListBox>("SpaceWindowFiles")!;
+            if (!floating.IsVisible || floating.Space?.Id != source.Id || floatingFiles.ItemCount != 1 ||
+                !ReferenceEquals(floating, view.OpenSelectedSpaceWindow()))
+                throw new InvalidOperationException("Space window must display its own catalog and reuse an existing window.");
+            int floatingOpens = 0;
+            studio.AttachOpenFileExecutor(f => { if (f.Id == fileId) floatingOpens++; return Task.CompletedTask; });
+            floatingFiles.SelectedIndex = 0;
+            floatingFiles.ContainerFromIndex(0)!.Focus();
+            floating.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+            floating.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+            studio.AttachOpenFileExecutor(openExecutor);
+            if (floatingOpens != 1) throw new InvalidOperationException("Space window Enter must use the existing open action.");
+            await main.UpdateStoreAsync(s => s with { Spaces = s.Spaces.Select(x => x.Id == source.Id ? x with { Name = "Updated space" } : x).ToList() });
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            if (floating.Space?.Name != "Updated space" || !floating.IsVisible ||
+                (floatingFiles.SelectedItem as WorkspaceFileItemViewModel)?.Id != fileId)
+                throw new InvalidOperationException("Space window must follow snapshot updates without losing selection.");
+            floating.Close();
+            studio.RefreshFromState(store.Snapshot);
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            if (floating.Space is not null || floating.DataContext is not null)
+                throw new InvalidOperationException("Closed space windows must release their borrowed workspace.");
+            floating = view.OpenSelectedSpaceWindow()!;
+            window.Close();
+            if (floating.IsVisible || floating.DataContext is not null)
+                throw new InvalidOperationException("Closing the workbench must close its space windows.");
         }
         finally
         {

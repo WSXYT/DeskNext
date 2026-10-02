@@ -167,12 +167,15 @@
                                 </Grid>
                                 <TextBlock Text="{Binding SelectedSpace.Description}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             </StackPanel>
-                            <Button Name="CatalogSpaceButton" Grid.Column="1" Margin="12,0,0,0"
-                                    VerticalAlignment="Top" Classes="ActionButton"
-                                    Content="{Binding Localizer[Spaces.CatalogFolder]}"
-                                    ToolTip.Tip="{Binding Localizer[Spaces.CatalogFolderHint]}"
-                                    IsVisible="{Binding SelectedSpace.IsMapped}"
-                                    Command="{Binding CatalogSpaceCommand}"/>
+                            <StackPanel Grid.Column="1" Margin="12,0,0,0" Spacing="6">
+                                <Button Name="OpenSpaceWindowButton" Classes="ActionButton" HorizontalAlignment="Stretch"
+                                        Content="{Binding Localizer[Spaces.OpenWindow]}" Click="OnOpenSpaceWindowClick"
+                                        ToolTip.Tip="{Binding Localizer[Spaces.WindowNotice]}"/>
+                                <Button Name="CatalogSpaceButton" Classes="ActionButton" HorizontalAlignment="Stretch"
+                                        Content="{Binding Localizer[Spaces.CatalogFolder]}"
+                                        ToolTip.Tip="{Binding Localizer[Spaces.CatalogFolderHint]}"
+                                        IsVisible="{Binding SelectedSpace.IsMapped}" Command="{Binding CatalogSpaceCommand}"/>
+                            </StackPanel>
                         </Grid>
 
                          <!-- Path is secondary metadata, not a banner across the canvas. -->

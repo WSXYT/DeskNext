@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Spaces.OpenWindow": "打开独立窗口",
+  "Spaces.ReturnToStudio": "工作台",
+  "Spaces.WindowNotice": "独立空间窗口，随工作台关闭。暂不保存窗口位置。",
   "Classification.Action": "本地 Laya 分类预览",
   "Classification.Setup": "保存你信任的 Laya 离线模型目录（含 manifest.json），再右键文件预览。自动下载尚未开放。",
   "Classification.Running": "正在本地 CPU 上生成建议…可从右键菜单取消。",

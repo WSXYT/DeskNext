@@ -2184,6 +2184,16 @@ public static class HeadlessSmokeRunner
                                               Path.Combine(requestedRenderPngDir, $"studio-1600x900-{suffix}.png"), true);
                                 }
 
+                                // Independently instantiated space window; this is still an offscreen render.
+                                var spaceRenderVm = new MainWindowViewModel(renderState);
+                                var spaceRenderOwner = new MainWindow(spaceRenderVm);
+                                try
+                                {
+                                    var spaceRenderWindow = new SpaceWindow(spaceRenderVm.Studio!, renderState.Spaces[0].Id, spaceRenderOwner);
+                                    RenderHeadlessWindow(spaceRenderWindow, 400, 460, $"synthetic-space-window-{themePrefix}-{suffix}.png");
+                                }
+                                finally { spaceRenderOwner.Close(); }
+
                                 // 4. Real Independent Desktop Drop Capsule Companion Window
                                 using var capsuleVm = new DropCapsuleViewModel();
                                 var capsuleWin = new DropCapsuleWindow(capsuleVm);
@@ -2200,7 +2210,7 @@ public static class HeadlessSmokeRunner
                         File.WriteAllText(Path.Combine(requestedRenderPngDir, "README.txt"),
                             "Synthetic offscreen Avalonia.Headless Skia rasterizations (zh/en/de/ar).\n" +
                             "MainWindow captures render the complete application frame and the isolated synthetic workspace; their theme/locale suffixes are applied as persisted fixture settings.\n" +
-                            "The Drop Capsule companion capture renders the independent desktop companion window.\n" +
+                            "The Drop Capsule and space-window captures render the independent companion windows.\n" +
                             "These are synthetic offscreen window renderings produced in a headless harness, not physical desktop-composited screen captures.\n");
 
                         themeMgr.CurrentThemeMode = AppThemeMode.Light;

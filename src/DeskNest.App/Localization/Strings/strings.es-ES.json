@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Spaces.OpenWindow": "Abrir ventana independiente",
+  "Spaces.ReturnToStudio": "Área de trabajo",
+  "Spaces.WindowNotice": "Ventana de espacio independiente que se cierra con el área de trabajo. Su posición aún no se guarda.",
   "Classification.Action": "Vista previa de clasificación local Laya",
   "Classification.Setup": "Guarda una carpeta de modelo Laya sin conexión de confianza (con manifest.json) y haz clic derecho en un archivo. La descarga automática aún no está disponible.",
   "Classification.Running": "Generando sugerencias en la CPU local… Cancela desde el menú contextual.",

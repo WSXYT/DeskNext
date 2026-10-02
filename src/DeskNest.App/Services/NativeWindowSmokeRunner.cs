@@ -8,6 +8,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using DeskNest.App.ViewModels;
 using DeskNest.App.Views;
 using DeskNest.Core.Workspace;
@@ -20,12 +21,14 @@ public static class NativeWindowSmokeRunner
     public static WorkspaceStore? ActiveTempStore { get; private set; }
     private static int _exitCode = 1;
     private static bool _inspectRecovery;
+    private static bool _spaceWindow;
 
     public static int Run(string[] args)
     {
         IsActive = true;
         _exitCode = 1;
         _inspectRecovery = args.Contains("--inspect-recovery", StringComparer.Ordinal);
+        _spaceWindow = args.Contains("--space-window", StringComparer.Ordinal);
         var tempDir = Path.Combine(Path.GetTempPath(), "DeskNest.NativeSmoke." + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempDir);
 
@@ -33,6 +36,15 @@ public static class NativeWindowSmokeRunner
         {
             var spaceId = Guid.NewGuid();
             var testSpace = new WorkspaceSpace(spaceId, "NativeSmokeSpace", "Temporary space for native window smoke", SpaceStorageMode.Managed, Path.Combine(tempDir, "SmokeSpace"));
+
+            var files = new List<WorkspaceFile>();
+            if (_spaceWindow)
+            {
+                Directory.CreateDirectory(testSpace.Folder);
+                string file = Path.Combine(testSpace.Folder, "NativeSmoke.txt");
+                File.WriteAllText(file, "Isolated native window fixture");
+                files.Add(new WorkspaceFile(Guid.NewGuid(), spaceId, Path.GetFileName(file), file, false));
+            }
 
             // Initialize isolated workspace state in temporary directory (never default user app data)
             ActiveTempStore = Task.Run(async () =>
@@ -42,7 +54,8 @@ public static class NativeWindowSmokeRunner
                 {
                     OnboardingComplete = true,
                     OnboardingStep = 5,
-                    Spaces = [testSpace]
+                    Spaces = [testSpace],
+                    Files = files
                 });
                 return store;
             }).GetAwaiter().GetResult();
@@ -157,6 +170,18 @@ public static class NativeWindowSmokeRunner
                             throw new InvalidOperationException("Native recovery inspection/retry modified evidence or exposed workspace actions.");
                         recoveryInspected = true;
                     }
+                    string? spaceHandle = null;
+                    if (_spaceWindow)
+                    {
+                        var view = window.GetVisualDescendants().OfType<StudioView>().Single();
+                        var floating = view.OpenSelectedSpaceWindow() ?? throw new InvalidOperationException("No space window was created.");
+                        floating.UpdateLayout();
+                        var handle = floating.TryGetPlatformHandle()?.Handle;
+                        if (handle is null || handle == IntPtr.Zero || handle == platformHandle ||
+                            !floating.IsVisible || floating.Bounds.Width <= 0 || floating.Space?.Files.Count != 1)
+                            throw new InvalidOperationException("Space window needs a distinct native handle, layout and catalog.");
+                        spaceHandle = $"0x{handle.Value.ToInt64():X}";
+                    }
                     Console.WriteLine("================================================================================");
                     Console.WriteLine($"DeskNext - Native Window Real-OS Startup Smoke ({RuntimeInformation.OSDescription})");
                     Console.WriteLine("================================================================================");
@@ -171,6 +196,8 @@ public static class NativeWindowSmokeRunner
                     {
                         Success = true,
                         RecoveryInspectionVerified = recoveryInspected,
+                        SpaceWindowVerified = spaceHandle is not null,
+                        SpaceWindowHandle = spaceHandle,
                         InputMethod = "Production view-model commands in a native window; not physical keyboard/mouse injection",
                         HostOS = RuntimeInformation.OSDescription,
                         HostRID = RuntimeInformation.RuntimeIdentifier,

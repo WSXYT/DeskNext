@@ -8,7 +8,7 @@
 - Sorted topology: 100,000 entries/depth 128. Legacy null topology loads but cannot authorize undo/recovery.
 - Managed deletion uses app recovery storage, not OS trash. Open/reveal/preview rejects relative/URI/reparse paths; previews are bounded. Production Copy/copy-Paste stays gated. Unsupported streams fail closed. Retain intents; never auto-adopt/delete unconfirmed copies. Validate native ancestry before creating parents.
 - Catalog existing in-root items; external import stays gated. Clipboard is UI-thread-only. Core creates managed folders, never missing mapped roots.
-- Release singleton subscriptions with UI owners.
+- Release singleton subscriptions with UI owners; space windows borrow the workbench.
 - Monitor Desktop and selected folders: whitelist, baseline, health, pause/rescan, target binding. No takeover before S01–S08.
 - CI: physical macOS temp paths, hosted-only aliases, terminal probe JSON. Skips aren't native evidence.
 - Preserve provenance, twelve-locale parity, F01–F13/inference evidence. Local preview never moves files. Python/models stay in ignored `artifacts/`; synthetic images cannot prove desktop compositing.

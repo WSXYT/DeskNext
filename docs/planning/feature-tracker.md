@@ -4,7 +4,7 @@ This is the P0 **acceptance inventory**, not a claim of working features. All ce
 
 | ID | User entrypoint | Required behavior | First acceptance evidence | W / M / L |
 | --- | --- | --- | --- | --- |
-| F01 | Space window, file context menu, map-folder dialog | Managed/mapped files, open/reveal, sort/list/grid/inline folders; offline mapped directory retains index | Import, restart, external rename, offline drive and 10k viewport tests | 部分：空间/映射/虚拟列表 / 未验证 / 未验证 |
+| F01 | Space window, file context menu, map-folder dialog | Managed/mapped files, open/reveal, sort/list/grid/inline folders; offline mapped directory retains index | Import, restart, external rename, offline drive and 10k viewport tests | 部分：空间/映射/虚拟列表/独立浮窗 / 未验证 / 未验证 |
 | F02 | Drop surface, clipboard, file context menu | Copy/cut/paste, two-way external drag, URLs/virtual files, rename, trash, previews; never double-delete on negotiated Move | Explorer/Finder/Nautilus and browser/chat-file fixture on actual systems | 部分；Copy关闭，外部拖放未验收 / 未验证 / 未验证 |
 | F03 | Stack/group/pagination controls | Manual grouping, expand inline/popout, merge tabs, paging/continuous layout with stable item IDs | Pogget layout golden fixtures, drag/resize/empty-group screenshots | 未实现 / 未验证 / 未验证 |
 | F04 | Desktop capsule, tray, global summon | Drop target/shelf/expand, pin/privacy/fade, desktop attachment or documented fallback | Cross-display, sleep, full-screen, keyboard and DnD tests | 部分：独立胶囊壳；托盘/唤起未完成 / 未验证 / 未验证 |
