@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
+using Avalonia.VisualTree;
+using CommunityToolkit.Mvvm.Input;
 using DeskNest.App.ViewModels;
 
 namespace DeskNest.App.Views;
@@ -31,6 +33,37 @@ public partial class StudioView : UserControl
         window.Closed += (_, _) => _spaceWindows.Remove(spaceId);
         window.Show();
         return window;
+    }
+
+    private async void OnWorkspaceKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (DataContext is not StudioViewModel studio || !studio.IsSpacesTab ||
+            studio.IsAddSpaceDialogOpen || studio.IsRenameDialogOpen ||
+            studio.IsDeleteConfirmationDialogOpen || studio.IsPreviewDialogOpen ||
+            e.Source is TextBox || (e.Source as Avalonia.Visual)?.FindAncestorOfType<TextBox>() is not null)
+            return;
+
+        var commandModifier = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
+        IAsyncRelayCommand? command = (e.Key, e.KeyModifiers) switch
+        {
+            (Key.F2, KeyModifiers.None) when studio.CanRenameFile => studio.ExecuteRenameFileCommand,
+            (Key.Delete, KeyModifiers.None) when studio.CanDeleteFile => studio.ExecuteDeleteFileCommand,
+            (Key.X, var modifiers) when modifiers == commandModifier && studio.CanCutFile => studio.ExecuteCutFileCommand,
+            (Key.V, var modifiers) when modifiers == commandModifier && studio.CanPasteFile => studio.ExecutePasteFileCommand,
+            _ => null
+        };
+        object? parameter = e.Key == Key.V ? studio.SelectedSpace : studio.SelectedFile;
+        if (command is null || !command.CanExecute(parameter)) return;
+        e.Handled = true;
+        await command.ExecuteAsync(parameter);
+        if (e.Key == Key.F2 && studio.IsRenameDialogOpen)
+        {
+            var input = this.FindControl<TextBox>("RenameNameInput")!;
+            input.Focus();
+            input.SelectAll();
+        }
+        else if (e.Key == Key.Delete && studio.IsDeleteConfirmationDialogOpen)
+            this.FindControl<Button>("DeleteConfirmationCancelButton")?.Focus();
     }
 
     public StudioView()

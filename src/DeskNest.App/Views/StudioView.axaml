@@ -6,6 +6,7 @@
              xmlns:core="using:DeskNest.Core.Workspace"
              x:Class="DeskNest.App.Views.StudioView"
              x:DataType="vm:StudioViewModel"
+             KeyDown="OnWorkspaceKeyDown"
              Background="{DynamicResource WindowBackgroundBrush}"
              Foreground="{DynamicResource TextPrimaryBrush}">
 
@@ -342,6 +343,7 @@
                                                     <Separator/>
                                                     <MenuItem Name="MoveToSpaceMenu" Header="{Binding Localizer[Files.ActionMoveToSpace]}"/>
                                                     <MenuItem Header="{Binding Localizer[Files.ActionCut]}"
+                                                              InputGesture="{OnPlatform Default='Ctrl+X', macOS='Meta+X'}"
                                                               Command="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).ExecuteCutFileCommand}"
                                                               CommandParameter="{Binding}"
                                                               IsEnabled="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).CanCutFile}"/>
@@ -350,15 +352,18 @@
                                                               CommandParameter="{Binding}"
                                                               IsEnabled="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).CanCopyFile}"/>
                                                     <MenuItem Header="{Binding Localizer[Files.ActionPaste]}"
+                                                              InputGesture="{OnPlatform Default='Ctrl+V', macOS='Meta+V'}"
                                                               Command="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).ExecutePasteFileCommand}"
                                                               CommandParameter="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).SelectedSpace}"
                                                               IsEnabled="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).CanPasteFile}"/>
                                                     <Separator/>
                                                     <MenuItem Header="{Binding Localizer[Files.ActionRename]}"
+                                                              InputGesture="F2"
                                                               Command="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).OpenRenameDialogCommand}"
                                                               CommandParameter="{Binding}"
                                                               IsEnabled="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).CanRenameFile}"/>
                                                     <MenuItem Header="{Binding DeleteActionText}"
+                                                              InputGesture="Delete"
                                                               Command="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).ExecuteDeleteFileCommand}"
                                                               CommandParameter="{Binding}"
                                                               IsEnabled="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).CanDeleteFile}"/>
@@ -1175,7 +1180,7 @@
 
                     <StackPanel Spacing="4">
                         <TextBlock Text="{Binding Localizer[Files.RenameModalPrompt]}" FontWeight="Medium" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        <TextBox Text="{Binding RenameItemName}" CornerRadius="{DynamicResource RadiusSmall}" FontSize="12"/>
+                        <TextBox Name="RenameNameInput" Text="{Binding RenameItemName}" CornerRadius="{DynamicResource RadiusSmall}" FontSize="12"/>
                     </StackPanel>
 
                     <TextBlock Text="{Binding RenameDialogError}" Foreground="{DynamicResource WarningBadgeFgBrush}" FontSize="11"

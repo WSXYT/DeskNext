@@ -41,6 +41,8 @@ internal static class ManualClipboardSmoke
             if (!wrongThreadRefused) throw new InvalidOperationException("Clipboard access was allowed off the UI dispatcher.");
             await using var main = new MainWindowViewModel(store, ownsStore: false, clipboardProvider: () => clipboard);
             var studio = main.Studio ?? throw new InvalidOperationException("Clipboard fixture has no Studio.");
+            var view = new StudioView { DataContext = studio };
+            window.Content = view;
             await studio.DropPathsOnSpaceAsync([sourcePath]);
             Guid fileId = store.Snapshot.Files.Single().Id;
             studio.OpenAddSpaceDialog();
@@ -50,9 +52,19 @@ internal static class ManualClipboardSmoke
             if (Directory.Exists(target.Folder))
                 throw new InvalidOperationException("The new managed space must still be metadata-only before paste.");
             studio.SelectSpace(studio.AllSpaces.Single(s => s.Id == source.Id));
-            await studio.ExecuteCutFileAsync(studio.SelectedFile);
+            window.UpdateLayout();
+            var commandModifier = OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.Control;
+            view.FindControl<ListBox>("FilesListBox")!.ContainerFromIndex(0)!.Focus();
+            window.KeyPress(Key.X, commandModifier, PhysicalKey.X, null);
+            window.KeyRelease(Key.X, commandModifier, PhysicalKey.X, null);
+            await (studio.ExecuteCutFileCommand.ExecutionTask ?? throw new InvalidOperationException("Cut shortcut did not run."));
             studio.SelectSpace(target);
-            await studio.ExecutePasteFileAsync(target);
+            window.UpdateLayout();
+            var spaces = view.GetVisualDescendants().OfType<ListBox>().Single(list => ReferenceEquals(list.ItemsSource, studio.FilteredSpaces));
+            spaces.ContainerFromIndex(studio.FilteredSpaces.IndexOf(target))!.Focus();
+            window.KeyPress(Key.V, commandModifier, PhysicalKey.V, null);
+            window.KeyRelease(Key.V, commandModifier, PhysicalKey.V, null);
+            await (studio.ExecutePasteFileCommand.ExecutionTask ?? throw new InvalidOperationException("Paste shortcut did not run for an empty space."));
             string destination = Path.Combine(target.Folder, Path.GetFileName(sourcePath));
             var moved = store.Snapshot;
             if (Exists(sourcePath) || !Exists(destination) || moved.Files.Single().Id != fileId ||
@@ -71,8 +83,6 @@ internal static class ManualClipboardSmoke
             // The real context menu uses the clicked row, even with no current selection.
             studio.SelectSpace(studio.AllSpaces.Single(s => s.Id == source.Id));
             studio.SelectedFile = null;
-            var view = new StudioView { DataContext = studio };
-            window.Content = view;
             window.UpdateLayout();
             var row = view.GetVisualDescendants().OfType<Border>().Single(b =>
                 b.ContextMenu is not null && b.DataContext is WorkspaceFileItemViewModel f && f.Id == fileId);
@@ -116,6 +126,25 @@ internal static class ManualClipboardSmoke
             window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
             if (opens != 2) throw new InvalidOperationException("Enter must open the selected item once.");
             studio.AttachOpenFileExecutor(openExecutor);
+
+            long shortcutRevision = store.Snapshot.Revision;
+            window.KeyPress(Key.F2, RawInputModifiers.None, PhysicalKey.F2, null);
+            window.KeyRelease(Key.F2, RawInputModifiers.None, PhysicalKey.F2, null);
+            var renameInput = view.FindControl<TextBox>("RenameNameInput")!;
+            if (!studio.IsRenameDialogOpen || !renameInput.IsFocused)
+                throw new InvalidOperationException("F2 must open and focus the existing rename dialog.");
+            window.KeyPress(Key.Delete, RawInputModifiers.None, PhysicalKey.Delete, null);
+            window.KeyRelease(Key.Delete, RawInputModifiers.None, PhysicalKey.Delete, null);
+            if (studio.IsDeleteConfirmationDialogOpen || store.Snapshot.Revision != shortcutRevision)
+                throw new InvalidOperationException("Editing a filename must not trigger a file action.");
+            studio.CloseRenameDialog();
+            files.ContainerFromIndex(0)!.Focus();
+            window.KeyPress(Key.Delete, RawInputModifiers.None, PhysicalKey.Delete, null);
+            window.KeyRelease(Key.Delete, RawInputModifiers.None, PhysicalKey.Delete, null);
+            if (!studio.IsDeleteConfirmationDialogOpen || !view.FindControl<Button>("DeleteConfirmationCancelButton")!.IsFocused ||
+                store.Snapshot.Revision != shortcutRevision || !Exists(sourcePath))
+                throw new InvalidOperationException("Delete must request confirmation without changing the source.");
+            studio.CloseDeleteConfirmationDialog();
 
             // A missing mapped folder is not a request to recreate an external directory.
             Directory.Delete(target.Folder);
