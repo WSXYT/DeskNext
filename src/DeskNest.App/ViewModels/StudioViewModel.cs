@@ -349,7 +349,7 @@ public sealed partial class StudioViewModel : ViewModelBase
         OnPropertyChanged(nameof(DeleteConfirmActionText));
     }
 
-    public Func<WorkspaceFileItemViewModel, System.Threading.CancellationToken, Task>? OnPreviewClassification { get; set; }
+    public Func<object, System.Threading.CancellationToken, Task>? OnPreviewClassification { get; set; }
 
     // Session-only credentials and permission: never copied into WorkspaceSettings.
     [ObservableProperty] private string _jevSessionKey = string.Empty;
@@ -365,9 +365,11 @@ public sealed partial class StudioViewModel : ViewModelBase
     }
 
     [RelayCommand(IncludeCancelCommand = true)]
-    public async Task PreviewClassificationAsync(WorkspaceFileItemViewModel? file, System.Threading.CancellationToken token)
+    public async Task PreviewClassificationAsync(object? file, System.Threading.CancellationToken token)
     {
-        if (file is null || file.IsInTrash) return;
+        if (file is not (WorkspaceFileItemViewModel or PendingItemViewModel) || file is WorkspaceFileItemViewModel { IsInTrash: true }) return;
+        var pending = file as PendingItemViewModel;
+        if (pending is not null) pending.ClassificationTarget = null;
         if (OnPreviewClassification is null)
         {
             FileActionNotice = Localizer["Classification.Setup"];
@@ -377,6 +379,16 @@ public sealed partial class StudioViewModel : ViewModelBase
         try { await OnPreviewClassification(file, token); }
         catch (OperationCanceledException) { FileActionNotice = Localizer["Classification.Cancelled"]; }
         catch (Exception error) { FileActionNotice = Localizer.GetString("Files.ActionFailedNotice", error.Message); }
+        finally { if (pending is not null) pending.ResolutionNotice = FileActionNotice; }
+    }
+
+    [RelayCommand]
+    public void UseClassificationTarget(PendingItemViewModel? item)
+    {
+        var current = PendingItems.FirstOrDefault(p => p.Id == item?.Id);
+        if (current?.ClassificationTarget is not { } suggestion) return;
+        current.TargetSpace = AllSpaces.FirstOrDefault(s => s.Id == suggestion.Id);
+        current.ClassificationTarget = null;
     }
 
     public void ShowClassificationPreview(string fileName, string content, bool cloud = false)
@@ -1337,8 +1349,9 @@ public sealed partial class StudioViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    public void OpenCreateSpaceFromTriage()
+    public void OpenCreateSpaceFromTriage(PendingItemViewModel? item = null)
     {
+        if (item is not null) SelectedPendingItem = PendingItems.FirstOrDefault(p => p.Id == item.Id);
         if (SelectedPendingItem == null) return;
         TriageNewSpaceName = string.Empty;
         TriageNewSpaceDesc = string.Empty;
@@ -1383,6 +1396,7 @@ public sealed partial class StudioViewModel : ViewModelBase
             SelectedPendingItem = PendingItems.FirstOrDefault(p => p.Id == pendingId);
             if (SelectedPendingItem != null)
             {
+                SelectedPendingItem.TargetSpace = AllSpaces.Single(s => s.Id == newSpace.Id);
                 SelectedPendingItem.ResolutionNotice = Localizer["Triage.P2Notice"];
             }
         }

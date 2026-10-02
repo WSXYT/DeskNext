@@ -12,5 +12,5 @@
 - Release singleton subscriptions; space windows borrow workbench.
 - Monitor Desktop/selected folders: whitelist/baseline/health/pause/rescan/target binding. No takeover before S01–S08.
 - CI: physical macOS temp paths, hosted-only aliases, terminal probe JSON; skips aren't evidence.
-- Preserve provenance, twelve-locale parity, F01–F13/inference evidence. Previews never move files; Jev keys/consent stay session-only. Python/models: ignored `artifacts/`. Synthetic images cannot prove desktop compositing.
+- Preserve provenance, twelve-locale parity, F01–F13/inference evidence. Suggestions set target drafts, never move files; Jev keys/consent stay session-only. Python/models: ignored `artifacts/`. Synthetic images cannot prove desktop compositing.
 <!-- pi-agents-md:end -->

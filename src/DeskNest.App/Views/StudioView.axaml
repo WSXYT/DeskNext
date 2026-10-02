@@ -469,7 +469,12 @@
                                                    FontSize="11" Margin="0,5,0,0"/>
 
                                         <!-- Action Buttons Bar with Space Selector -->
-                                        <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="6" Margin="0,8,0,0">
+                                        <WrapPanel Grid.Row="3" Margin="0,8,0,0">
+                                            <WrapPanel.Styles>
+                                                <Style Selector="Button">
+                                                    <Setter Property="Margin" Value="6,0,0,4"/>
+                                                </Style>
+                                            </WrapPanel.Styles>
                                             <!-- Target space selector -->
                                             <ComboBox ItemsSource="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).AllSpaces}"
                                                       SelectedItem="{Binding TargetSpace}"
@@ -485,6 +490,20 @@
                                                 </ComboBox.ItemTemplate>
                                             </ComboBox>
 
+                                            <Button Name="PendingClassificationButton" Classes="ActionButton" Margin="6,0,0,4"
+                                                    Content="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).Localizer[Classification.Action]}"
+                                                    Command="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).PreviewClassificationCommand}"
+                                                    CommandParameter="{Binding}"/>
+                                            <Button Classes="ActionButton" Margin="6,0,0,4" Content="{Binding ClassificationTarget.Name}"
+                                                    IsVisible="{Binding HasClassificationTarget}"
+                                                    ToolTip.Tip="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).Localizer[Triage.SelectTargetPrompt]}"
+                                                    Command="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).UseClassificationTargetCommand}"
+                                                    CommandParameter="{Binding}"/>
+                                            <Button Classes="ActionButton" Margin="6,0,0,4"
+                                                    Content="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).Localizer[Action.Cancel]}"
+                                                    IsVisible="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).PreviewClassificationCommand.IsRunning}"
+                                                    Command="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).PreviewClassificationCancelCommand}"/>
+
                                             <!-- Assign Button -->
                                             <Button Classes="ActionButton"
                                                     Name="ImportPendingButton"
@@ -495,14 +514,15 @@
                                             <!-- Create Space Button -->
                                             <Button Classes="ActionButton"
                                                     Content="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).Localizer[Triage.ActionNewSpace]}"
-                                                    Command="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).OpenCreateSpaceFromTriageCommand}"/>
+                                                    Command="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).OpenCreateSpaceFromTriageCommand}"
+                                                    CommandParameter="{Binding}"/>
 
                                             <!-- Dismiss Button -->
                                             <Button Classes="ActionButton"
                                                     Content="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).Localizer[Triage.ActionDismiss]}"
                                                     Command="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).DismissPendingItemCommand}"
                                                     CommandParameter="{Binding}"/>
-                                        </StackPanel>
+                                        </WrapPanel>
                                     </Grid>
                                 </Border>
                             </DataTemplate>

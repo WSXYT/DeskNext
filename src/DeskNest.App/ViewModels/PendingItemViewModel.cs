@@ -33,6 +33,13 @@ public sealed partial class PendingItemViewModel : ViewModelBase
     [ObservableProperty]
     private SpaceItemViewModel? _targetSpace;
 
+    // A transient model suggestion; selecting it still requires the existing import confirmation.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasClassificationTarget))]
+    private SpaceItemViewModel? _classificationTarget;
+
+    public bool HasClassificationTarget => ClassificationTarget is not null;
+
     public string ReasonKey => Reason switch
     {
         TriageReason.FilenameAmbiguous => "Triage.ReasonAmbiguous",

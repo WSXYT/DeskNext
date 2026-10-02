@@ -457,9 +457,13 @@ public static class HeadlessSmokeRunner
         File.WriteAllText(path, "Fixture content must remain untouched.");
         var space = new WorkspaceSpace(Guid.NewGuid(), "Documents", "Reports and office documents", SpaceStorageMode.Managed, folder);
         var file = new WorkspaceFile(Guid.NewGuid(), space.Id, Path.GetFileName(path), path, false);
+        string pendingPath = Path.Combine(root, "Quarterly financial report.txt");
+        File.WriteAllText(pendingPath, "Pending fixture must stay outside the space.");
+        var pending = new PendingFile(Guid.NewGuid(), Path.GetFileName(pendingPath), pendingPath,
+            TriageReason.FilenameAmbiguous, null, DateTimeOffset.UtcNow);
         await using var store = await WorkspaceStore.OpenAsync(Path.Combine(root, "state"));
         await store.UpdateAsync(s => s with { OnboardingComplete = true, OnboardingStep = 5,
-            Spaces = [space], Files = [file], Settings = s.Settings with { ModelCacheDirectory = Path.GetFullPath(modelDirectory) } });
+            Spaces = [space], Files = [file], Pending = [pending], Settings = s.Settings with { ModelCacheDirectory = Path.GetFullPath(modelDirectory) } });
         await using var main = new MainWindowViewModel(store);
         var studio = main.Studio!;
         long revision = store.Snapshot.Revision;
@@ -470,12 +474,43 @@ public static class HeadlessSmokeRunner
             throw new InvalidOperationException("Local preview failed or changed files/metadata: " + studio.FileActionNotice);
         Console.WriteLine("LOCAL_CLASSIFICATION_PREVIEW: " + JsonSerializer.Serialize(studio.PreviewContent));
         studio.ClosePreviewDialog();
+        studio.SelectedTabIndex = 1;
+        var view = new StudioView { DataContext = studio };
+        var window = new Window { Content = view, Width = 1280, Height = 720 };
+        window.Show();
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            var pendingView = studio.PendingItems.Single();
+            var button = view.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PendingClassificationButton");
+            if (!button.IsEffectivelyVisible || button.Command != studio.PreviewClassificationCommand || button.CommandParameter != pendingView)
+                throw new InvalidOperationException("Pending preview must target the actual review row.");
+            await studio.PreviewClassificationCommand.ExecuteAsync(pendingView);
+            if (!studio.IsPreviewDialogOpen || pendingView.ClassificationTarget?.Id != space.Id || pendingView.TargetSpace is not null ||
+                store.Snapshot.Revision != revision || store.Snapshot.Operations.Count != 0 ||
+                File.ReadAllText(pendingPath) != "Pending fixture must stay outside the space.")
+                throw new InvalidOperationException("Pending preview must offer a real candidate without choosing or moving it.");
+            studio.ClosePreviewDialog();
+            studio.UseClassificationTargetCommand.Execute(pendingView);
+            if (pendingView.TargetSpace?.Id != space.Id || pendingView.HasClassificationTarget || store.Snapshot.Revision != revision)
+                throw new InvalidOperationException("Using a model suggestion must only set the target draft.");
+            Console.WriteLine("PENDING_CLASSIFICATION_PREVIEW: verified; suggestion selection is draft-only, no move.");
+        }
+        finally { window.Close(); }
         var cancelled = studio.PreviewClassificationCommand.ExecuteAsync(studio.SelectedFile);
         studio.PreviewClassificationCommand.Cancel();
         await cancelled;
         if (studio.IsPreviewDialogOpen || studio.FileActionNotice != main.Localizer["Classification.Cancelled"] ||
             store.Snapshot.Revision != revision)
             throw new InvalidOperationException("Cancelled preview must not publish suggestions or mutate metadata.");
+        studio.SelectedPendingItem = null;
+        studio.OpenCreateSpaceFromTriageCommand.Execute(studio.PendingItems.Single());
+        studio.TriageNewSpaceName = "New review category";
+        await studio.ConfirmCreateSpaceFromTriageCommand.ExecuteAsync(null);
+        if (studio.PendingItems.Single().TargetSpace?.Name != "New review category" || store.Snapshot.Spaces.Count != 2 ||
+            store.Snapshot.Pending.Single().SuggestedSpaceId != studio.PendingItems.Single().TargetSpace?.Id ||
+            store.Snapshot.Operations.Count != 0 || File.ReadAllText(pendingPath) != "Pending fixture must stay outside the space.")
+            throw new InvalidOperationException("Creating a review category must select the clicked pending item without importing it.");
     }
 
     public static async Task<int> RunSmokeAsync(string[] args)
