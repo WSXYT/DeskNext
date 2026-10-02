@@ -1,5 +1,7 @@
 {
   "App.Title": "DeskNext",
+  "Observation.TargetNotice": "Escolha um espaço sugerido para uma fonte salva. Afeta apenas novos itens pendentes; importar ainda exige confirmação.",
+  "Observation.ClearTarget": "Limpar espaço sugerido",
   "Observation.Scan": "Examinar itens existentes",
   "Observation.Scanning": "Examinando fontes salvas apenas para revisão…",
   "Observation.ScanComplete": "Exame concluído. Novos itens pendentes; nenhum arquivo foi movido.",

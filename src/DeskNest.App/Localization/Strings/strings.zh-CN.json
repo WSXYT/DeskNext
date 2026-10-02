@@ -1,5 +1,7 @@
 {
   "App.Title": "DeskNext",
+  "Observation.TargetNotice": "为已保存的来源选择默认建议空间。只影响新待处理项目，移入仍需确认。",
+  "Observation.ClearTarget": "取消默认建议",
   "Observation.Scan": "扫描现有项目",
   "Observation.Scanning": "正在扫描已保存的来源；仅登记待处理。",
   "Observation.ScanComplete": "扫描完成。新项目已加入待处理，未移动文件。",

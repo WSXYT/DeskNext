@@ -1,5 +1,7 @@
 {
   "App.Title": "DeskNext",
+  "Observation.TargetNotice": "Choisissez un espace suggéré pour une source enregistrée. Uniquement pour les nouveaux éléments à examiner ; l’import reste à confirmer.",
+  "Observation.ClearTarget": "Effacer l’espace suggéré",
   "Observation.Scan": "Analyser les éléments existants",
   "Observation.Scanning": "Analyse des sources enregistrées, pour examen uniquement…",
   "Observation.ScanComplete": "Analyse terminée. Nouveaux éléments en attente ; aucun fichier déplacé.",

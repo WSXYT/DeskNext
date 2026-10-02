@@ -1,5 +1,7 @@
 {
   "App.Title": "DeskNext",
+  "Observation.TargetNotice": "為已儲存的來源選擇預設建議空間。只影響新待處理項目，移入仍需確認。",
+  "Observation.ClearTarget": "取消預設建議",
   "Observation.Scan": "掃描現有項目",
   "Observation.Scanning": "正在掃描已儲存的來源；僅登記待處理。",
   "Observation.ScanComplete": "掃描完成。新項目已加入待處理，未移動檔案。",

@@ -61,8 +61,12 @@ public sealed class ManualOrganizationCoordinator
                     catch (UnauthorizedAccessException) { continue; }
                     if (state.Pending.Count + additions.Count >= 10_000)
                         throw new InvalidOperationException("Pending review is full; resolve items before scanning again.");
+                    // The most specific selected source wins, even when it has no preset.
+                    string sourceRoot = state.Settings.MonitoredFolders.Where(root => IsDescendantPath(path, Path.GetFullPath(root)))
+                        .OrderByDescending(root => Path.GetFullPath(root).Length).First();
+                    Guid? suggestion = state.Settings.MonitoredFolderTargets.TryGetValue(sourceRoot, out var target) ? target : null;
                     additions.Add(new PendingFile(Guid.NewGuid(), Path.GetFileName(path), path,
-                        TriageReason.FilenameAmbiguous, null, DateTimeOffset.UtcNow));
+                        TriageReason.FilenameAmbiguous, suggestion, DateTimeOffset.UtcNow));
                 }
                 return additions;
             }

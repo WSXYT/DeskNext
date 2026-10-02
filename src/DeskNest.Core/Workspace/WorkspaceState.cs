@@ -63,6 +63,8 @@ public sealed record WorkspaceSettings
     public string ManagedRoot { get; init; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "DeskNest", "Spaces");
     public List<string> MonitoredFolders { get; init; } = [];
+    // Optional suggestions for new review items; never permission to move a file.
+    public Dictionary<string, Guid> MonitoredFolderTargets { get; init; } = [];
     public List<string> ExcludedFolders { get; init; } = [];
     // Records user preference only. P2 never starts a watcher or moves files.
     public bool WantsMonitoring { get; init; }

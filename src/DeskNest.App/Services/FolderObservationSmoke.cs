@@ -17,10 +17,11 @@ internal static class FolderObservationSmoke
         File.WriteAllText(existing, "baseline");
         string oldFolder = Directory.CreateDirectory(Path.Combine(first, "old-folder")).FullName;
         File.WriteAllText(Path.Combine(oldFolder, "child.txt"), "scanned in place");
+        var target = new WorkspaceSpace(Guid.NewGuid(), "Observed", "", SpaceStorageMode.Managed, Path.Combine(root, "managed", "Observed"));
         await using var store = await WorkspaceStore.OpenAsync(Path.Combine(root, "store"));
         await store.UpdateAsync(state => state with
         {
-            OnboardingComplete = true, OnboardingStep = 5,
+            OnboardingComplete = true, OnboardingStep = 5, Spaces = [target],
             Settings = state.Settings with
             {
                 ManagedRoot = Path.Combine(root, "managed"),
@@ -38,6 +39,17 @@ internal static class FolderObservationSmoke
             var start = view.FindControl<Button>("StartFolderObservationButton");
             if (start?.Command != studio.StartFolderObservationCommand || !start.IsEffectivelyVisible)
                 throw new InvalidOperationException("Folder observation must have a real settings entry.");
+            var sourcePicker = view.FindControl<ComboBox>("ObservationSourcePicker")!;
+            var targetPicker = view.FindControl<ComboBox>("ObservationTargetPicker")!;
+            var bind = view.FindControl<Button>("BindObservationTargetButton");
+            if (bind?.Command != studio.BindObservationTargetCommand || !bind.IsEffectivelyVisible)
+                throw new InvalidOperationException("Source suggestions need a visible settings entry.");
+            sourcePicker.SelectedItem = first;
+            targetPicker.SelectedItem = studio.AllSpaces.Single();
+            await studio.BindObservationTargetCommand.ExecuteAsync(null);
+            using (var saved = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(store.DataDirectory, "workspace.json"))))
+                if (saved.RootElement.GetProperty("settings").GetProperty("monitoredFolderTargets").GetProperty(first).GetGuid() != target.Id)
+                    throw new InvalidOperationException("Source suggestions must be persisted.");
             long revision = store.Snapshot.Revision;
             await studio.StartFolderObservationCommand.ExecuteAsync(null);
             if (!studio.IsFolderObservationActive || store.Snapshot.Revision != revision)
@@ -57,7 +69,9 @@ internal static class FolderObservationSmoke
             await studio.StopFolderObservationCommand.ExecuteAsync(null);
             if (studio.IsFolderObservationActive || store.Snapshot.Pending.Count != 2 ||
                 store.Snapshot.Files.Count != 0 || store.Snapshot.Operations.Count != 0 ||
-                fresh.Any(path => File.ReadAllText(path) != "stays in place"))
+                fresh.Any(path => File.ReadAllText(path) != "stays in place") ||
+                store.Snapshot.Pending.Single(item => item.Path == fresh[0]).SuggestedSpaceId != target.Id ||
+                store.Snapshot.Pending.Single(item => item.Path == fresh[1]).SuggestedSpaceId is not null || studio.IsImportConfirmationOpen)
                 throw new InvalidOperationException("Observation must add only new, non-excluded review records without moving files.");
             revision = store.Snapshot.Revision;
             File.WriteAllText(Path.Combine(first, "after-stop.txt"), "untouched");
@@ -76,6 +90,10 @@ internal static class FolderObservationSmoke
                 throw new InvalidOperationException("Scanning must find existing items once, respect exclusions and preserve files: " + studio.FolderScanNotice);
             await studio.ScanObservedFoldersCommand.ExecuteAsync(null);
             if (store.Snapshot.Revision != scanned.Revision) throw new InvalidOperationException("Repeated scans must not duplicate review entries.");
+            await studio.ClearObservationTargetCommand.ExecuteAsync(null);
+            if (store.Snapshot.Settings.MonitoredFolderTargets.Count != 0 ||
+                store.Snapshot.Pending.Single(item => item.Path == fresh[0]).SuggestedSpaceId != target.Id)
+                throw new InvalidOperationException("Clearing a source preset must not rewrite existing pending choices.");
             await studio.StartFolderObservationCommand.ExecuteAsync(null);
             if (!studio.IsFolderObservationActive) throw new InvalidOperationException(studio.FolderObservationNotice);
             await vm.DisposeAsync();

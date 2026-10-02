@@ -836,6 +836,7 @@ public sealed partial class StudioViewModel : ViewModelBase
     public void RefreshFromState(WorkspaceState state)
     {
         _workspaceRevision = state.Revision;
+        var observationTargetDraft = ObservationTargetSpace?.Id;
         var prevSpaceId = SelectedSpace?.Id;
         var prevPendingId = SelectedPendingItem?.Id;
         var prevFileId = SelectedFile?.Id;
@@ -952,6 +953,7 @@ public sealed partial class StudioViewModel : ViewModelBase
         OnPropertyChanged(nameof(MappedSpacesCount));
         OnPropertyChanged(nameof(ManagedSpacesCountText));
         OnPropertyChanged(nameof(MappedSpacesCountText));
+        RefreshObservationTargets(state, observationTargetDraft);
     }
 
     // ==========================================
@@ -2143,6 +2145,8 @@ public sealed partial class StudioViewModel : ViewModelBase
                 ModelCacheDirectory = cache,
                 ManagedRoot = root,
                 MonitoredFolders = SettingsMonitoredFolders.Where(Path.IsPathFullyQualified).ToList(),
+                MonitoredFolderTargets = state.Settings.MonitoredFolderTargets.Where(binding => SettingsMonitoredFolders.Contains(binding.Key))
+                    .ToDictionary(binding => binding.Key, binding => binding.Value),
                 ExcludedFolders = SettingsExcludedFolders.Where(Path.IsPathFullyQualified).ToList(),
                 WantsMonitoring = SettingsWantsMonitoring
             }

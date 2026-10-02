@@ -1,5 +1,7 @@
 {
   "App.Title": "DeskNext",
+  "Observation.TargetNotice": "Choose a suggested space for a saved source. Only new review items are affected; imports still require confirmation.",
+  "Observation.ClearTarget": "Clear suggested space",
   "Observation.Scan": "Scan existing items",
   "Observation.Scanning": "Scanning saved sources for review only…",
   "Observation.ScanComplete": "Scan complete. New items are in Pending; no files were moved.",

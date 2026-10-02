@@ -1,5 +1,7 @@
 {
   "App.Title": "DeskNext",
+  "Observation.TargetNotice": "Vorgeschlagenen Bereich für eine gespeicherte Quelle wählen. Gilt nur für neue Prüfelemente; Importe erfordern weiterhin Bestätigung.",
+  "Observation.ClearTarget": "Bereichsvorschlag löschen",
   "Observation.Scan": "Vorhandene Elemente scannen",
   "Observation.Scanning": "Gespeicherte Quellen nur zur Prüfung scannen…",
   "Observation.ScanComplete": "Scan abgeschlossen. Neue Elemente stehen zur Prüfung bereit; keine Dateien verschoben.",

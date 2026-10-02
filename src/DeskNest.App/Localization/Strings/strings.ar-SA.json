@@ -1,5 +1,7 @@
 {
   "App.Title": "DeskNext",
+  "Observation.TargetNotice": "اختر مساحة مقترحة لمصدر محفوظ. يؤثر ذلك في عناصر المراجعة الجديدة فقط؛ الاستيراد ما زال يتطلب التأكيد.",
+  "Observation.ClearTarget": "مسح المساحة المقترحة",
   "Observation.Scan": "فحص العناصر الموجودة",
   "Observation.Scanning": "جارٍ فحص المصادر المحفوظة للمراجعة فقط…",
   "Observation.ScanComplete": "اكتمل الفحص. العناصر الجديدة قيد المراجعة؛ لم تُنقل ملفات.",

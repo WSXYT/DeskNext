@@ -198,6 +198,9 @@ public sealed class WorkspaceStore : IAsyncDisposable
                  placement.Width is < 1 or > 32768 || placement.Height is < 1 or > 32768))
                 throw new InvalidDataException("Invalid space window size.");
         }
+        if (state.Settings.MonitoredFolderTargets is null || state.Settings.MonitoredFolderTargets.Count > 1_000 ||
+            state.Settings.MonitoredFolderTargets.Any(binding => !state.Settings.MonitoredFolders.Contains(binding.Key) || !spaces.Contains(binding.Value)))
+            throw new InvalidDataException("Observation targets must reference saved sources and existing spaces.");
         var files = new HashSet<Guid>();
         foreach (var file in state.Files)
         {

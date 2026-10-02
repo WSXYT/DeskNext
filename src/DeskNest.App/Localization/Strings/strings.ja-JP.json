@@ -1,5 +1,7 @@
 {
   "App.Title": "DeskNext",
+  "Observation.TargetNotice": "保存済みの監視元に推奨スペースを設定します。新しい保留項目だけに適用され、取り込みには引き続き確認が必要です。",
+  "Observation.ClearTarget": "推奨スペースを解除",
   "Observation.Scan": "既存の項目をスキャン",
   "Observation.Scanning": "保存済みの監視元を確認用にスキャン中…",
   "Observation.ScanComplete": "スキャン完了。新しい項目を保留リストに追加しました。ファイルは移動していません。",
