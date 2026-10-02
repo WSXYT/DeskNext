@@ -7,6 +7,8 @@ namespace DeskNest.App;
 
 public partial class App : Application
 {
+    private Services.DesktopTray? _tray;
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -25,7 +27,22 @@ public partial class App : Application
             }
             else
             {
-                desktop.MainWindow = new MainWindow();
+                var window = new MainWindow();
+                desktop.MainWindow = window;
+                window.Opened += (_, _) =>
+                {
+                    try
+                    {
+                        _tray ??= new Services.DesktopTray(this, window,
+                            (ViewModels.MainWindowViewModel)window.DataContext!, () => desktop.Shutdown());
+                    }
+                    catch (Exception error)
+                    {
+                        // Optional shell integration: the visible workbench remains usable.
+                        System.Diagnostics.Trace.WriteLine("Tray unavailable: " + error.Message);
+                    }
+                };
+                desktop.Exit += (_, _) => _tray?.Dispose();
             }
         }
 

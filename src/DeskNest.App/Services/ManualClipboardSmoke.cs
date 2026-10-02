@@ -480,6 +480,27 @@ internal static class ManualClipboardSmoke
                         throw new InvalidOperationException("Repeated paste must refuse an existing destination without changing metadata.");
                 }
             }
+            if (!directory)
+            {
+                int exitRequests = 0;
+                var app = Application.Current!;
+                int originalIcons = TrayIcon.GetIcons(app)?.Count ?? 0;
+                using (var tray = new DesktopTray(app, window, main, () => exitRequests++))
+                {
+                    var entries = tray.Menu.Items.OfType<NativeMenuItem>().Where(item => item.Command is not null).ToArray();
+                    window.WindowState = WindowState.Minimized;
+                    entries[0].Command!.Execute(null);
+                    Dispatcher.UIThread.RunJobs();
+                    if (window.WindowState != WindowState.Normal || !window.IsVisible ||
+                        entries[0].Header != main.Localizer["Spaces.ReturnToStudio"] ||
+                        !entries[1].IsEnabled || entries[1].Header != main.Localizer["Capsule.Title"])
+                        throw new InvalidOperationException("Tray actions must restore the existing workbench and use localized labels.");
+                    entries[2].Command!.Execute(null);
+                    if (exitRequests != 1) throw new InvalidOperationException("Tray exit must request application shutdown.");
+                }
+                if ((TrayIcon.GetIcons(app)?.Count ?? 0) != originalIcons)
+                    throw new InvalidOperationException("Disposing the tray must release its application registration.");
+            }
             window.Close();
             if (floating.IsVisible || floating.DataContext is not null)
                 throw new InvalidOperationException("Closing the workbench must close its space windows.");

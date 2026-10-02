@@ -7,7 +7,7 @@ This is the P0 **acceptance inventory**, not a claim of working features. All ce
 | F01 | Space window, file context menu, map-folder dialog | Managed/mapped files, open/reveal, sort/list/grid/inline folders; offline mapped directory retains index | Import, restart, external rename, offline drive and 10k viewport tests | 部分：空间/映射/虚拟列表/名称筛选排序/独立浮窗 / 未验证 / 未验证 |
 | F02 | Drop surface, clipboard, file context menu | Copy/cut/paste, two-way external drag, URLs/virtual files, rename, trash, previews; never double-delete on negotiated Move | Explorer/Finder/Nautilus and browser/chat-file fixture on actual systems | 部分：NTFS复制、Explorer文件/目录双向拖放；其他载荷未验收 / 未验证 / 未验证 |
 | F03 | Stack/group/pagination controls | Manual grouping, expand inline/popout, merge tabs, paging/continuous layout with stable item IDs | Pogget layout golden fixtures, drag/resize/empty-group screenshots | 未实现 / 未验证 / 未验证 |
-| F04 | Desktop capsule, tray, global summon | Drop target/shelf/expand, pin/privacy/fade, desktop attachment or documented fallback | Cross-display, sleep, full-screen, keyboard and DnD tests | 部分：独立胶囊壳；托盘/唤起未完成 / 未验证 / 未验证 |
+| F04 | Desktop capsule, tray, global summon | Drop target/shelf/expand, pin/privacy/fade, desktop attachment or documented fallback | Cross-display, sleep, full-screen, keyboard and DnD tests | 部分：独立胶囊/托盘入口；全局唤起未完成 / 未验证 / 未验证 |
 | F05 | Monitor settings, scan preview, pending/history drawer | Baseline, whitelist, stable file/folder triage, safe move, undo and crash recovery; supports desktop plus multiple user-selected custom folders, per-source target space/capsule binding, pause and rescan | S01-S08 fault injection, custom-folder baseline/overflow tests, pause/late-result and 24h event-storm run | 部分：多目录观察/扫描/建议空间→待处理；自动整理/Flow未验收 / 未验证 / 未验证 |
 | F06 | Flow editor, import/run/log menu | 10 trigger/action/control node types, sequential scope, no untrusted import activation | S09–S16 ABI/Unicode/257-event/DST/regression tests | 未实现 / 未验证 / 未验证 |
 | F07 | Tasks and notes navigation | Recurrence, reminders, attachments, Markdown, quick capture and persistence | Date/DST, attachment integrity, restart and keyboard tests | 未实现 / 未验证 / 未验证 |
@@ -19,6 +19,8 @@ This is the P0 **acceptance inventory**, not a claim of working features. All ce
 | F13 | Engine choice/deploy/triage drawer | Jev or local Laya, one-click zero-Python install, two special outcomes, explicit user resolution | A–D inference, frozen model quality set, privacy/key/CPU/GPU clean-machine tests | 部分：本地CPU/Jev只读预览；云端实测/部署/质量未验收 / 未验证 / 未验证 |
 
 ## Bounded implementation evidence (updated 2026-10-03)
+
+- F04 tray: normal startup registers an optional Avalonia tray entry for restoring the workbench, opening the existing capsule and exiting. Localization, command routing and disposal pass the existing headless workflow; native tray display/clicks, background lifetime and global hotkeys remain unverified. Closing the workbench still exits. See [P6 partial report](p6-report.md).
 
 - F05 observation: Settings can start/stop saved sources, scan existing items and bind suggested spaces per source. Eligible paths enter Pending without model calls or moves; baseline, exclusions, two sources, stop/disposal, idempotent grouped scanning and persisted suggestions pass the existing UI workflow. No automatic startup, complete overflow-repair, per-source pause/health or long-duration claim. See [P5 partial report](p5-report.md).
 
