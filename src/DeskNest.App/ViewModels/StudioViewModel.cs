@@ -224,6 +224,9 @@ public sealed partial class StudioViewModel : ViewModelBase
     [RelayCommand]
     public void SelectFile(WorkspaceFileItemViewModel? file)
     {
+        // Explicit actions from a floating window reveal their subject in the workbench.
+        if (file is not null && file.SpaceId == SelectedSpace?.Id && !VisibleFiles.Any(item => item.Id == file.Id))
+            FileSearchText = string.Empty;
         SelectedFile = file;
     }
 
@@ -740,6 +743,7 @@ public sealed partial class StudioViewModel : ViewModelBase
         OnPropertyChanged(nameof(ManualMoveStatusNotice));
         OnPropertyChanged(nameof(ManualUndoStatusNotice));
         NotifyFileActionGates();
+        RefreshVisibleFiles();
     }
 
     private static readonly char[] CrossPlatformForbiddenChars =
@@ -853,8 +857,8 @@ public sealed partial class StudioViewModel : ViewModelBase
         if (SelectedSpace != null)
         {
             var matchedFile = prevFileId.HasValue
-                ? SelectedSpace.Files.FirstOrDefault(f => f.Id == prevFileId.Value)
-                : SelectedSpace.Files.FirstOrDefault();
+                ? VisibleFiles.FirstOrDefault(f => f.Id == prevFileId.Value) ?? VisibleFiles.FirstOrDefault()
+                : VisibleFiles.FirstOrDefault();
             SelectFile(matchedFile);
         }
         else
@@ -982,8 +986,8 @@ public sealed partial class StudioViewModel : ViewModelBase
         SelectedSpace = space;
 
         var prevFileId = SelectedFile?.Id;
-        var matchedFile = (prevFileId.HasValue ? SelectedSpace?.Files.FirstOrDefault(f => f.Id == prevFileId.Value) : null)
-            ?? SelectedSpace?.Files.FirstOrDefault();
+        var matchedFile = (prevFileId.HasValue ? VisibleFiles.FirstOrDefault(f => f.Id == prevFileId.Value) : null)
+            ?? VisibleFiles.FirstOrDefault();
         SelectFile(matchedFile);
     }
 

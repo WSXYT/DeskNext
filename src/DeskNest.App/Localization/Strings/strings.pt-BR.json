@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Files.SearchName": "Buscar por nome neste espaço",
+  "Files.SortDescending": "Nome decrescente",
+  "Files.NoMatches": "Nenhum item correspondente.",
   "Observation.Start": "Iniciar observação",
   "Observation.Stop": "Parar observação",
   "Observation.Notice": "Salve pastas e exclusões. Apenas novos caminhos entram nos pendentes; sem chamadas ao modelo ou movimentos automáticos. Itens existentes e pastas de espaços, dados e modelos são excluídos.",

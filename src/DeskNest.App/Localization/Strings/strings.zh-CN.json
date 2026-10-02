@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Files.SearchName": "在此空间按名称查找",
+  "Files.SortDescending": "名称倒序",
+  "Files.NoMatches": "没有匹配的项目。",
   "Observation.Start": "开始观察",
   "Observation.Stop": "停止观察",
   "Observation.Notice": "先保存监测文件夹与排除目录，再开始。仅发现启动后的新增路径并加入待处理；不会运行模型或自动移动。已有项目及空间、数据、模型目录会跳过。",

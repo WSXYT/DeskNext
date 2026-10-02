@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Files.SearchName": "Rechercher par nom dans cet espace",
+  "Files.SortDescending": "Nom décroissant",
+  "Files.NoMatches": "Aucun élément correspondant.",
   "Observation.Start": "Démarrer l’observation",
   "Observation.Stop": "Arrêter l’observation",
   "Observation.Notice": "Enregistrez les dossiers et exclusions. Seuls les nouveaux chemins vont en attente ; aucun appel de modèle ni déplacement automatique. Les éléments existants et dossiers d’espaces, de données et de modèles sont exclus.",

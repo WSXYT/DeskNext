@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Files.SearchName": "Buscar por nombre en este espacio",
+  "Files.SortDescending": "Nombre descendente",
+  "Files.NoMatches": "No hay elementos coincidentes.",
   "Observation.Start": "Iniciar observación",
   "Observation.Stop": "Detener observación",
   "Observation.Notice": "Guarda las carpetas y exclusiones. Solo las rutas nuevas pasan a pendientes; sin consultas al modelo ni movimientos automáticos. Se excluyen elementos existentes y carpetas de espacios, datos y modelos.",

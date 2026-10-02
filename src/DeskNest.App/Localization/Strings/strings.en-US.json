@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Files.SearchName": "Find by name in this space",
+  "Files.SortDescending": "Name descending",
+  "Files.NoMatches": "No matching items.",
   "Observation.Start": "Start observing",
   "Observation.Stop": "Stop observing",
   "Observation.Notice": "Save folders and exclusions first. Only new paths after startup enter Pending; no model calls or automatic moves. Existing items and space, data and model folders are excluded.",

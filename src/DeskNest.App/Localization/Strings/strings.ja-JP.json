@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Files.SearchName": "このスペースで名前を検索",
+  "Files.SortDescending": "名前の降順",
+  "Files.NoMatches": "一致する項目はありません。",
   "Observation.Start": "監視を開始",
   "Observation.Stop": "監視を停止",
   "Observation.Notice": "先にフォルダーと除外設定を保存してください。開始後の新しいパスだけを確認待ちに追加し、モデル呼び出しや自動移動は行いません。既存項目とスペース・データ・モデルのフォルダーは除外します。",

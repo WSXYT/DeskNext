@@ -2,6 +2,10 @@
 
 Status: implementation in progress. Desktop takeover and watcher-driven automatic moves remain disabled.
 
+## Space file search and sorting (2026-10-03)
+
+The workbench file list now filters cataloged names within the selected space, orders directories first and names ascending/descending, and preserves selection by ID. No disk scan or metadata save is performed. A no-match result clears the file-action subject; an explicit floating-window selection reveals that item in the workbench. Search survives a same-space snapshot refresh. App build: zero warnings/errors; the existing checked UI workflow passes (`headless-file-filter.log`, terminal Success/ManagedClipboardWorkflowVerified/FolderObservationVerified true, 17121 ms). This is not global search or an F08 acceptance claim; no full suite/CI/package rerun.
+
 ## Companion ownership (2026-10-03)
 
 Both production capsule buttons now use a view-owned launcher: repeated clicks activate the same window, closing it permits a fresh one, and closing the workbench closes/disposes its borrowed capsule. The unused view-model window factory was removed. Relevant checks only: App build zero warnings/errors; `headless-companion-owner.log` reports Success, CompanionLifetimeVerified and ManagedClipboardWorkflowVerified true (8017 ms). This does not implement a tray/background lifetime.

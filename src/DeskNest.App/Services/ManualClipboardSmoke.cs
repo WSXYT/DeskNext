@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using DeskNest.App.Views;
 using DeskNest.App.ViewModels;
@@ -46,6 +47,7 @@ internal static class ManualClipboardSmoke
             window.Content = view;
             await studio.DropPathsOnSpaceAsync([sourcePath]);
             Guid fileId = store.Snapshot.Files.Single().Id;
+            VerifyFileList(view, store.Snapshot);
             studio.OpenAddSpaceDialog();
             studio.NewSpaceName = "New destination";
             await studio.ConfirmAddSpaceAsync();
@@ -488,6 +490,44 @@ internal static class ManualClipboardSmoke
             if (window.Clipboard is { } clipboard) await clipboard.ClearAsync();
             window.Close();
         }
+    }
+
+    private static void VerifyFileList(StudioView view, WorkspaceState state)
+    {
+        var space = state.Spaces.Single();
+        var alpha = new WorkspaceFile(Guid.NewGuid(), space.Id, "Alpha.txt", Path.Combine(space.Folder, "Alpha.txt"), false);
+        var zeta = new WorkspaceFile(Guid.NewGuid(), space.Id, "zeta.txt", Path.Combine(space.Folder, "zeta.txt"), false);
+        var folder = new WorkspaceFile(Guid.NewGuid(), space.Id, "middle", Path.Combine(space.Folder, "middle"), true);
+        var fixture = state with { Files = [zeta, alpha, folder] };
+        var model = new StudioViewModel(fixture, _ => throw new InvalidOperationException("Filtering must not save workspace metadata."));
+        var original = view.DataContext;
+        try
+        {
+            view.DataContext = model;
+            Dispatcher.UIThread.RunJobs();
+            var search = view.FindControl<TextBox>("FileSearchInput")!;
+            var descending = view.FindControl<CheckBox>("FilesDescending")!;
+            if (!search.IsEffectivelyVisible || !model.VisibleFiles.Select(file => file.Id).SequenceEqual([folder.Id, alpha.Id, zeta.Id]))
+                throw new InvalidOperationException("The visible file list must sort folders first, then names.");
+            model.SelectFile(model.VisibleFiles.Single(file => file.Id == alpha.Id));
+            descending.IsChecked = true;
+            Dispatcher.UIThread.RunJobs();
+            if (!model.VisibleFiles.Select(file => file.Id).SequenceEqual([folder.Id, zeta.Id, alpha.Id]) || model.SelectedFile?.Id != alpha.Id)
+                throw new InvalidOperationException("Name order must preserve selection by ID and keep folders first.");
+            search.Text = "ALP";
+            Dispatcher.UIThread.RunJobs();
+            model.RefreshFromState(fixture);
+            if (model.VisibleFiles.Count != 1 || model.SelectedFile?.Id != alpha.Id || model.FileSearchText != "ALP")
+                throw new InvalidOperationException("Name filtering must be case-insensitive and survive snapshot refresh.");
+            search.Text = "not-found";
+            Dispatcher.UIThread.RunJobs();
+            if (!model.NoMatchingFiles || model.SelectedFile is not null || model.VisibleFiles.Count != 0)
+                throw new InvalidOperationException("A hidden file must not remain the active action target.");
+            model.SelectFile(model.SelectedSpace!.Files.Single(file => file.Id == alpha.Id));
+            if (model.FileSearchText.Length != 0 || model.VisibleFiles.Count != 3 || model.SelectedFile?.Id != alpha.Id)
+                throw new InvalidOperationException("An explicit floating-window selection must reveal its workbench target.");
+        }
+        finally { view.DataContext = original; Dispatcher.UIThread.RunJobs(); }
     }
 
     private static bool Exists(string path) => File.Exists(path) || Directory.Exists(path);

@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Files.SearchName": "In diesem Bereich nach Namen suchen",
+  "Files.SortDescending": "Name absteigend",
+  "Files.NoMatches": "Keine passenden Elemente.",
   "Observation.Start": "Beobachtung starten",
   "Observation.Stop": "Beobachtung stoppen",
   "Observation.Notice": "Ordner und Ausnahmen zuerst speichern. Nur neue Pfade gelangen in die Prüfung; keine Modellaufrufe oder automatischen Verschiebungen. Vorhandene Elemente sowie Bereichs-, Daten- und Modellordner sind ausgeschlossen.",

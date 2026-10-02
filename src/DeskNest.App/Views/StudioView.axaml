@@ -151,7 +151,7 @@
                         DragDrop.AllowDrop="True"
                         Background="{DynamicResource SurfaceBrush}"
                         Padding="28,22">
-                    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*">
+                    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*">
                         <!-- Space Header Info -->
                         <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
                             <StackPanel Grid.Column="0" Spacing="4">
@@ -270,8 +270,17 @@
                             </StackPanel>
                         </Grid>
 
+                        <Grid Grid.Row="4" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+                            <TextBox Name="FileSearchInput" Text="{Binding FileSearchText}" MaxLength="260"
+                                     PlaceholderText="{Binding Localizer[Files.SearchName]}"
+                                     AutomationProperties.Name="{Binding Localizer[Files.SearchName]}"/>
+                            <CheckBox Name="FilesDescending" Grid.Column="1" IsChecked="{Binding SortFilesDescending}" Margin="12,0,0,0"
+                                      Content="{Binding Localizer[Files.SortDescending]}"/>
+                        </Grid>
                         <!-- Virtualized File List or Empty State -->
-                        <Grid Grid.Row="4">
+                        <Grid Grid.Row="5">
+                            <TextBlock Text="{Binding Localizer[Files.NoMatches]}" IsVisible="{Binding NoMatchingFiles}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap"/>
                             <!-- Empty State: Visible only when space is empty -->
                             <Border IsVisible="{Binding SelectedSpace.IsEmpty}"
                                     HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -301,7 +310,7 @@
 
                             <!-- Virtualizing ListBox for File Metadata: Optimized for Scanning -->
                             <ListBox x:Name="FilesListBox"
-                                     ItemsSource="{Binding SelectedSpace.Files}"
+                                     ItemsSource="{Binding VisibleFiles}"
                                      SelectedItem="{Binding SelectedFile}"
                                      IsVisible="{Binding SelectedSpace.HasFiles}"
                                      Background="Transparent"
