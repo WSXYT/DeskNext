@@ -25,6 +25,7 @@ public static class NativeWindowSmokeRunner
     private static bool _spaceWindow;
     private static bool _manualWorkflow;
     private static bool _desktopReview;
+    private static bool _explorerDrag;
 
     public static int Run(string[] args)
     {
@@ -32,6 +33,7 @@ public static class NativeWindowSmokeRunner
         _exitCode = 1;
         _inspectRecovery = args.Contains("--inspect-recovery", StringComparer.Ordinal);
         _desktopReview = args.Contains("--desktop-review", StringComparer.Ordinal);
+        _explorerDrag = args.Contains("--explorer-drag", StringComparer.Ordinal);
         _spaceWindow = _desktopReview || args.Contains("--space-window", StringComparer.Ordinal);
         _manualWorkflow = args.Contains("--manual-workflow", StringComparer.Ordinal);
         var tempDir = Path.Combine(Path.GetTempPath(), "DeskNest.NativeSmoke." + Guid.NewGuid().ToString("N"));
@@ -39,6 +41,8 @@ public static class NativeWindowSmokeRunner
 
         try
         {
+            if (_explorerDrag && (!OperatingSystem.IsWindows() || _manualWorkflow || _inspectRecovery || _spaceWindow))
+                throw new ArgumentException("Run the Explorer drag probe separately, on Windows only.");
             if (_manualWorkflow && (_inspectRecovery || _spaceWindow) || _desktopReview && _inspectRecovery)
                 throw new ArgumentException("Run the manual workflow, recovery inspection and desktop review separately.");
             if (_desktopReview && !OperatingSystem.IsWindows())
@@ -111,7 +115,9 @@ public static class NativeWindowSmokeRunner
             }
             try
             {
-                if (Directory.Exists(tempDir))
+                if (_explorerDrag && _exitCode != 0)
+                    Console.Error.WriteLine("Explorer failure evidence retained: " + tempDir);
+                else if (Directory.Exists(tempDir))
                     Directory.Delete(tempDir, recursive: true);
             }
             catch { }
@@ -269,13 +275,14 @@ public static class NativeWindowSmokeRunner
 
     public static void AttachAutoClose(IClassicDesktopStyleApplicationLifetime desktop, Window window)
     {
-        // 15-second watchdog timer: prevents CLI hanging if Window Manager never opens window
+        // Explorer automation includes four bounded OS drags, not just window startup.
+        int watchdogSeconds = _explorerDrag ? 120 : 15;
         var watchdogTimer = new System.Threading.Timer(_ =>
         {
             Dispatcher.UIThread.Post(() =>
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("[NATIVE-WINDOW-SMOKE] Watchdog timeout: Window Manager failed to open native window within 15 seconds.");
+                Console.WriteLine($"[NATIVE-WINDOW-SMOKE] Native probe exceeded {watchdogSeconds} seconds.");
                 Console.ResetColor();
 
                 var timeoutJson = new
@@ -283,7 +290,7 @@ public static class NativeWindowSmokeRunner
                     Success = false,
                     HostOS = RuntimeInformation.OSDescription,
                     HostRID = RuntimeInformation.RuntimeIdentifier,
-                    Error = "Window Manager Opened timeout after 15 seconds.",
+                    Error = $"Native probe timeout after {watchdogSeconds} seconds.",
                     NativeWindowOpened = false
                 };
                 Console.WriteLine("NATIVE_WINDOW_RESULT_JSON:");
@@ -292,7 +299,7 @@ public static class NativeWindowSmokeRunner
                 _exitCode = 1;
                 desktop.Shutdown(1);
             });
-        }, null, TimeSpan.FromSeconds(15), Timeout.InfiniteTimeSpan);
+        }, null, TimeSpan.FromSeconds(watchdogSeconds), Timeout.InfiniteTimeSpan);
 
         window.Opened += (s, e) =>
         {
@@ -317,6 +324,7 @@ public static class NativeWindowSmokeRunner
                         throw new InvalidOperationException($"Invalid native window render bounds: {bounds.Width}x{bounds.Height}.");
                     }
 
+                    if (_explorerDrag) await ExplorerDragSmoke.VerifyAsync(window, ActiveTempStore!);
                     bool manualWorkflowVerified = false;
                     if (_manualWorkflow)
                     {
@@ -374,7 +382,10 @@ public static class NativeWindowSmokeRunner
                         SpaceWindowVerified = spaceHandle is not null,
                         SpaceWindowHandle = spaceHandle,
                         DesktopReviewShown = _desktopReview,
-                        InputMethod = "Production view-model commands in a native window; not physical keyboard/mouse injection",
+                        ExplorerDragVerified = _explorerDrag,
+                        InputMethod = _explorerDrag
+                            ? "OS mouse injection with real Explorer; production commands for confirmation and undo. Not human physical-input acceptance."
+                            : "Production view-model commands in a native window; not physical keyboard/mouse injection",
                         HostOS = RuntimeInformation.OSDescription,
                         HostRID = RuntimeInformation.RuntimeIdentifier,
                         Architecture = RuntimeInformation.ProcessArchitecture.ToString(),
