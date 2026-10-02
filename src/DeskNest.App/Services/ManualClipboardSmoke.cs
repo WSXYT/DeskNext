@@ -324,7 +324,21 @@ internal static class ManualClipboardSmoke
             if (directory) Directory.CreateDirectory(Path.Combine(external, "empty"));
             string externalContent = directory ? Path.Combine(external, "item.txt") : external;
             File.WriteAllText(externalContent, "external fixture");
-            await studio.RegisterPathToTriageAsync(external);
+            if (OperatingSystem.IsWindows())
+            {
+                studio.SelectSpace(studio.AllSpaces.Single(s => s.Id == source.Id));
+                long beforeDrop = store.Snapshot.Revision;
+                await studio.DropPathsOnSpaceAsync([external]);
+                if (!studio.IsImportConfirmationOpen || studio.ImportSourcePath != external || !Exists(external) ||
+                    store.Snapshot.Revision != beforeDrop + 1)
+                    throw new InvalidOperationException("External space drop must create review metadata and request confirmation, never move immediately.");
+                studio.CloseImportConfirmation();
+                await studio.DropPathsOnSpaceAsync([external]); // Reuse the pending item rather than accumulating duplicates.
+                if (store.Snapshot.Revision != beforeDrop + 1 || studio.PendingItems.Count(p => p.Path == external) != 1)
+                    throw new InvalidOperationException("Repeated external drop must reuse its pending review.");
+                studio.CloseImportConfirmation();
+            }
+            else await studio.RegisterPathToTriageAsync(external);
             studio.SelectedTabIndex = 1;
             var pending = studio.PendingItems.Single(p => p.Path == external);
             pending.TargetSpace = studio.AllSpaces.Single(s => s.Id == source.Id);

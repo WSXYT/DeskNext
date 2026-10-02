@@ -1113,6 +1113,45 @@ public sealed partial class StudioViewModel : ViewModelBase
         }
 
         var target = SelectedSpace; // Keep the user's target even if selection changes during persistence.
+        if (IsImportConfirmationOpen || IsImportBusy) return;
+        if (paths.Count == 1 && OnImportPending is not null)
+        {
+            try
+            {
+                string path = Path.TrimEndingDirectorySeparator(DeskNest.Platform.PlatformFileActions.RequireExistingLocalPath(paths[0]));
+                string root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(target.Folder));
+                string prefix = Path.EndsInDirectorySeparator(root) ? root : root + Path.DirectorySeparatorChar;
+                var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+                if (!string.Equals(path, root, comparison) && !path.StartsWith(prefix, comparison))
+                {
+                    // Cataloged items already have a move command. Never re-enroll them as external imports.
+                    if (AllSpaces.SelectMany(s => s.Files).Any(f => string.Equals(
+                        Path.TrimEndingDirectorySeparator(Path.GetFullPath(f.Path)), path, comparison)))
+                    {
+                        SpaceDropNotice = Localizer["Drop.UseMoveToSpace"];
+                        return;
+                    }
+                    var pending = PendingItems.FirstOrDefault(p => string.Equals(
+                        Path.TrimEndingDirectorySeparator(Path.GetFullPath(p.Path)), path, comparison));
+                    if (pending is null)
+                    {
+                        await RegisterPathToTriageAsync(path); // Review metadata only; confirmation owns the move.
+                        pending = PendingItems.FirstOrDefault(p => string.Equals(p.Path, path, comparison));
+                    }
+                    if (pending is null) return;
+                    pending.TargetSpace = AllSpaces.FirstOrDefault(s => s.Id == target.Id);
+                    SelectedTabIndex = 1;
+                    OpenImportConfirmation(pending);
+                    SpaceDropNotice = Localizer["Triage.ImportNotice"];
+                    return;
+                }
+            }
+            catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException)
+            {
+                SpaceDropNotice = Localizer.GetString("Files.ActionFailedNotice", error.Message);
+                return;
+            }
+        }
         int registered = 0;
         string? refusal = null;
         foreach (var p in paths)

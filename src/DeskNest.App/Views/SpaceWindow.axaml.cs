@@ -193,7 +193,15 @@ public partial class SpaceWindow : Window
         if (_studio is null || Space is null) return;
         var studio = _studio;
         studio.SelectSpace(Space);
-        if (StudioView.HasFiles(e)) await studio.DropPathsOnSpaceAsync(StudioView.ExtractPaths(e));
+        if (StudioView.HasFiles(e))
+        {
+            await studio.DropPathsOnSpaceAsync(StudioView.ExtractPaths(e));
+            if (studio.IsImportConfirmationOpen)
+            {
+                OnReturnClick(sender, e);
+                studio.SelectedTabIndex = 1; // The borrowed workbench owns the confirmation and pending review.
+            }
+        }
         else studio.SpaceDropNotice = studio.Localizer["Drop.UnsupportedPayload"];
     }
 }

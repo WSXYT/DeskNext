@@ -2,6 +2,12 @@
 
 Status: implementation in progress. Desktop takeover and watcher-driven automatic moves remain disabled.
 
+## Direct external-drop confirmation (2026-10-02)
+
+Dropping one external file or directory onto a space on Windows now opens the **existing import confirmation** with that space preselected. The drop only creates/reuses pending review metadata; only confirmation calls the existing journaled `ImportPendingAsync`, and existing undo restores the external path. Cancelling leaves the source in place and its review item available. A space-window drop brings its borrowed workbench forward to show that confirmation. Already-cataloged external items are directed to **Move to space** rather than duplicated as imports. Multi-item external drops and non-Windows imports retain the prior refusal/capsule path. In-root registration still uses the metadata membership check.
+
+Relevant checks only: App build zero warnings/errors; `artifacts/p3-publication-tests/headless-space-drop-import.log` reports `Success=true`, `ManagedClipboardWorkflowVerified=true`, 10062 ms. Existing file/directory workflows cover drop → confirmation/cancel → repeated-drop deduplication → confirmed import → undo; the existing input-routing check distinguishes pending review from a falsely cataloged/moved file. All twelve locale key sets match. No new transaction, full suite, package or CI run; this is later than CI `37017430842`, and real file-manager drag negotiation remains unverified.
+
 ## Space-window file actions and integration checkpoint (2026-10-02)
 
 Independent space-window rows now expose the existing Open, Reveal, Preview, Copy/Cut/Paste, Move to space, Rename and Delete/Remove commands in a context menu. The clicked row and its own space become the command subject, regardless of workbench selection. Preview/rename/delete bring the workbench forward for its existing dialog/confirmation; no second file-operation implementation or automatic move was added. Existing localized labels and platform copy gates are reused.
