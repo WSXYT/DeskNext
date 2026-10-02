@@ -1,5 +1,10 @@
 {
   "App.Title": "DeskNext",
+  "Startup.KeepCopyFiles": "Dateien behalten und fortfahren",
+  "Startup.KeepCopyFilesNotice": "Diese Kopie wurde nicht zum Arbeitsbereich hinzugefügt. Prüfen Sie die Pfade unten. Beim Fortfahren wird nur der Wiederherstellungsdatensatz im App-Datenordner archiviert; Quelle, temporäre Kopie und Zieldateien bleiben unverändert. Keine Kopie wird übernommen.",
+  "Startup.KeepCopyFilesConfirm": "Ich werde verbleibende Kopien selbst prüfen und verwalten.",
+  "Startup.CopyStaging": "Temporäre Kopie (eventuell nicht vorhanden)",
+  "Startup.CopyEvidenceArchived": "Wiederherstellungsdatensatz unter {0} archiviert. Verbleibende Kopien wurden nicht zum Arbeitsbereich hinzugefügt.",
   "Triage.ImportAction": "In Bereich verschieben",
   "Triage.ImportNotice": "Die Datei oder der Ordner wird auf dem Datenträger verschoben. Im Verlauf lässt sich der ursprüngliche Ort wiederherstellen.",
   "Triage.ImportFrom": "Von",

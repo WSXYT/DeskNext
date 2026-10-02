@@ -12,7 +12,7 @@ public sealed class CopyRecoveryTests : IDisposable
     [WindowsHandleTheory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task UnenrolledCopyRetainsIntentAndObjectsAcrossRestart(bool directory)
+    public async Task UnenrolledCopyRetainsIntentUntilExplicitArchiveWithoutAdoption(bool directory)
     {
         var (source, target, file) = Fixture(directory);
         var journal = new CopyRecoveryJournal(root);
@@ -38,6 +38,17 @@ public sealed class CopyRecoveryTests : IDisposable
         Assert.Single(reopened.Snapshot.Files);
         Assert.Equal("preserved", File.ReadAllText(directory ? Path.Combine(file.Path, "item.txt") : file.Path));
         string destination = Path.Combine(target.Folder, file.Name);
+        Assert.Equal("preserved", File.ReadAllText(directory ? Path.Combine(destination, "item.txt") : destination));
+        long revision = reopened.Snapshot.Revision;
+        var info = Assert.IsType<UnconfirmedCopyInfo>(await recovering.InspectUnconfirmedCopyAsync());
+        await Assert.ThrowsAsync<InvalidDataException>(() => recovering.ArchiveUnconfirmedCopyAsync(info with { CopyId = Guid.NewGuid() }));
+        string archive = await recovering.ArchiveUnconfirmedCopyAsync(info);
+        Assert.Equal(before, File.ReadAllBytes(archive));
+        Assert.False(journal.Exists);
+        await recovering.RecoverPendingAsync();
+        Assert.Equal(revision, reopened.Snapshot.Revision);
+        Assert.Single(reopened.Snapshot.Files);
+        Assert.Equal("preserved", File.ReadAllText(directory ? Path.Combine(file.Path, "item.txt") : file.Path));
         Assert.Equal("preserved", File.ReadAllText(directory ? Path.Combine(destination, "item.txt") : destination));
     }
 
@@ -70,6 +81,9 @@ public sealed class CopyRecoveryTests : IDisposable
         if (tamper) File.WriteAllText(directory ? Path.Combine(destination, "item.txt") : destination, "external");
         await using var reopened = await WorkspaceStore.OpenAsync(root);
         var coordinator = new ManualOrganizationCoordinator(reopened, new DesktopOrganizationTransaction(Path.Combine(root, "move.json")));
+        Assert.Null(await coordinator.InspectUnconfirmedCopyAsync());
+        await Assert.ThrowsAsync<InvalidDataException>(() => coordinator.ArchiveUnconfirmedCopyAsync(
+            new UnconfirmedCopyInfo(copiedId, file.Path, journal.Read().TemporaryPath, destination)));
         if (tamper)
         {
             await Assert.ThrowsAsync<InvalidDataException>(() => coordinator.RecoverPendingAsync());

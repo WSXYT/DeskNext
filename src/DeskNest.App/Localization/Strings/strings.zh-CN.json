@@ -1,5 +1,10 @@
 {
   "App.Title": "DeskNext",
+  "Startup.KeepCopyFiles": "保留文件并继续",
+  "Startup.KeepCopyFilesNotice": "此复制尚未加入工作区。请核对下方路径。继续只会将恢复记录归档到应用数据目录；不会移动或删除来源、临时副本或目标文件，也不会接纳副本。",
+  "Startup.KeepCopyFilesConfirm": "我会自行核对和处理留存的副本。",
+  "Startup.CopyStaging": "临时副本（可能不存在）",
+  "Startup.CopyEvidenceArchived": "恢复记录已归档至 {0}。留存副本未加入工作区。",
   "Triage.ImportAction": "移入空间",
   "Triage.ImportNotice": "这会实际移动文件或文件夹。可在操作历史中撤销，恢复到原始位置。",
   "Triage.ImportFrom": "来源",

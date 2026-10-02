@@ -1,5 +1,10 @@
 {
   "App.Title": "DeskNext",
+  "Startup.KeepCopyFiles": "Keep files and continue",
+  "Startup.KeepCopyFilesNotice": "This copy was not added to the workspace. Check the paths below. Continuing archives only its recovery record in the app data folder; source, temporary and destination files stay untouched. No copy is adopted.",
+  "Startup.KeepCopyFilesConfirm": "I will check and manage any remaining copies myself.",
+  "Startup.CopyStaging": "Temporary copy (may not exist)",
+  "Startup.CopyEvidenceArchived": "Recovery record archived at {0}. Remaining copies were not added to the workspace.",
   "Triage.ImportAction": "Move into space",
   "Triage.ImportNotice": "This moves the file or folder on disk. Undo in Operation History restores its original location.",
   "Triage.ImportFrom": "From",

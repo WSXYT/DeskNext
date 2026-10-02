@@ -59,6 +59,14 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     private string _recoveryEvidenceText = string.Empty;
     public bool HasRecoveryEvidence => !string.IsNullOrEmpty(RecoveryEvidenceText);
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasUnconfirmedCopy))]
+    private UnconfirmedCopyInfo? _unconfirmedCopy;
+    public bool HasUnconfirmedCopy => UnconfirmedCopy is not null;
+
+    [ObservableProperty]
+    private bool _keepCopyFilesConfirmed;
+
     public bool HasStartupError => StartupState is StartupState.LockConflict or StartupState.RecoveryRequired or StartupState.Error;
     public bool IsLockConflict => StartupState == StartupState.LockConflict;
     public bool IsRecoveryRequired => StartupState == StartupState.RecoveryRequired;
@@ -200,6 +208,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
                 IsLoading = true;
                 StartupState = StartupState.Loading;
                 RecoveryEvidenceText = string.Empty;
+                UnconfirmedCopy = null;
+                KeepCopyFilesConfirmed = false;
                 IsStudioActive = false;
                 IsOnboardingActive = false;
             });
@@ -232,6 +242,18 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
                         ex is IOException ? StartupState.LockConflict : StartupState.Error;
                     StartupErrorMessage = ex.Message;
                 });
+                if (ex is InvalidDataException && _manualCoordinator is not null)
+                {
+                    try
+                    {
+                        var info = await _manualCoordinator.InspectUnconfirmedCopyAsync().ConfigureAwait(false);
+                        await SetUIStateAsync(() => UnconfirmedCopy = info);
+                    }
+                    catch (Exception detailError) when (detailError is IOException or InvalidDataException or NotSupportedException)
+                    {
+                        // Corrupt/overlapping evidence remains blocked; the original failure stays visible.
+                    }
+                }
             }
             finally
             {
@@ -830,6 +852,34 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     public string StatusDotColor => HasStartupError ? "#EF4444" : "#10B981";
     public string StatusTitleText => HasStartupError ? Localizer["Status.Error"] : Localizer["Status.Ready"];
     public string StatusNoticeText => HasStartupError ? Localizer["Status.NoticeError"] : Localizer["Status.NoticeP2"];
+
+    [RelayCommand]
+    public async Task ArchiveUnconfirmedCopyAsync()
+    {
+        string? archive = null;
+        await _startupGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (_disposed || !IsRecoveryRequired || !KeepCopyFilesConfirmed ||
+                UnconfirmedCopy is not { } expected || _manualCoordinator is null) return;
+            archive = await _manualCoordinator.ArchiveUnconfirmedCopyAsync(expected).ConfigureAwait(false);
+            await SetUIStateAsync(() => { UnconfirmedCopy = null; KeepCopyFilesConfirmed = false; });
+        }
+        catch (Exception ex)
+        {
+            await SetUIStateAsync(() => StartupErrorMessage = Localizer.GetString("Files.ActionFailedNotice", ex.Message));
+        }
+        finally { _startupGate.Release(); }
+        if (archive is not null)
+        {
+            await InitializeWorkspaceAsync(_dataDirectory);
+            await SetUIStateAsync(() =>
+            {
+                if (Studio is not null)
+                    Studio.FileActionNotice = Localizer.GetString("Startup.CopyEvidenceArchived", archive);
+            });
+        }
+    }
 
     [RelayCommand]
     public async Task InspectRecoveryEvidenceAsync()

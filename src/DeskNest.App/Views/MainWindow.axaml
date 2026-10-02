@@ -127,6 +127,22 @@
                             <TextBlock Text="{Binding Localizer[Startup.RecoveryError.Message]}" TextWrapping="Wrap" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"/>
                         </StackPanel>
 
+                        <StackPanel Spacing="8" IsVisible="{Binding HasUnconfirmedCopy}">
+                            <TextBlock Text="{Binding Localizer[Startup.KeepCopyFilesNotice]}" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding Localizer[Triage.ImportFrom]}"/>
+                            <TextBox Text="{Binding UnconfirmedCopy.SourcePath, Mode=OneWay}" IsReadOnly="True" FlowDirection="LeftToRight"/>
+                            <TextBlock Text="{Binding Localizer[Triage.ImportTo]}"/>
+                            <TextBox Text="{Binding UnconfirmedCopy.DestinationPath, Mode=OneWay}" IsReadOnly="True" FlowDirection="LeftToRight"/>
+                            <TextBlock Text="{Binding Localizer[Startup.CopyStaging]}"/>
+                            <TextBox Text="{Binding UnconfirmedCopy.TemporaryPath, Mode=OneWay}" IsReadOnly="True" FlowDirection="LeftToRight"/>
+                            <CheckBox Name="KeepCopyFilesConfirmation" IsChecked="{Binding KeepCopyFilesConfirmed}"
+                                      IsEnabled="{Binding !ArchiveUnconfirmedCopyCommand.IsRunning}">
+                                <TextBlock Text="{Binding Localizer[Startup.KeepCopyFilesConfirm]}" TextWrapping="Wrap"/>
+                            </CheckBox>
+                            <Button Name="KeepCopyFilesButton" Content="{Binding Localizer[Startup.KeepCopyFiles]}"
+                                    Command="{Binding ArchiveUnconfirmedCopyCommand}" IsEnabled="{Binding KeepCopyFilesConfirmed}"/>
+                        </StackPanel>
+
                         <!-- Diagnostic details box -->
                         <Border Background="{DynamicResource ConsoleBackgroundBrush}"
                                 CornerRadius="{DynamicResource RadiusSmall}"

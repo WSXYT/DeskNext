@@ -204,6 +204,62 @@ public static class HeadlessSmokeRunner
             AwaitOnUIThread(unopenedVm.DisposeAsync().AsTask(), "pre-open retry disposal");
             Directory.Delete(unopenedRoot, recursive: true);
         }
+
+        // UI fixture for manual abandonment; actual copy-failure behavior is covered by Core.
+        using var copyTemp = new TempTestDir();
+        string sourceFolder = Directory.CreateDirectory(Path.Combine(copyTemp.Path, "source")).FullName;
+        string targetFolder = Directory.CreateDirectory(Path.Combine(copyTemp.Path, "target")).FullName;
+        var sourceSpace = new WorkspaceSpace(Guid.NewGuid(), "Source", "", SpaceStorageMode.Managed, sourceFolder);
+        var targetSpace = new WorkspaceSpace(Guid.NewGuid(), "Target", "", SpaceStorageMode.Managed, targetFolder);
+        var sourceFile = new WorkspaceFile(Guid.NewGuid(), sourceSpace.Id, "item.txt", Path.Combine(sourceFolder, "item.txt"), false);
+        Guid copyId = Guid.NewGuid();
+        string destination = Path.Combine(targetFolder, "item.txt");
+        string staging = Path.Combine(targetFolder, ".desknext-copy-" + copyId.ToString("N"));
+        File.WriteAllText(sourceFile.Path, "original");
+        File.WriteAllText(destination, "unconfirmed destination");
+        File.WriteAllText(staging, "partial copy");
+        string copyJournal = Path.Combine(copyTemp.Path, "copy-recovery.json");
+        string json = JsonSerializer.Serialize(new { version = 1, fileId = copyId, sourceFileId = sourceFile.Id,
+            targetSpaceId = targetSpace.Id, sourcePath = sourceFile.Path, destinationPath = destination, isDirectory = false });
+        File.WriteAllText(copyJournal, json);
+        var openCopyStore = WorkspaceStore.OpenAsync(copyTemp.Path);
+        AwaitOnUIThread(openCopyStore, "copy archive fixture store");
+        var copyStore = openCopyStore.Result;
+        MainWindow? copyWindow = null;
+        var copyVm = new MainWindowViewModel(copyStore);
+        try
+        {
+            AwaitOnUIThread(copyStore.UpdateAsync(s => s with { OnboardingComplete = true, OnboardingStep = 5,
+                Spaces = [sourceSpace, targetSpace], Files = [sourceFile] }), "copy archive metadata");
+            AwaitOnUIThread(copyVm.InitializeWorkspaceAsync(copyTemp.Path), "unconfirmed copy startup");
+            if (!copyVm.IsRecoveryRequired || !copyVm.HasUnconfirmedCopy)
+                throw new InvalidOperationException("Valid unenrolled copy must expose manual preservation.");
+            AwaitOnUIThread(copyVm.ArchiveUnconfirmedCopyAsync(), "unconfirmed archive refusal");
+            if (!File.Exists(copyJournal)) throw new InvalidOperationException("Archiving requires explicit confirmation.");
+            copyWindow = new MainWindow(copyVm);
+            copyWindow.Show();
+            Dispatcher.UIThread.RunJobs();
+            var confirm = copyWindow.FindControl<CheckBox>("KeepCopyFilesConfirmation")!;
+            var keep = copyWindow.FindControl<Button>("KeepCopyFilesButton")!;
+            if (!confirm.IsEffectivelyVisible || keep.IsEnabled)
+                throw new InvalidOperationException("Recovery preservation must require visible user confirmation.");
+            confirm.IsChecked = true;
+            Dispatcher.UIThread.RunJobs();
+            if (!keep.IsEnabled || keep.Command != copyVm.ArchiveUnconfirmedCopyCommand)
+                throw new InvalidOperationException("Recovery action is not bound to confirmation.");
+            AwaitOnUIThread(copyVm.ArchiveUnconfirmedCopyCommand.ExecuteAsync(null), "keep copy files and continue");
+            string archived = Directory.GetFiles(copyTemp.Path, "copy-recovery-*.archived.json").Single();
+            if (copyVm.StartupState != StartupState.Ready || File.Exists(copyJournal) || File.ReadAllText(archived) != json ||
+                copyStore.Snapshot.Files.Count != 1 || File.ReadAllText(sourceFile.Path) != "original" ||
+                File.ReadAllText(destination) != "unconfirmed destination" || File.ReadAllText(staging) != "partial copy")
+                throw new InvalidOperationException("Manual recovery must preserve files/evidence without adopting the copy.");
+        }
+        finally
+        {
+            copyWindow?.Close();
+            AwaitOnUIThread(copyVm.DisposeAsync().AsTask(), "copy recovery view disposal");
+            AwaitOnUIThread(copyStore.DisposeAsync().AsTask(), "copy recovery store disposal");
+        }
     }
 
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]

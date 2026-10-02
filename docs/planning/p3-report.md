@@ -2,6 +2,12 @@
 
 Status: implementation in progress. Desktop takeover and watcher-driven automatic moves remain disabled.
 
+## Manual recovery: keep unconfirmed copy files
+
+For a valid copy intent with **no enrolled copy and no move journal**, the recovery screen now shows source, destination and staging paths plus an unchecked acknowledgement. **Keep files and continue** checkpoints the existing workspace, archives the exact intent beside the workspace, and retries startup on the same owner. It does not adopt, inspect recursively, move or delete any source/staged/destination item. Changed confirmation details, corrupt/overlapping evidence and already-enrolled publications cannot use this action; they retain normal recovery verification. Read-only evidence inspection remains separate.
+
+App build passed without warnings/errors; the existing copy-recovery cases passed 14/14, and `headless-keep-copy-files.log` passed the visible confirmation→archive→ready path with all files untouched and no copied catalog entry. No new fault protocol, full CI or package run was added. Production Copy remains gated pending the final enablement decision; this increment supplies the missing user recovery choice rather than silently discarding evidence.
+
 ## Current functional increment: confirmed external import
 
 The pending drawer now exposes **Move into space** with explicit source/destination confirmation. Windows NTFS files and whole directories move through the existing transaction and backup checkpoint; Undo restores the external location and original pending record. `ImportSource` records that origin without inventing a source space, and completed undo/failure history survives dismissing the restored review item. Missing mapped roots, occupied targets and stale selections remain refused. Direct space drops still only catalog in-root items; macOS/Linux import and production Copy remain visibly unavailable.

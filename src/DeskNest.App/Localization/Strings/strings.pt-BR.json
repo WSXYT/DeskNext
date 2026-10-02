@@ -1,5 +1,10 @@
 {
   "App.Title": "DeskNext",
+  "Startup.KeepCopyFiles": "Manter arquivos e continuar",
+  "Startup.KeepCopyFilesNotice": "Esta cópia não foi adicionada ao espaço de trabalho. Confira os caminhos abaixo. Continuar apenas arquiva o registro de recuperação na pasta de dados do aplicativo; a origem, a cópia temporária e os arquivos de destino permanecem intactos. Nenhuma cópia é incorporada.",
+  "Startup.KeepCopyFilesConfirm": "Vou conferir e gerenciar pessoalmente as cópias restantes.",
+  "Startup.CopyStaging": "Cópia temporária (pode não existir)",
+  "Startup.CopyEvidenceArchived": "Registro de recuperação arquivado em {0}. As cópias restantes não foram adicionadas ao espaço de trabalho.",
   "Triage.ImportAction": "Mover para o espaço",
   "Triage.ImportNotice": "Isso move o arquivo ou a pasta no disco. Desfazer no histórico restaura o local original.",
   "Triage.ImportFrom": "De",

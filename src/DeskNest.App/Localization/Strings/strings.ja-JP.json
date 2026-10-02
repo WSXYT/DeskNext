@@ -1,5 +1,10 @@
 {
   "App.Title": "DeskNext",
+  "Startup.KeepCopyFiles": "ファイルを保持して続行",
+  "Startup.KeepCopyFilesNotice": "このコピーはワークスペースに追加されていません。以下のパスを確認してください。続行すると復旧記録のみがアプリのデータフォルダーに保管されます。元ファイル、一時コピー、コピー先のファイルは変更されず、コピーも登録されません。",
+  "Startup.KeepCopyFilesConfirm": "残ったコピーは自分で確認し、管理します。",
+  "Startup.CopyStaging": "一時コピー（存在しない場合があります）",
+  "Startup.CopyEvidenceArchived": "復旧記録を {0} に保管しました。残ったコピーはワークスペースに追加されていません。",
   "Triage.ImportAction": "スペースへ移動",
   "Triage.ImportNotice": "ファイルまたはフォルダーを実際に移動します。操作履歴から元の場所に戻せます。",
   "Triage.ImportFrom": "移動元",

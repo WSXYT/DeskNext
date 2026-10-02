@@ -54,6 +54,15 @@ internal sealed class CopyRecoveryJournal(string dataDirectory)
         File.Delete(JournalPath); // Only the app-owned journal, never the copied item.
     }
 
+    internal string Archive(CopyRecoveryIntent expected)
+    {
+        if (Read() != expected) throw new InvalidDataException("Copy recovery intent changed; refusing to archive it.");
+        string archive = Path.Combine(Path.GetDirectoryName(JournalPath)!,
+            $"copy-recovery-{expected.FileId:N}-{Guid.NewGuid():N}.archived.json");
+        File.Move(JournalPath, archive); // Preserve the exact evidence; never touch paths inside it.
+        return archive;
+    }
+
     private static void Validate(CopyRecoveryIntent intent)
     {
         if (intent.Version != 1 || intent.FileId == Guid.Empty || intent.SourceFileId == Guid.Empty ||

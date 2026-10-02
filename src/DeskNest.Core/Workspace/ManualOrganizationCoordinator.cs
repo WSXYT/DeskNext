@@ -2,6 +2,8 @@ using DeskNest.Core.Storage;
 
 namespace DeskNest.Core.Workspace;
 
+public sealed record UnconfirmedCopyInfo(Guid CopyId, string SourcePath, string TemporaryPath, string DestinationPath);
+
 public sealed record ManualOrganizationResult(
     Guid FileId,
     Guid SourceSpaceId,
@@ -30,6 +32,40 @@ public sealed class ManualOrganizationCoordinator
         _copyMetadataGuard = copyMetadataGuard;
         _copyJournal = new CopyRecoveryJournal(store.DataDirectory);
     }
+
+    /// <summary>Read-only description for explicit user reconciliation; not file-operation authority.</summary>
+    public async Task<UnconfirmedCopyInfo?> InspectUnconfirmedCopyAsync(CancellationToken cancellationToken = default)
+    {
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try { return ReadUnconfirmedCopy() is { } intent ? DescribeCopy(intent) : null; }
+        finally { _gate.Release(); }
+    }
+
+    /// <summary>User-confirmed abandonment of an unenrolled copy only. Keep every file and the exact journal.</summary>
+    public async Task<string> ArchiveUnconfirmedCopyAsync(UnconfirmedCopyInfo expected, CancellationToken cancellationToken = default)
+    {
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var intent = ReadUnconfirmedCopy();
+            if (intent is null || DescribeCopy(intent) != expected)
+                throw new InvalidDataException("The unconfirmed copy changed; inspect recovery again.");
+            await _store.CheckpointRecoveryBackupAsync().ConfigureAwait(false);
+            return _copyJournal.Archive(intent);
+        }
+        finally { _gate.Release(); }
+    }
+
+    private CopyRecoveryIntent? ReadUnconfirmedCopy()
+    {
+        // Never bypass move recovery or verification of an already-enrolled publication.
+        if (_transaction.HasRecoveryJournal || !_copyJournal.Exists) return null;
+        var intent = _copyJournal.Read();
+        return _store.Snapshot.Files.Any(f => f.Id == intent.FileId) ? null : intent;
+    }
+
+    private static UnconfirmedCopyInfo DescribeCopy(CopyRecoveryIntent intent) =>
+        new(intent.FileId, intent.SourcePath, intent.TemporaryPath, intent.DestinationPath);
 
     public async Task RecoverPendingAsync(CancellationToken cancellationToken = default)
     {
