@@ -660,6 +660,30 @@ public sealed partial class StudioViewModel : ViewModelBase
     [ObservableProperty]
     private string _settingsManagedRoot = string.Empty;
 
+    public Func<CancellationToken, Task>? OnStartFolderObservation { get; set; }
+    public Func<Task>? OnStopFolderObservation { get; set; }
+    [ObservableProperty] private bool _isFolderObservationActive;
+    [ObservableProperty] private string _folderObservationNotice = string.Empty;
+
+    [RelayCommand(IncludeCancelCommand = true)]
+    private async Task StartFolderObservationAsync(CancellationToken token)
+    {
+        try
+        {
+            if (OnStartFolderObservation is null) { FolderObservationNotice = Localizer["Observation.NoFolders"]; return; }
+            await OnStartFolderObservation(token);
+        }
+        catch (OperationCanceledException) { FolderObservationNotice = Localizer["Observation.Stopped"]; }
+        catch (Exception error) { FolderObservationNotice = Localizer.GetString("Files.ActionFailedNotice", error.Message); }
+    }
+
+    [RelayCommand]
+    private async Task StopFolderObservationAsync()
+    {
+        StartFolderObservationCommand.Cancel();
+        if (OnStopFolderObservation is not null) await OnStopFolderObservation();
+    }
+
     public ObservableCollection<string> SettingsMonitoredFolders { get; } = new();
     public ObservableCollection<string> SettingsExcludedFolders { get; } = new();
 

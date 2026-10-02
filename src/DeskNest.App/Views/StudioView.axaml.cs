@@ -223,6 +223,34 @@ public partial class StudioView : UserControl
         finally { button.IsEnabled = true; }
     }
 
+    private async void OnBrowseObservationFoldersClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not StudioViewModel vm || sender is not Button button) return;
+        var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
+        if (storage?.CanPickFolder != true) { vm.FolderObservationNotice = vm.Localizer["Spaces.FolderPickerUnavailable"]; return; }
+        bool excluded = button.Tag as string == "excluded";
+        button.IsEnabled = false;
+        try
+        {
+            var picked = await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = vm.Localizer[excluded ? "OOBE.Step4.ExcludedLabel" : "OOBE.Step4.MonitoredLabel"], AllowMultiple = true
+            });
+            foreach (var folder in picked)
+            {
+                using (folder)
+                {
+                    if (DataContext != vm) continue;
+                    var path = DeskNest.Platform.PlatformFileActions.RequireExistingLocalPath(folder.TryGetLocalPath() ?? "");
+                    var destinations = excluded ? vm.SettingsExcludedFolders : vm.SettingsMonitoredFolders;
+                    if (!destinations.Contains(path)) destinations.Add(path);
+                }
+            }
+        }
+        catch (Exception error) { vm.FolderObservationNotice = vm.Localizer.GetString("Files.ActionFailedNotice", error.Message); }
+        finally { button.IsEnabled = true; }
+    }
+
     private async void OnBrowseSpaceFolderClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (DataContext is not StudioViewModel vm || !vm.IsNewSpaceMapped || sender is not Button button) return;

@@ -33,6 +33,55 @@ public sealed class ManualOrganizationCoordinator
         _copyJournal = new CopyRecoveryJournal(store.DataDirectory);
     }
 
+    /// <summary>Record observed paths for review only, after any active file transaction finishes.</summary>
+    public async Task<bool> RecordObservedPathsAsync(IReadOnlyList<string> paths, CancellationToken token = default)
+    {
+        await _gate.WaitAsync(token).ConfigureAwait(false);
+        try
+        {
+            if (_transaction.HasRecoveryJournal || _copyJournal.Exists)
+                throw new InvalidOperationException("Resolve retained file recovery evidence before observing folders.");
+            List<PendingFile> SelectNew(WorkspaceState state)
+            {
+                var excluded = state.Settings.ExcludedFolders.Concat(state.Spaces.Select(space => space.Folder))
+                    .Concat([_store.DataDirectory, state.Settings.ManagedRoot, state.Settings.ModelCacheDirectory ?? state.Settings.ManagedRoot]);
+                var additions = new List<PendingFile>();
+                foreach (string input in paths)
+                {
+                    token.ThrowIfCancellationRequested();
+                    if (!Path.IsPathFullyQualified(input)) continue;
+                    string path = Path.TrimEndingDirectorySeparator(Path.GetFullPath(input));
+                    if (!state.Settings.MonitoredFolders.Any(root => IsDescendantPath(path, Path.GetFullPath(root))) ||
+                        excluded.Any(root => PathComparer.Equals(path, Path.TrimEndingDirectorySeparator(root)) || IsDescendantPath(path, root)) ||
+                        state.Files.Any(file => PathComparer.Equals(file.Path, path)) ||
+                        state.Pending.Concat(additions).Any(item => PathComparer.Equals(item.Path, path) || IsDescendantPath(path, item.Path))) continue;
+                    if (!File.Exists(path) && !Directory.Exists(path)) continue;
+                    try { FileSystemVolume.RequireNoReparsePoints(path); }
+                    catch (IOException) { continue; }
+                    catch (UnauthorizedAccessException) { continue; }
+                    additions.Add(new PendingFile(Guid.NewGuid(), Path.GetFileName(path), path,
+                        TriageReason.FilenameAmbiguous, null, DateTimeOffset.UtcNow));
+                }
+                return additions;
+            }
+            if (SelectNew(_store.Snapshot).Count == 0) return false;
+            try
+            {
+                await _store.UpdateAsync(state =>
+                {
+                    token.ThrowIfCancellationRequested();
+                    var additions = SelectNew(state);
+                    // A concurrent settings/catalog save can make every candidate obsolete.
+                    if (additions.Count == 0) throw new OperationCanceledException();
+                    return state with { Pending = [.. state.Pending, .. additions] };
+                }, token).ConfigureAwait(false);
+                return true;
+            }
+            catch (OperationCanceledException) when (!token.IsCancellationRequested) { return false; }
+        }
+        finally { _gate.Release(); }
+    }
+
     /// <summary>Read-only description for explicit user reconciliation; not file-operation authority.</summary>
     public async Task<UnconfirmedCopyInfo?> InspectUnconfirmedCopyAsync(CancellationToken cancellationToken = default)
     {

@@ -202,6 +202,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         try
         {
             if (_disposed) return;
+            await StopFolderObservationAsync();
             _dataDirectory = _store?.DataDirectory ?? customDataDir ?? WorkspaceStore.DefaultDataDirectory();
             await SetUIStateAsync(() =>
             {
@@ -351,6 +352,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             if (OperatingSystem.IsWindows()) studio.AttachCopyFileExecutor(ExecuteCopyFileAsync);
             studio.AttachPasteFileExecutor(ExecutePasteFileAsync);
             studio.OnPreviewClassification = ExecuteClassificationPreviewAsync;
+            studio.OnStartFolderObservation = StartFolderObservationAsync;
+            studio.OnStopFolderObservation = StopFolderObservationAsync;
             studio.OnImportPending = OperatingSystem.IsWindows() ? ExecuteImportPendingAsync : null;
         }
     }
@@ -881,7 +884,13 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         }
 
         if (_store == null) throw new InvalidOperationException("WorkspaceStore is not open.");
+        var priorSettings = _store.Snapshot.Settings;
         var nextStore = await _store.UpdateAsync(update);
+        if (!priorSettings.MonitoredFolders.SequenceEqual(nextStore.Settings.MonitoredFolders) ||
+            !priorSettings.ExcludedFolders.SequenceEqual(nextStore.Settings.ExcludedFolders) ||
+            priorSettings.ManagedRoot != nextStore.Settings.ManagedRoot ||
+            priorSettings.ModelCacheDirectory != nextStore.Settings.ModelCacheDirectory)
+            await StopFolderObservationAsync();
         ApplySnapshot(nextStore);
         return nextStore;
     }
@@ -1024,6 +1033,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         {
             if (_disposed) return;
             _disposed = true;
+            await StopFolderObservationAsync();
             await SetUIStateAsync(() => Studio?.ClearJevSession());
             Localizer.LanguageChanged -= OnLanguageChanged;
             Localizer.PropertyChanged -= OnLocalizerPropertyChanged;

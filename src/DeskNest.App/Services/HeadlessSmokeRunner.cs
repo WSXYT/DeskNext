@@ -71,6 +71,7 @@ public sealed class SmokeTestResult
     public bool FileRowLifetimeVerified { get; set; }
     public bool WorkspaceViewModelLifetimeVerified { get; set; }
     public bool ManagedClipboardWorkflowVerified { get; set; }
+    public bool FolderObservationVerified { get; set; }
     public bool LocalClassificationPreviewVerified { get; set; }
     public bool WorkspaceFileCallbacksInvoked { get; set; }
     public bool WorkspaceFileManagedVsMappedVerified { get; set; }
@@ -633,6 +634,9 @@ public static class HeadlessSmokeRunner
                     $"managed clipboard workflow ({(directory ? "directory" : "file")})", timeoutSeconds: 20);
             }
             result.ManagedClipboardWorkflowVerified = true;
+            using (var observationFixture = new TempTestDir())
+                AwaitOnUIThread(FolderObservationSmoke.VerifyAsync(observationFixture.Path), "folder observation", 20);
+            result.FolderObservationVerified = true;
             string? localModel = args.FirstOrDefault(a => a.StartsWith("--local-model=", StringComparison.Ordinal))?["--local-model=".Length..];
             if (localModel is not null)
             {

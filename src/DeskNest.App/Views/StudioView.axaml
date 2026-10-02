@@ -736,7 +736,8 @@
                         <!-- Monitored list -->
                         <StackPanel Spacing="4">
                             <TextBlock Text="{Binding Localizer[OOBE.Step4.MonitoredLabel]}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            <Grid ColumnDefinitions="*,8,Auto">
+                            <Grid ColumnDefinitions="*,8,Auto,Auto">
+                                <Button Grid.Column="3" Content="{Binding Localizer[Action.Browse]}" Click="OnBrowseObservationFoldersClick" Margin="6,0,0,0"/>
                                 <TextBox Grid.Column="0" Text="{Binding NewSettingsMonitoredFolder}"
                                          FontFamily="Consolas,Menlo,Monospace" FlowDirection="LeftToRight"
                                          FontSize="11"
@@ -761,7 +762,8 @@
                         <!-- Excluded list -->
                         <StackPanel Spacing="4">
                             <TextBlock Text="{Binding Localizer[OOBE.Step4.ExcludedLabel]}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            <Grid ColumnDefinitions="*,8,Auto">
+                            <Grid ColumnDefinitions="*,8,Auto,Auto">
+                                <Button Grid.Column="3" Content="{Binding Localizer[Action.Browse]}" Click="OnBrowseObservationFoldersClick" Tag="excluded" Margin="6,0,0,0"/>
                                 <TextBox Grid.Column="0" Text="{Binding NewSettingsExcludedFolder}"
                                          FontFamily="Consolas,Menlo,Monospace" FlowDirection="LeftToRight"
                                          FontSize="11"
@@ -783,18 +785,19 @@
                             </ItemsControl>
                         </StackPanel>
 
-                        <!-- Wants monitoring checkbox with explicit inactive note -->
-                        <StackPanel Spacing="4">
-                            <CheckBox IsChecked="{Binding SettingsWantsMonitoring}">
-                                <TextBlock Text="{Binding Localizer[OOBE.Step4.WantsMonitoring]}" FontWeight="Medium" FontSize="12"/>
-                            </CheckBox>
-                            <Border CornerRadius="{DynamicResource RadiusSmall}"
-                                    Background="{DynamicResource WarningBadgeBgBrush}"
-                                    Padding="10,8">
-                                <TextBlock Text="{Binding Localizer[OOBE.Step4.MonitoringNotice]}"
-                                           TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource WarningBadgeFgBrush}"/>
-                            </Border>
+                        <!-- Explicit session observation: pending metadata only, no automatic moves. -->
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="{Binding Localizer[Observation.Notice]}" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button x:Name="StartFolderObservationButton" Content="{Binding Localizer[Observation.Start]}"
+                                        Command="{Binding StartFolderObservationCommand}" IsEnabled="{Binding !IsFolderObservationActive}"/>
+                                <Button Content="{Binding Localizer[Observation.Stop]}" Command="{Binding StopFolderObservationCommand}"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding FolderObservationNotice}" TextWrapping="Wrap" FontSize="12"/>
                         </StackPanel>
+
+
                     </StackPanel>
 
                     <Border Height="1" Background="{DynamicResource BorderSubtleBrush}"/>

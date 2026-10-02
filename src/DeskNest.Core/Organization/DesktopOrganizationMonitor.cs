@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Threading.Channels;
+using DeskNest.Core.Storage;
 
 namespace DeskNest.Core.Organization;
 
@@ -28,12 +29,15 @@ public sealed class DesktopOrganizationMonitor : IAsyncDisposable
 {
     private readonly DesktopOrganizationMonitorOptions _options;
     private readonly Func<IReadOnlyList<DesktopOrganizationMonitorCandidate>, Task> _onCandidates;
-    private readonly Dictionary<string, FileSystemWatcher> _watchers = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<string, DateTimeOffset> _baseline = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<string, byte> _queued = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly StringComparer PathComparer = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+    private static readonly StringComparison PathComparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+    private readonly Dictionary<string, FileSystemWatcher> _watchers = new(PathComparer);
+    private readonly ConcurrentDictionary<string, DateTimeOffset> _baseline = new(PathComparer);
+    private readonly ConcurrentDictionary<string, byte> _queued = new(PathComparer);
     private readonly Channel<string> _events;
     private readonly CancellationTokenSource _stop = new();
     private Task? _worker;
+    private IReadOnlyList<string> _excluded = [];
     private int _overflowed;
 
     public DesktopOrganizationMonitor(
@@ -55,7 +59,8 @@ public sealed class DesktopOrganizationMonitor : IAsyncDisposable
         });
     }
 
-    public bool IsRunning => _worker is not null;
+    public bool IsRunning => _worker is { IsCompleted: false };
+    public Exception? Error => _worker?.Exception?.GetBaseException();
     public bool HasOverflowed => Volatile.Read(ref _overflowed) != 0;
     public IReadOnlyCollection<string> BaselinePaths => _baseline.Keys.ToArray();
 
@@ -65,16 +70,18 @@ public sealed class DesktopOrganizationMonitor : IAsyncDisposable
             throw new InvalidOperationException("The monitor is already running.");
 
         var roots = NormalizeRoots(_options.Roots);
-        var excluded = NormalizeRoots(_options.ExcludedFolders);
-        var first = CaptureBaseline(roots, excluded);
+        var excluded = _excluded = _options.ExcludedFolders.Where(path => !string.IsNullOrWhiteSpace(path))
+            .Select(path => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path))).Distinct(PathComparer).ToArray();
+        if (roots.Count == 0) throw new InvalidOperationException("No existing observation folder was selected.");
+        foreach (var root in roots) FileSystemVolume.RequireNoReparsePoints(root);
+        var first = CaptureBaseline(roots, excluded, cancellationToken);
 
         foreach (var root in roots)
         {
             var watcher = new FileSystemWatcher(root)
             {
                 IncludeSubdirectories = true,
-                NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.Size | NotifyFilters.LastWrite,
-                EnableRaisingEvents = true
+                NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.Size | NotifyFilters.LastWrite
             };
             watcher.Created += OnChanged;
             watcher.Changed += OnChanged;
@@ -82,15 +89,16 @@ public sealed class DesktopOrganizationMonitor : IAsyncDisposable
             watcher.Deleted += OnChanged;
             watcher.Error += OnWatcherError;
             _watchers[root] = watcher;
+            watcher.EnableRaisingEvents = true;
         }
 
         await Task.Yield();
         cancellationToken.ThrowIfCancellationRequested();
-        var second = CaptureBaseline(roots, excluded);
-        foreach (var path in second)
+        var second = CaptureBaseline(roots, excluded, cancellationToken);
+        foreach (var path in second.Intersect(first, PathComparer))
             _baseline[path] = DateTimeOffset.UtcNow;
 
-        foreach (var path in second.Except(first, StringComparer.OrdinalIgnoreCase))
+        foreach (var path in second.Except(first, PathComparer))
             Enqueue(path);
         _worker = Task.Run(ProcessEventsAsync);
     }
@@ -102,12 +110,15 @@ public sealed class DesktopOrganizationMonitor : IAsyncDisposable
         foreach (var watcher in _watchers.Values)
             watcher.Dispose();
         _watchers.Clear();
-        if (_worker is not null)
+        try
         {
-            try { await _worker.ConfigureAwait(false); }
-            catch (OperationCanceledException) { }
+            if (_worker is not null)
+            {
+                try { await _worker.ConfigureAwait(false); }
+                catch (OperationCanceledException) { }
+            }
         }
-        _stop.Dispose();
+        finally { _stop.Dispose(); }
     }
 
     private async Task ProcessEventsAsync()
@@ -117,9 +128,15 @@ public sealed class DesktopOrganizationMonitor : IAsyncDisposable
             try
             {
                 if (!File.Exists(path) && !Directory.Exists(path))
+                {
+                    _baseline.TryRemove(path, out _);
                     continue;
-                if (IsExcluded(path))
+                }
+                if (IsExcluded(path) || _baseline.ContainsKey(path))
                     continue;
+                if (_baseline.Count >= DesktopOrganizationTransaction.MaximumDirectoryEntries)
+                    throw new IOException("Observation baseline reached its entry limit; inspect the folder before restarting.");
+                FileSystemVolume.RequireNoReparsePoints(path);
 
                 bool isDirectory = Directory.Exists(path);
                 var stability = await WaitForStabilityAsync(path, isDirectory, _stop.Token).ConfigureAwait(false);
@@ -133,6 +150,7 @@ public sealed class DesktopOrganizationMonitor : IAsyncDisposable
                     new DesktopOrganizationMonitorCandidate(
                         path, isDirectory, DesktopOrganizationSourceScope.Personal, stability.Stable, exclusion)
                 ]).ConfigureAwait(false);
+                _baseline[path] = DateTimeOffset.UtcNow;
             }
             finally
             {
@@ -170,20 +188,33 @@ public sealed class DesktopOrganizationMonitor : IAsyncDisposable
         }
     }
 
-    private bool IsExcluded(string path) =>
-        NormalizeRoots(_options.ExcludedFolders).Any(root =>
-            string.Equals(path, root, StringComparison.OrdinalIgnoreCase) ||
-            path.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
+    private bool IsExcluded(string path) => _excluded.Any(root => IsWithin(path, root));
 
-    private static HashSet<string> CaptureBaseline(IReadOnlyList<string> roots, IReadOnlyList<string> excluded)
+    private static bool IsWithin(string path, string root) => PathComparer.Equals(path, root) ||
+        path.StartsWith(Path.EndsInDirectorySeparator(root) ? root : root + Path.DirectorySeparatorChar, PathComparison);
+
+    private static HashSet<string> CaptureBaseline(IReadOnlyList<string> roots, IReadOnlyList<string> excluded,
+        CancellationToken token)
     {
-        var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var root in roots)
+        var paths = new HashSet<string>(PathComparer);
+        var visited = new HashSet<string>(PathComparer);
+        var pending = new Stack<(string Path, int Depth)>(roots.Select(root => (root, 0)));
+        while (pending.TryPop(out var current))
         {
-            foreach (var path in Directory.EnumerateFileSystemEntries(root, "*", SearchOption.AllDirectories))
+            token.ThrowIfCancellationRequested();
+            if (!visited.Add(current.Path) || excluded.Any(root => IsWithin(current.Path, root))) continue;
+            if ((File.GetAttributes(current.Path) & FileAttributes.ReparsePoint) != 0) continue;
+            if (current.Depth > DesktopOrganizationTransaction.MaximumDirectoryDepth)
+                throw new IOException("Observation baseline exceeded its directory depth limit.");
+            foreach (var path in Directory.EnumerateFileSystemEntries(current.Path))
             {
-                if (!excluded.Any(x => path.StartsWith(x + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)))
-                    paths.Add(Path.GetFullPath(path));
+                token.ThrowIfCancellationRequested();
+                if (excluded.Any(root => IsWithin(path, root))) continue;
+                var attributes = File.GetAttributes(path);
+                if ((attributes & FileAttributes.ReparsePoint) != 0) continue;
+                if (paths.Add(path) && paths.Count > DesktopOrganizationTransaction.MaximumDirectoryEntries)
+                    throw new IOException("Observation baseline exceeded its entry limit.");
+                if ((attributes & FileAttributes.Directory) != 0) pending.Push((path, current.Depth + 1));
             }
         }
         return paths;
@@ -239,8 +270,8 @@ public sealed class DesktopOrganizationMonitor : IAsyncDisposable
 
     private static IReadOnlyList<string> NormalizeRoots(IReadOnlyList<string> paths) =>
         paths.Where(path => !string.IsNullOrWhiteSpace(path))
-            .Select(Path.GetFullPath)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(path => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path)))
+            .Distinct(PathComparer)
             .Where(Directory.Exists)
             .ToArray();
 }
