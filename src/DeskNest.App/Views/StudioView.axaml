@@ -154,18 +154,25 @@
                         <!-- Space Header Info -->
                         <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
                             <StackPanel Grid.Column="0" Spacing="4">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Text="{Binding SelectedSpace.Name}" FontSize="18" FontWeight="SemiBold"/>
-                                    <Border CornerRadius="3"
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Text="{Binding SelectedSpace.Name}" FontSize="18" FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <Border Grid.Column="1" Margin="8,0,0,0" CornerRadius="3"
                                             Background="{DynamicResource SurfaceElevatedBrush}"
                                             BorderBrush="{DynamicResource BorderSubtleBrush}"
                                             BorderThickness="1"
                                             Padding="6,2" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding SelectedSpace.ModeLocalized}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </Border>
-                                </StackPanel>
+                                </Grid>
                                 <TextBlock Text="{Binding SelectedSpace.Description}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             </StackPanel>
+                            <Button Name="CatalogSpaceButton" Grid.Column="1" Margin="12,0,0,0"
+                                    VerticalAlignment="Top" Classes="ActionButton"
+                                    Content="{Binding Localizer[Spaces.CatalogFolder]}"
+                                    ToolTip.Tip="{Binding Localizer[Spaces.CatalogFolderHint]}"
+                                    IsVisible="{Binding SelectedSpace.IsMapped}"
+                                    Command="{Binding CatalogSpaceCommand}"/>
                         </Grid>
 
                          <!-- Path is secondary metadata, not a banner across the canvas. -->
@@ -297,15 +304,20 @@
                                      BorderThickness="0"
                                      ScrollViewer.VerticalScrollBarVisibility="Auto"
                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListBox.KeyBindings>
+                                    <KeyBinding Gesture="Enter" Command="{Binding ExecuteOpenFileCommand}"
+                                                CommandParameter="{Binding SelectedFile}"/>
+                                </ListBox.KeyBindings>
                                 <ListBox.ItemTemplate>
                                     <DataTemplate x:DataType="vm:WorkspaceFileItemViewModel">
                                         <Border Classes="FileRowCard"
+                                                DoubleTapped="OnFileDoubleTapped"
                                                 Margin="0,0,0,1"
                                                 CornerRadius="{DynamicResource RadiusSmall}"
                                                 Padding="12,10"
                                                 ToolTip.Tip="{Binding Path}">
                                             <Border.ContextMenu>
-                                                <ContextMenu>
+                                                <ContextMenu Opened="OnFileMenuOpened">
                                                     <MenuItem Header="{Binding Localizer[Files.ActionOpen]}"
                                                               Command="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).ExecuteOpenFileCommand}"
                                                               CommandParameter="{Binding}"
@@ -319,6 +331,7 @@
                                                               CommandParameter="{Binding}"
                                                               IsEnabled="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).CanPreviewFile}"/>
                                                     <Separator/>
+                                                    <MenuItem Name="MoveToSpaceMenu" Header="{Binding Localizer[Files.ActionMoveToSpace]}"/>
                                                     <MenuItem Header="{Binding Localizer[Files.ActionCut]}"
                                                               Command="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).ExecuteCutFileCommand}"
                                                               CommandParameter="{Binding}"
@@ -1050,8 +1063,29 @@
                     </StackPanel>
 
                     <StackPanel Spacing="4">
+                        <TextBlock Text="{Binding Localizer[Spaces.DialogMode]}" FontWeight="Medium" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <StackPanel Orientation="Horizontal" Spacing="20">
+                            <RadioButton Name="NewSpaceManagedMode" GroupName="NewSpaceMode"
+                                         Content="{Binding Localizer[Spaces.BadgeManaged]}"
+                                         IsChecked="{Binding IsNewSpaceManaged}"/>
+                            <RadioButton Name="NewSpaceMappedMode" GroupName="NewSpaceMode"
+                                         Content="{Binding Localizer[Spaces.BadgeMapped]}"
+                                         IsChecked="{Binding IsNewSpaceMapped}"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Spacing="4">
                         <TextBlock Text="{Binding Localizer[Spaces.DialogFolder]}" FontWeight="Medium" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        <TextBox Text="{Binding NewSpaceFolder}" FontFamily="Consolas,Menlo,Monospace" FlowDirection="LeftToRight" CornerRadius="{DynamicResource RadiusSmall}" FontSize="11"/>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBox Name="NewSpaceFolderInput" Text="{Binding NewSpaceFolder}"
+                                     IsReadOnly="{Binding IsNewSpaceManaged}"
+                                     AutomationProperties.Name="{Binding Localizer[Spaces.DialogFolder]}"
+                                     FontFamily="Consolas,Menlo,Monospace" FlowDirection="LeftToRight"
+                                     CornerRadius="{DynamicResource RadiusSmall}" FontSize="11"/>
+                            <Button Name="BrowseSpaceFolderButton" Grid.Column="1" Margin="8,0,0,0"
+                                    Content="{Binding Localizer[Action.Browse]}" IsVisible="{Binding IsNewSpaceMapped}"
+                                    Click="OnBrowseSpaceFolderClick"/>
+                        </Grid>
                     </StackPanel>
 
                     <TextBlock Text="{Binding SpaceDialogError}" Foreground="{DynamicResource WarningBadgeFgBrush}" FontSize="11"/>

@@ -407,6 +407,8 @@ public sealed class ManualOrganizationCoordinator
         if (!IsDescendantPath(destination, root) ||
             !PathComparer.Equals(Path.GetDirectoryName(destination), root))
             throw new InvalidDataException("The target item would escape the target space.");
+        if (File.Exists(root) || (targetSpace.Mode == SpaceStorageMode.Mapped && !Directory.Exists(root)))
+            throw new DirectoryNotFoundException("The target space folder is unavailable.");
         return destination;
     }
 

@@ -1,4 +1,9 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
+using Avalonia.Input;
+using Avalonia.VisualTree;
+using DeskNest.App.Views;
 using DeskNest.App.ViewModels;
 using DeskNest.Core.Workspace;
 
@@ -25,7 +30,7 @@ internal static class ManualClipboardSmoke
             Spaces = [source],
             Settings = state.Settings with { ManagedRoot = managedRoot }
         });
-        var window = new Window();
+        var window = new Window { Width = 1280, Height = 720 };
         window.Show();
         try
         {
@@ -63,6 +68,49 @@ internal static class ManualClipboardSmoke
                 store.Snapshot.Operations.Single().Status != ProposedOperationStatus.Undone)
                 throw new InvalidOperationException("Undo did not restore the cut source.");
 
+            // The real context menu uses the clicked row, even with no current selection.
+            studio.SelectSpace(studio.AllSpaces.Single(s => s.Id == source.Id));
+            studio.SelectedFile = null;
+            var view = new StudioView { DataContext = studio };
+            window.Content = view;
+            window.UpdateLayout();
+            var row = view.GetVisualDescendants().OfType<Border>().Single(b =>
+                b.ContextMenu is not null && b.DataContext is WorkspaceFileItemViewModel f && f.Id == fileId);
+            var menu = row.ContextMenu!;
+            row.RaiseEvent(new Avalonia.Input.ContextRequestedEventArgs());
+            var moveMenu = menu.Items.OfType<MenuItem>().SingleOrDefault(item => item.Name == "MoveToSpaceMenu")
+                ?? throw new InvalidOperationException("Move submenu is missing from the file menu.");
+            var choice = moveMenu.ItemsSource?.Cast<MenuItem>().SingleOrDefault()
+                ?? throw new InvalidOperationException($"Move targets missing: context={menu.DataContext?.GetType().Name}, enabled={moveMenu.IsEnabled}.");
+            if (!moveMenu.IsEnabled || !Equals(moveMenu.Header, main.Localizer["Files.ActionMoveToSpace"]) ||
+                choice.Command != studio.ExecuteManualMoveCommand ||
+                !Equals(choice.CommandParameter, (fileId, target.Id)) || studio.SelectedFile?.Id != fileId)
+                throw new InvalidOperationException("Move menu did not bind the clicked file and target space.");
+            menu.Close();
+
+            // Route real headless mouse/key input to the existing Open boundary; never launch a shell here.
+            int opens = 0;
+            var openExecutor = studio.OnOpenFile!;
+            studio.AttachOpenFileExecutor(file =>
+            {
+                if (file.Id != fileId) throw new InvalidOperationException("Open targeted a different row.");
+                opens++;
+                return Task.CompletedTask;
+            });
+            window.UpdateLayout();
+            var position = row.TranslatePoint(new Avalonia.Point(24, 20), window)!.Value;
+            window.MouseDown(position, MouseButton.Left);
+            window.MouseUp(position, MouseButton.Left);
+            window.MouseDown(position, MouseButton.Left);
+            window.MouseUp(position, MouseButton.Left);
+            if (opens != 1) throw new InvalidOperationException("Double-click must open the clicked item once.");
+            var files = view.FindControl<ListBox>("FilesListBox")!;
+            files.ContainerFromIndex(0)!.Focus();
+            window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+            window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+            if (opens != 2) throw new InvalidOperationException("Enter must open the selected item once.");
+            studio.AttachOpenFileExecutor(openExecutor);
+
             // A missing mapped folder is not a request to recreate an external directory.
             Directory.Delete(target.Folder);
             await main.UpdateStoreAsync(state => state with
@@ -76,6 +124,9 @@ internal static class ManualClipboardSmoke
             if (Directory.Exists(target.Folder) || !Exists(sourcePath) || store.Snapshot.Revision != revision ||
                 studio.FileActionNotice != main.Localizer["Validation.FileNotFound"])
                 throw new InvalidOperationException("Paste recreated a missing mapped folder or changed metadata.");
+            await studio.ExecuteManualMoveAsync((fileId, target.Id));
+            if (Directory.Exists(target.Folder) || !Exists(sourcePath) || store.Snapshot.Revision != revision)
+                throw new InvalidOperationException("Manual move recreated a missing mapped folder.");
             await main.UpdateStoreAsync(state => state with
             {
                 Spaces = state.Spaces.Select(s => s.Id == target.Id ? s with { Mode = SpaceStorageMode.Managed } : s).ToList()
@@ -86,6 +137,49 @@ internal static class ManualClipboardSmoke
             await studio.ExecutePasteFileAsync(studio.AllSpaces.Single(s => s.Id == target.Id));
             if (File.ReadAllText(target.Folder) != "occupied target" || !Exists(sourcePath) || store.Snapshot.Revision != revision)
                 throw new InvalidOperationException("Paste changed an occupied target or created a pending operation.");
+            await studio.ExecuteManualMoveAsync((fileId, target.Id));
+            if (File.ReadAllText(target.Folder) != "occupied target" || !Exists(sourcePath) || store.Snapshot.Revision != revision)
+                throw new InvalidOperationException("Manual move changed an occupied target or created a pending operation.");
+
+            // Exercise the actual mode controls, not native picker interaction.
+            studio.OpenAddSpaceDialog();
+            var managedMode = view.FindControl<RadioButton>("NewSpaceManagedMode")!;
+            var mappedMode = view.FindControl<RadioButton>("NewSpaceMappedMode")!;
+            var folderInput = view.FindControl<TextBox>("NewSpaceFolderInput")!;
+            var browse = view.FindControl<Button>("BrowseSpaceFolderButton")!;
+            window.UpdateLayout();
+            if (managedMode.IsChecked != true || !folderInput.IsReadOnly || browse.IsVisible)
+                throw new InvalidOperationException("Managed storage must show its generated, read-only path.");
+            mappedMode.IsChecked = true;
+            window.UpdateLayout();
+            if (!studio.IsNewSpaceMapped || folderInput.IsReadOnly || !browse.IsVisible)
+                throw new InvalidOperationException("Mapped storage must expose an editable path and browse action.");
+            studio.NewSpaceName = "Mapped source";
+            folderInput.Text = sourceFolder;
+            await studio.ConfirmAddSpaceAsync();
+            var mapped = store.Snapshot.Spaces.Single(s => s.Name == "Mapped source");
+            if (mapped.Mode != SpaceStorageMode.Mapped || mapped.Folder != sourceFolder ||
+                File.ReadAllText(contentPath) != "clipboard fixture" || store.Snapshot.Files.Count != 1)
+                throw new InvalidOperationException("Creating a mapped space must retain its path without importing files.");
+            var catalog = view.FindControl<Button>("CatalogSpaceButton")!;
+            window.UpdateLayout();
+            if (!catalog.IsEffectivelyVisible || catalog.Command != studio.CatalogSpaceCommand)
+                throw new InvalidOperationException("Mapped space must expose its catalog action.");
+            Directory.CreateDirectory(Path.Combine(sourceFolder, ".desknest-trash"));
+            string stagedCopy = Path.Combine(sourceFolder, ".desknext-copy-" + Guid.NewGuid().ToString("N"));
+            await File.WriteAllTextAsync(stagedCopy, "retain staging");
+            long catalogRevision = store.Snapshot.Revision;
+            await studio.CatalogSpaceAsync();
+            var cataloged = store.Snapshot;
+            var entry = cataloged.Files.Single(f => f.SpaceId == mapped.Id);
+            if (entry.Path != sourcePath || entry.IsDirectory != directory ||
+                cataloged.Revision != catalogRevision + 1 || cataloged.Files.Count != 2 ||
+                cataloged.Operations.Count != 1 || File.ReadAllText(contentPath) != "clipboard fixture" ||
+                File.ReadAllText(stagedCopy) != "retain staging")
+                throw new InvalidOperationException("Catalog must add direct children in one save, without moving them.");
+            await studio.CatalogSpaceAsync();
+            if (store.Snapshot.Files.Count != 2 || store.Snapshot.Files.Single(f => f.SpaceId == mapped.Id).Id != entry.Id)
+                throw new InvalidOperationException("Repeated catalog must preserve existing file identities.");
         }
         finally
         {

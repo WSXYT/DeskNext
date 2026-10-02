@@ -100,7 +100,27 @@ public sealed partial class StudioViewModel : ViewModelBase
     private string _newSpaceDesc = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsNewSpaceManaged))]
+    [NotifyPropertyChangedFor(nameof(IsNewSpaceMapped))]
     private SpaceStorageMode _newSpaceMode = SpaceStorageMode.Managed;
+
+    public bool IsNewSpaceManaged
+    {
+        get => NewSpaceMode == SpaceStorageMode.Managed;
+        set { if (value) NewSpaceMode = SpaceStorageMode.Managed; }
+    }
+
+    public bool IsNewSpaceMapped
+    {
+        get => NewSpaceMode == SpaceStorageMode.Mapped;
+        set { if (value) NewSpaceMode = SpaceStorageMode.Mapped; }
+    }
+
+    partial void OnNewSpaceModeChanged(SpaceStorageMode value)
+    {
+        if (value == SpaceStorageMode.Managed) OnNewSpaceNameChanged(NewSpaceName);
+        SpaceDialogError = null;
+    }
 
     [ObservableProperty]
     private string _newSpaceFolder = string.Empty;
@@ -887,6 +907,60 @@ public sealed partial class StudioViewModel : ViewModelBase
         }
         if (await TryEnrollFileMetadataAsync(filePath, target.Id))
             SpaceDropNotice = Localizer.GetString("Drop.SpaceSuccessFormat", 1, target.Name);
+    }
+
+    [RelayCommand]
+    public async Task CatalogSpaceAsync()
+    {
+        if (SelectedSpace is not { IsMapped: true } target) return;
+        try
+        {
+            string root = Path.TrimEndingDirectorySeparator(
+                DeskNest.Platform.PlatformFileActions.RequireExistingLocalPath(target.Folder));
+            // One directory level and one metadata save, not a recursive watcher or import.
+            var entries = await Task.Run(() =>
+            {
+                var result = new List<WorkspaceFile>();
+                int inspected = 0;
+                foreach (string path in Directory.EnumerateFileSystemEntries(root))
+                {
+                    if (++inspected > 100_000)
+                        throw new InvalidDataException(Localizer["Spaces.CatalogLimitNotice"]);
+                    string name = Path.GetFileName(path);
+                    if (name.Equals(".desknest-trash", StringComparison.OrdinalIgnoreCase) ||
+                        name.StartsWith(".desknext-copy-", StringComparison.OrdinalIgnoreCase) ||
+                        name.StartsWith(".desknext-tree-", StringComparison.OrdinalIgnoreCase)) continue;
+                    var attributes = File.GetAttributes(path);
+                    if ((attributes & FileAttributes.ReparsePoint) != 0) continue;
+                    result.Add(new WorkspaceFile(Guid.NewGuid(), target.Id, name, path,
+                        (attributes & FileAttributes.Directory) != 0));
+                }
+                return result;
+            });
+            int added = 0;
+            var comparer = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+            var updated = await _updateStore(state =>
+            {
+                var current = state.Spaces.FirstOrDefault(s => s.Id == target.Id);
+                if (current?.Mode != SpaceStorageMode.Mapped || !comparer.Equals(root,
+                    Path.TrimEndingDirectorySeparator(Path.GetFullPath(current.Folder))))
+                    throw new InvalidDataException(Localizer["Drop.OutsideSpaceNotice"]);
+                DeskNest.Platform.PlatformFileActions.RequireExistingLocalPath(root);
+                var known = state.Files.Where(f => f.SpaceId == target.Id)
+                    .Select(f => Path.TrimEndingDirectorySeparator(Path.GetFullPath(f.Path))).ToHashSet(comparer);
+                var additions = entries.Where(f => known.Add(f.Path)).ToList();
+                if (state.Files.Count + additions.Count > 100_000)
+                    throw new InvalidDataException(Localizer["Spaces.CatalogLimitNotice"]);
+                added = additions.Count;
+                return state with { Files = [.. state.Files, .. additions] };
+            });
+            RefreshFromState(updated);
+            SpaceDropNotice = Localizer.GetString("Drop.SpaceSuccessFormat", added, target.Name);
+        }
+        catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException)
+        {
+            SpaceDropNotice = Localizer.GetString("Files.ActionFailedNotice", error.Message);
+        }
     }
 
     private async Task<bool> TryEnrollFileMetadataAsync(string? filePath, Guid spaceId)

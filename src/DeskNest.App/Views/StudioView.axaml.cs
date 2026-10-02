@@ -111,6 +111,83 @@ public partial class StudioView : UserControl
         return paths;
     }
 
+    private async void OnBrowseSpaceFolderClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not StudioViewModel vm || !vm.IsNewSpaceMapped || sender is not Button button) return;
+        var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
+        if (storage?.CanPickFolder != true)
+        {
+            vm.SpaceDialogError = vm.Localizer["Spaces.FolderPickerUnavailable"];
+            return;
+        }
+
+        button.IsEnabled = false;
+        try
+        {
+            var folders = await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = vm.Localizer["Spaces.DialogFolder"], AllowMultiple = false
+            });
+            using var folder = folders.FirstOrDefault();
+            if (folder is null || !vm.IsAddSpaceDialogOpen || !vm.IsNewSpaceMapped || DataContext != vm) return;
+            string? path = folder.TryGetLocalPath();
+            if (path is null)
+            {
+                vm.SpaceDialogError = vm.Localizer["Validation.ValidAbsolutePathRequired"];
+                return;
+            }
+            vm.NewSpaceFolder = DeskNest.Platform.PlatformFileActions.RequireExistingLocalPath(path);
+            if (string.IsNullOrWhiteSpace(vm.NewSpaceName)) vm.NewSpaceName = folder.Name;
+            vm.SpaceDialogError = null;
+        }
+        catch (Exception error)
+        {
+            vm.SpaceDialogError = vm.Localizer.GetString("Files.ActionFailedNotice", error.Message);
+        }
+        finally { button.IsEnabled = true; }
+    }
+
+    private async void OnFileDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (DataContext is not StudioViewModel studio ||
+            sender is not Control { DataContext: WorkspaceFileItemViewModel file }) return;
+        e.Handled = true;
+        studio.SelectFile(file);
+        if (studio.ExecuteOpenFileCommand.CanExecute(file))
+            await studio.ExecuteOpenFileCommand.ExecuteAsync(file);
+    }
+
+    private void OnFileMenuOpened(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is not ContextMenu menu) return;
+        var moveMenu = menu.Items.OfType<MenuItem>().Single(item => item.Name == "MoveToSpaceMenu");
+        moveMenu.ItemsSource = null;
+        moveMenu.IsEnabled = false;
+        if (DataContext is not StudioViewModel studio || menu.DataContext is not WorkspaceFileItemViewModel file) return;
+        studio.SelectFile(file); // File actions apply to the row whose menu was opened.
+        if (file.IsInTrash || !studio.CanExecuteManualMove) return;
+
+        // Populate only the opened menu, not every file row. Capture the clicked row's ID,
+        // which can differ from the current selection when opening a context menu.
+        var targets = studio.AllSpaces.Where(space => space.Id != file.SpaceId).Select(space =>
+        {
+            var item = new MenuItem
+            {
+                Header = space.Name,
+                Command = studio.ExecuteManualMoveCommand,
+                CommandParameter = (file.Id, space.Id)
+            };
+            ToolTip.SetTip(item, new TextBlock
+            {
+                Text = $"{space.ModeLocalized}\n{space.Folder}",
+                FlowDirection = Avalonia.Media.FlowDirection.LeftToRight
+            });
+            return item;
+        }).ToArray();
+        moveMenu.ItemsSource = targets;
+        moveMenu.IsEnabled = targets.Length > 0;
+    }
+
     private void OnSpaceSurfaceDragEnter(object? sender, DragEventArgs e)
     {
         OnSpaceSurfaceDragOver(sender, e);
