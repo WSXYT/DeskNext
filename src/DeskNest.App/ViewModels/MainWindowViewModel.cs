@@ -343,6 +343,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         {
             studio.AttachManualMoveExecutor(ExecuteManualMoveAsync);
             studio.AttachManualUndoExecutor(ExecuteUndoManualMoveAsync);
+            studio.OnInspectOperation = InspectOperationAsync;
+            studio.InspectOperationCommand.NotifyCanExecuteChanged();
             studio.AttachRenameFileExecutor(ExecuteRenameFileAsync);
             studio.AttachDeleteFileExecutor(ExecuteDeleteFileAsync);
             studio.AttachOpenFileExecutor(ExecuteOpenFileAsync);
@@ -968,31 +970,65 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         try
         {
             if (_disposed || !IsRecoveryRequired || _dataDirectory is null) return;
-            var sections = new List<string> { _dataDirectory };
-            // Fixed names only. Never follow source/destination paths supplied by journal content.
-            string[] names = ["copy-recovery.json", "organization-recovery.json",
-                "organization-recovery.json.bak", "organization-recovery.json.rollback-started",
-                "organization-recovery.json.recovery-required", "workspace.json.recovery-required"];
-            foreach (string name in names)
-            {
-                string path = Path.Combine(_dataDirectory, name);
-                if (!File.Exists(path) && !Directory.Exists(path)) continue;
-                try
-                {
-                    var preview = await DeskNest.Platform.PlatformFileActions.ReadPreviewAsync(
-                        path, maximumBytes: 16_384, maximumEntries: 1).ConfigureAwait(false);
-                    await SetUIStateAsync(() => sections.Add(path + Environment.NewLine +
-                        (preview.Kind == "text" ? preview.Content : Localizer["Files.PreviewMetadataOnly"]) +
-                        (preview.Truncated ? Environment.NewLine + Localizer["Files.PreviewTruncatedNotice"] : string.Empty)));
-                }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
-                {
-                    sections.Add(path + Environment.NewLine + ex.Message);
-                }
-            }
-            await SetUIStateAsync(() => RecoveryEvidenceText = string.Join(Environment.NewLine + Environment.NewLine, sections));
+            string text = await ReadRecoveryEvidenceAsync(_dataDirectory).ConfigureAwait(false);
+            await SetUIStateAsync(() => RecoveryEvidenceText = text);
         }
         finally { _startupGate.Release(); }
+    }
+
+    private async Task InspectOperationAsync(Guid id)
+    {
+        await _startupGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (_disposed || _store is null || Studio is null) return;
+            var operation = _store.Snapshot.Operations.FirstOrDefault(item => item.Id == id);
+            if (operation is null) return;
+            // Recorded fields only: never serialize an unbounded directory manifest or open its paths.
+            string summary = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                operation.Id, operation.FileId, Status = operation.Status.ToString(), operation.CreatedAt,
+                operation.SourcePath, operation.DestinationPath, operation.CommittedTransactionId,
+                operation.OriginalNativeId, operation.OriginalLength, operation.OriginalSha256,
+                DirectoryFiles = operation.OriginalDirectoryManifest?.Count,
+                DirectoryNodes = operation.OriginalDirectoryPaths?.Count
+            }, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            string evidence = await ReadRecoveryEvidenceAsync(_store.DataDirectory).ConfigureAwait(false);
+            await SetUIStateAsync(() =>
+            {
+                Studio.ShowFilePreview(new DeskNest.Platform.FilePreview(Localizer["Startup.RecoveryDetails"],
+                    _store.DataDirectory, "text", summary + Environment.NewLine + Environment.NewLine + evidence, false, null));
+                Studio.PreviewDetails = Localizer["Startup.RecoveryDetailsNotice"];
+            });
+        }
+        finally { _startupGate.Release(); }
+    }
+
+    private async Task<string> ReadRecoveryEvidenceAsync(string directory)
+    {
+        var sections = new List<string> { directory };
+        // Fixed names only. Never follow source/destination paths supplied by journal content.
+        string[] names = ["copy-recovery.json", "organization-recovery.json",
+            "organization-recovery.json.bak", "organization-recovery.json.rollback-started",
+            "organization-recovery.json.recovery-required", "workspace.json.recovery-required"];
+        foreach (string name in names)
+        {
+            string path = Path.Combine(directory, name);
+            if (!File.Exists(path) && !Directory.Exists(path)) continue;
+            try
+            {
+                var preview = await DeskNest.Platform.PlatformFileActions.ReadPreviewAsync(
+                    path, maximumBytes: 16_384, maximumEntries: 1).ConfigureAwait(false);
+                await SetUIStateAsync(() => sections.Add(path + Environment.NewLine +
+                    (preview.Kind == "text" ? preview.Content : Localizer["Files.PreviewMetadataOnly"]) +
+                    (preview.Truncated ? Environment.NewLine + Localizer["Files.PreviewTruncatedNotice"] : string.Empty)));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+            {
+                sections.Add(path + Environment.NewLine + ex.Message);
+            }
+        }
+        return string.Join(Environment.NewLine + Environment.NewLine, sections);
     }
 
     [RelayCommand]

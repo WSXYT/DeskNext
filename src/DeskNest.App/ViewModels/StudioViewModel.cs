@@ -169,6 +169,16 @@ public sealed partial class StudioViewModel : ViewModelBase
     // ==========================================
     public ObservableCollection<OperationItemViewModel> OperationHistory { get; } = new();
 
+    public Func<Guid, Task>? OnInspectOperation { get; set; }
+    private bool CanInspectOperation(Guid id) => OnInspectOperation is not null && OperationHistory.Any(item => item.Id == id);
+
+    [RelayCommand(CanExecute = nameof(CanInspectOperation))]
+    private async Task InspectOperationAsync(Guid id)
+    {
+        try { if (OnInspectOperation is not null) await OnInspectOperation(id); }
+        catch (Exception error) { FileActionNotice = Localizer.GetString("Files.ActionFailedNotice", error.Message); }
+    }
+
     public int OperationHistoryCount => OperationHistory.Count;
     public bool HasOperationHistory => OperationHistoryCount > 0;
 

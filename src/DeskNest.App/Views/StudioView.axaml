@@ -961,6 +961,10 @@
                                                             IsVisible="{Binding CanUndo}"
                                                             IsEnabled="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).CanUndoManualMove}"
                                                             Cursor="Hand"/>
+                                                    <Button Name="InspectOperationButton" Classes="ActionButton"
+                                                            Content="{Binding Localizer[Startup.RecoveryDetails]}"
+                                                            Command="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).InspectOperationCommand}"
+                                                            CommandParameter="{Binding Id}" IsVisible="{Binding IsRecoveryRequired}"/>
                                                     <!-- Status Badge -->
                                                     <Border CornerRadius="{DynamicResource RadiusSmall}"
                                                             Padding="6,2"

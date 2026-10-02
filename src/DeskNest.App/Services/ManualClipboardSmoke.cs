@@ -569,6 +569,43 @@ internal static class ManualClipboardSmoke
                 if ((TrayIcon.GetIcons(app)?.Count ?? 0) != originalIcons)
                     throw new InvalidOperationException("Disposing the tray must release its application registration.");
             }
+            // History remains usable without restarting the app or attempting another recovery.
+            Guid inspectedId = store.Snapshot.Operations.First().Id;
+            await main.UpdateStoreAsync(state => state with
+            {
+                Operations = state.Operations.Select(item => item.Id == inspectedId
+                    ? item with { Status = ProposedOperationStatus.RecoveryRequired } : item).ToList()
+            });
+            string journalPath = Path.Combine(store.DataDirectory, "organization-recovery.json");
+            string journalText = "{\"sourcePath\":" + System.Text.Json.JsonSerializer.Serialize(contentPath) +
+                ",\"incomplete\":\"" + new string('x', 20_000);
+            File.WriteAllText(journalPath, journalText);
+            long inspectionRevision = store.Snapshot.Revision;
+            string storedMetadata = File.ReadAllText(Path.Combine(store.DataDirectory, "workspace.json"));
+            studio.SelectedTabIndex = 3;
+            Dispatcher.UIThread.RunJobs();
+            var history = view.FindControl<ListBox>("OperationsListBox")!;
+            history.ScrollIntoView(studio.OperationHistory.Single(item => item.Id == inspectedId));
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+            var inspect = view.GetVisualDescendants().OfType<Button>().Single(button =>
+                button.Name == "InspectOperationButton" &&
+                button.DataContext is OperationItemViewModel item && item.Id == inspectedId);
+            if (!inspect.IsEffectivelyVisible || !inspect.IsEnabled ||
+                inspect.Command != studio.InspectOperationCommand)
+                throw new InvalidOperationException("Failed history must expose its read-only evidence action.");
+            await studio.InspectOperationCommand.ExecuteAsync(inspect.CommandParameter);
+            if (!studio.IsPreviewDialogOpen || !studio.PreviewContent.Contains(inspectedId.ToString()) ||
+                !studio.PreviewContent.Contains(journalPath) || studio.PreviewContent.Contains("clipboard fixture") ||
+                !studio.PreviewContent.Contains(main.Localizer["Files.PreviewTruncatedNotice"]) ||
+                studio.PreviewDetails != main.Localizer["Startup.RecoveryDetailsNotice"] ||
+                studio.PreviewContent.Length > 25_000 || main.StartupState != StartupState.Ready ||
+                store.Snapshot.Revision != inspectionRevision || File.ReadAllText(journalPath) != journalText ||
+                File.ReadAllText(Path.Combine(store.DataDirectory, "workspace.json")) != storedMetadata ||
+                File.ReadAllText(contentPath) != "clipboard fixture")
+                throw new InvalidOperationException("History inspection must be bounded and never read linked content, recover or change files/metadata.");
+            studio.ClosePreviewDialog();
+
             window.Close();
             if (floating.IsVisible || floating.DataContext is not null)
                 throw new InvalidOperationException("Closing the workbench must close its space windows.");

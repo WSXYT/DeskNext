@@ -2,6 +2,12 @@
 
 Status: implementation in progress. Desktop takeover and watcher-driven automatic moves remain disabled.
 
+## Inspect failed operation history (2026-10-03)
+
+RecoveryRequired rows now offer the existing localized **Inspect recovery evidence** action without restarting the workbench. The read-only preview shows a bounded summary of the selected operation and reuses startup's fixed-name journal reader (16 KiB per file). It never opens operation/journal-supplied source or destination paths, retries recovery, acknowledges evidence or changes metadata. This also works when the journal is absent and only history remains; it is inspection, not repair.
+
+Verification: App build zero warnings/errors; the existing file/directory workflow checks the actual history button, bounded damaged-journal output, unchanged source/journal/workspace bytes and revision, and the read-only notice. `headless-history-inspection.log`: terminal Success/ManagedClipboardWorkflowVerified/dictionary parity true, 10992 ms. LSP still reports the already-compiled MonitoredFolderTargets member missing. No full suite, CI or package rerun, and no P3 gate closed.
+
 ## Pending-item local preview (2026-10-03)
 
 Pending cards now offer the existing bounded local file/directory preview before import. The callback resolves the current pending ID, reads through PlatformFileActions and reuses the read-only preview dialog; it makes no model call, upload, file move or workspace save. The existing file/directory import workflow checks the actual button subject, displayed content and unchanged revision/source before confirmation. Release build: zero warnings/errors; `headless-pending-local-preview.log` reports terminal Success/DictionaryParityVerified/ManagedClipboardWorkflowVerified true (12170 ms). No new preview engine, locale keys, full-suite, CI or package run.
