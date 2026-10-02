@@ -351,6 +351,19 @@ public sealed partial class StudioViewModel : ViewModelBase
 
     public Func<WorkspaceFileItemViewModel, System.Threading.CancellationToken, Task>? OnPreviewClassification { get; set; }
 
+    // Session-only credentials and permission: never copied into WorkspaceSettings.
+    [ObservableProperty] private string _jevSessionKey = string.Empty;
+    [ObservableProperty] private bool _jevSendConsent;
+    partial void OnJevSessionKeyChanged(string value) { JevSendConsent = false; PreviewClassificationCommand.Cancel(); }
+    partial void OnJevSendConsentChanged(bool value) { if (!value) PreviewClassificationCommand.Cancel(); }
+    [RelayCommand]
+    public void ClearJevSession()
+    {
+        PreviewClassificationCommand.Cancel();
+        JevSessionKey = string.Empty;
+        JevSendConsent = false;
+    }
+
     [RelayCommand(IncludeCancelCommand = true)]
     public async Task PreviewClassificationAsync(WorkspaceFileItemViewModel? file, System.Threading.CancellationToken token)
     {
@@ -366,12 +379,12 @@ public sealed partial class StudioViewModel : ViewModelBase
         catch (Exception error) { FileActionNotice = Localizer.GetString("Files.ActionFailedNotice", error.Message); }
     }
 
-    public void ShowClassificationPreview(string fileName, string content)
+    public void ShowClassificationPreview(string fileName, string content, bool cloud = false)
     {
         PreviewFileName = fileName;
-        PreviewKind = Localizer["Classification.LocalCpu"];
+        PreviewKind = Localizer[cloud ? "Classification.JevCloud" : "Classification.LocalCpu"];
         PreviewContent = content;
-        PreviewDetails = Localizer["Classification.ReadOnly"];
+        PreviewDetails = Localizer[cloud ? "Classification.JevResultNotice" : "Classification.ReadOnly"];
         IsPreviewTruncated = false;
         IsPreviewDialogOpen = true;
         FileActionNotice = PreviewDetails;
@@ -574,7 +587,13 @@ public sealed partial class StudioViewModel : ViewModelBase
     private AppThemeMode _settingsTheme;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsJevPreview))]
+    [NotifyPropertyChangedFor(nameof(IsLayaPreview))]
     private InferenceProvider _settingsProvider;
+
+    public bool IsJevPreview { get => SettingsProvider == InferenceProvider.Jev; set { if (value) SettingsProvider = InferenceProvider.Jev; } }
+    public bool IsLayaPreview { get => SettingsProvider == InferenceProvider.Laya; set { if (value) SettingsProvider = InferenceProvider.Laya; } }
+    partial void OnSettingsProviderChanged(InferenceProvider value) { ClearJevSession(); }
 
     [ObservableProperty]
     private string _settingsModelCache = string.Empty;

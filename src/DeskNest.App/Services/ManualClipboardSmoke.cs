@@ -251,6 +251,34 @@ internal static class ManualClipboardSmoke
             if (store.Snapshot.Revision != modelRevision || store.Snapshot.Settings.ModelCacheDirectory != bundle)
                 throw new InvalidOperationException("An invalid draft silently erased the saved model directory.");
             studio.SettingsModelCache = bundle;
+
+            // Session-key/permission gates only. This smoke never sends a cloud request.
+            var jevProvider = view.FindControl<RadioButton>("JevPreviewProvider")!;
+            jevProvider.IsChecked = true;
+            await studio.SaveSettingsAsync();
+            var keyInput = view.FindControl<TextBox>("JevSessionKeyInput")!;
+            var consent = view.FindControl<CheckBox>("JevSendConsent")!;
+            if (!keyInput.IsEffectivelyVisible || keyInput.PasswordChar == default || studio.JevSendConsent ||
+                store.Snapshot.Settings.Provider != InferenceProvider.Jev)
+                throw new InvalidOperationException("Jev must expose a masked session key and unchecked sending permission.");
+            var previewFile = studio.AllSpaces.SelectMany(s => s.Files).Single(f => f.Id == fileId);
+            consent.IsChecked = true; // A missing key must still refuse before HTTP.
+            await studio.PreviewClassificationCommand.ExecuteAsync(previewFile);
+            if (studio.FileActionNotice != studio.Localizer["Classification.JevSetup"])
+                throw new InvalidOperationException("Jev preview accepted a missing session key.");
+            keyInput.Text = "session-fixture-not-a-real-key"; // A changed key revokes permission.
+            await studio.PreviewClassificationCommand.ExecuteAsync(previewFile);
+            if (studio.JevSendConsent || studio.FileActionNotice != studio.Localizer["Classification.JevSetup"])
+                throw new InvalidOperationException("Jev preview accepted an unapproved cloud send.");
+            await studio.SaveSettingsAsync();
+            if (File.ReadAllText(Path.Combine(store.DataDirectory, "workspace.json")).Contains(keyInput.Text!) ||
+                File.ReadAllText(Path.Combine(store.DataDirectory, "workspace.json.bak")).Contains(keyInput.Text!))
+                throw new InvalidOperationException("A session API key was persisted in workspace storage.");
+            studio.ClearJevSessionCommand.Execute(null);
+            if (studio.JevSessionKey.Length != 0 || studio.JevSendConsent)
+                throw new InvalidOperationException("Clearing the Jev session must drop both key and permission.");
+            studio.IsLayaPreview = true;
+            await studio.SaveSettingsAsync();
             studio.SelectedTabIndex = 0;
             var floating = view.OpenSelectedSpaceWindow() ?? throw new InvalidOperationException("Space window did not open.");
             floating.UpdateLayout();
