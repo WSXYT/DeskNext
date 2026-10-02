@@ -455,6 +455,22 @@ public sealed partial class StudioViewModel : ViewModelBase
         current.ClassificationTarget = null;
     }
 
+    public Func<PendingItemViewModel, Task>? OnPreviewPendingFile { get; set; }
+
+    [RelayCommand]
+    public async Task PreviewPendingFileAsync(PendingItemViewModel? item)
+    {
+        if (item is null) return;
+        if (OnPreviewPendingFile is null)
+        {
+            item.ResolutionNotice = Localizer["Files.PreviewGatedNotice"];
+            return;
+        }
+        item.ResolutionNotice = null;
+        try { await OnPreviewPendingFile(item); }
+        catch (Exception error) { item.ResolutionNotice = Localizer.GetString("Files.ActionFailedNotice", error.Message); }
+    }
+
     public void ShowClassificationPreview(string fileName, string content, bool cloud = false)
     {
         PreviewFileName = fileName;

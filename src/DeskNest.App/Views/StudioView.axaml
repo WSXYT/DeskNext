@@ -512,6 +512,10 @@
                                                 </ComboBox.ItemTemplate>
                                             </ComboBox>
 
+                                            <Button Name="PendingFilePreviewButton" Classes="ActionButton" Margin="6,0,0,4"
+                                                    Content="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).Localizer[Files.ActionPreview]}"
+                                                    Command="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).PreviewPendingFileCommand}"
+                                                    CommandParameter="{Binding}"/>
                                             <Button Name="PendingClassificationButton" Classes="ActionButton" Margin="6,0,0,4"
                                                     Content="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).Localizer[Classification.Action]}"
                                                     Command="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).PreviewClassificationCommand}"

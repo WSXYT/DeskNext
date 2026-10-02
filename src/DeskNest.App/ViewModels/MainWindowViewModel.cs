@@ -348,6 +348,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             studio.AttachOpenFileExecutor(ExecuteOpenFileAsync);
             studio.AttachRevealFileExecutor(ExecuteRevealFileAsync);
             studio.AttachPreviewFileExecutor(ExecutePreviewFileAsync);
+            studio.OnPreviewPendingFile = ExecutePendingPreviewAsync;
             studio.AttachCutFileExecutor(ExecuteCutFileAsync);
             if (OperatingSystem.IsWindows()) studio.AttachCopyFileExecutor(ExecuteCopyFileAsync);
             studio.AttachPasteFileExecutor(ExecutePasteFileAsync);
@@ -591,6 +592,19 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
                 });
             }
         }
+    }
+
+    private async Task ExecutePendingPreviewAsync(PendingItemViewModel item)
+    {
+        if (_disposed || _store is null) return;
+        var pending = _store.Snapshot.Pending.FirstOrDefault(p => p.Id == item.Id);
+        if (pending is null) return;
+        var preview = await Platform.PlatformFileActions.ReadPreviewAsync(pending.Path).ConfigureAwait(false);
+        await SetUIStateAsync(() =>
+        {
+            if (!_disposed && _store.Snapshot.Pending.Any(p => p.Id == pending.Id && p.Path == pending.Path))
+                Studio?.ShowFilePreview(preview);
+        });
     }
 
     private Task ExecuteCutFileAsync(WorkspaceFileItemViewModel file) => SetClipboardFileAsync(file, isCut: true);

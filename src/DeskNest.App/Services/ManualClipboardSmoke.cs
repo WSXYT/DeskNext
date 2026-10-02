@@ -439,6 +439,18 @@ internal static class ManualClipboardSmoke
             var importButton = view.GetVisualDescendants().OfType<Button>().Single(b =>
                 b.Name == "ImportPendingButton" && b.DataContext is PendingItemViewModel p && p.Id == pending.Id);
             long importRevision = store.Snapshot.Revision;
+            var pendingPreview = view.GetVisualDescendants().OfType<Button>().Single(b =>
+                b.Name == "PendingFilePreviewButton" && b.DataContext is PendingItemViewModel p && p.Id == pending.Id);
+            if (!pendingPreview.IsEffectivelyVisible || pendingPreview.Command != studio.PreviewPendingFileCommand ||
+                pendingPreview.CommandParameter != pending)
+                throw new InvalidOperationException("Pending preview must target the clicked review item.");
+            await studio.PreviewPendingFileCommand.ExecuteAsync(pendingPreview.CommandParameter);
+            if (!studio.IsPreviewDialogOpen || studio.PreviewFileName != pending.Name ||
+                studio.PreviewKind != (directory ? "directory" : "text") ||
+                !studio.PreviewContent.Contains(directory ? "item.txt" : "external fixture") ||
+                store.Snapshot.Revision != importRevision || File.ReadAllText(externalContent) != "external fixture")
+                throw new InvalidOperationException("Pending preview must be local, read-only and leave import unconfirmed.");
+            studio.ClosePreviewDialog();
             importButton.Command!.Execute(importButton.CommandParameter);
             if (OperatingSystem.IsWindows())
             {

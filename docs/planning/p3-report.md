@@ -2,6 +2,10 @@
 
 Status: implementation in progress. Desktop takeover and watcher-driven automatic moves remain disabled.
 
+## Pending-item local preview (2026-10-03)
+
+Pending cards now offer the existing bounded local file/directory preview before import. The callback resolves the current pending ID, reads through PlatformFileActions and reuses the read-only preview dialog; it makes no model call, upload, file move or workspace save. The existing file/directory import workflow checks the actual button subject, displayed content and unchanged revision/source before confirmation. Release build: zero warnings/errors; `headless-pending-local-preview.log` reports terminal Success/DictionaryParityVerified/ManagedClipboardWorkflowVerified true (12170 ms). No new preview engine, locale keys, full-suite, CI or package run.
+
 ## Space details editing (2026-10-03)
 
 The space-list context menu reuses the existing form to edit a space's display name and description. Storage mode and folder are read-only; saving changes neither files nor operation history, and the open space window follows the renamed entry. Cancelling does not save. The twelve locales are complete. Relevant verification only: Release build zero warnings/errors and `headless-edit-space.log` reports terminal Success/DictionaryParityVerified/ManagedClipboardWorkflowVerified true (9953 ms), including the actual menu, cancellation and unchanged storage checks. No full suite, CI or package rerun; this is not a physical-folder rename or phase acceptance.
