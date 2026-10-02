@@ -371,13 +371,18 @@ public static class HeadlessSmokeRunner
     {
         var owner = new MainWindowViewModel(new WorkspaceState { OnboardingComplete = true, OnboardingStep = 5 });
         string language = LocalizationManager.Instance.CurrentLanguage;
+        Window? workbench = null;
         try
         {
             var studio = owner.Studio ?? throw new InvalidOperationException("Missing companion studio fixture.");
             studio.CapsuleNotice = "before close";
-            var window = new DropCapsuleWindow(studio);
+            var view = new StudioView { DataContext = studio };
+            workbench = new Window { Content = view, Width = 1280, Height = 720 };
+            workbench.Show();
+            var window = view.OpenDropCapsuleWindow() ?? throw new InvalidOperationException("Companion entry did not open a window.");
+            if (!ReferenceEquals(window, view.OpenDropCapsuleWindow()))
+                throw new InvalidOperationException("Repeated companion launch created another window.");
             var owned = (DropCapsuleViewModel)window.DataContext!;
-            window.Show();
             Dispatcher.UIThread.RunJobs();
             window.Close();
             int changed = 0;
@@ -387,6 +392,15 @@ public static class HeadlessSmokeRunner
             AwaitOnUIThread(owned.DropPathsOnCapsuleAsync(["unused"]), "closed companion refusal");
             if (changed != 0 || owned.CapsuleNotice != "before close")
                 throw new InvalidOperationException("Closed companion still observes studio/localization changes.");
+
+            var reopened = view.OpenDropCapsuleWindow() ?? throw new InvalidOperationException("Closed companion could not reopen.");
+            if (ReferenceEquals(window, reopened) || !reopened.IsVisible)
+                throw new InvalidOperationException("Companion reopening reused a closed window.");
+            var reopenedModel = (DropCapsuleViewModel)reopened.DataContext!;
+            workbench.Close();
+            studio.CapsuleNotice = "workbench closed";
+            if (reopened.IsVisible || reopenedModel.CapsuleNotice != "after close")
+                throw new InvalidOperationException("Closing the workbench left a live borrowed companion.");
 
             int submitted = 0;
             using var borrowed = new DropCapsuleViewModel(null, _ => { submitted++; return Task.CompletedTask; });
@@ -403,6 +417,7 @@ public static class HeadlessSmokeRunner
         }
         finally
         {
+            workbench?.Close();
             LocalizationManager.Instance.CurrentLanguage = language;
             AwaitOnUIThread(owner.DisposeAsync().AsTask(), "companion fixture disposal");
         }

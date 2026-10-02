@@ -25,7 +25,6 @@ public sealed partial class StudioViewModel : ViewModelBase
 {
     private readonly Func<Func<WorkspaceState, WorkspaceState>, Task<WorkspaceState>> _updateStore;
     public Action? OnRequestReopenOnboarding { get; set; }
-    public Action? OnRequestOpenDropCapsuleCompanion { get; set; }
 
     public LocalizationManager Localizer => LocalizationManager.Instance;
     public ThemeManager ThemeMgr => ThemeManager.Instance;
@@ -1261,20 +1260,6 @@ public sealed partial class StudioViewModel : ViewModelBase
 
         await RegisterPathToTriageAsync(path);
         CapsuleInputPath = string.Empty;
-    }
-
-    [RelayCommand]
-    public void OpenDropCapsuleCompanion()
-    {
-        if (OnRequestOpenDropCapsuleCompanion != null)
-        {
-            OnRequestOpenDropCapsuleCompanion();
-        }
-        else
-        {
-            var companion = new Views.DropCapsuleWindow(this);
-            companion.Show();
-        }
     }
 
     public async Task RegisterPathToTriageAsync(string path)

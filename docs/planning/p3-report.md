@@ -2,6 +2,10 @@
 
 Status: implementation in progress. Desktop takeover and watcher-driven automatic moves remain disabled.
 
+## Companion ownership (2026-10-03)
+
+Both production capsule buttons now use a view-owned launcher: repeated clicks activate the same window, closing it permits a fresh one, and closing the workbench closes/disposes its borrowed capsule. The unused view-model window factory was removed. Relevant checks only: App build zero warnings/errors; `headless-companion-owner.log` reports Success, CompanionLifetimeVerified and ManagedClipboardWorkflowVerified true (8017 ms). This does not implement a tray/background lifetime.
+
 ## File-row undo entry (2026-10-03)
 
 Workbench and independent-space context menus now offer the clicked file's latest still-applicable recorded operation through the existing Undo command. Copied entries have no move history and receive no copy-undo action; undone/recovery-required entries and mismatched destinations are not offered. The tooltip shows the original path LTR. Core identity/recovery checks remain authoritative. Relevant checks only: App build zero warnings/errors and the existing file/directory workflow passed through both menus (`headless-file-menu-undo.log`, terminal Success/ManagedClipboardWorkflowVerified true, 8073 ms). No new transaction, localization key, full suite, CI or package rerun.

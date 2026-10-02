@@ -57,7 +57,7 @@
                 <StackPanel Orientation="Horizontal" Spacing="8"
                             VerticalAlignment="Center" HorizontalAlignment="Right">
                     <Button Classes="ActionButton"
-                            Command="{Binding OpenDropCapsuleCompanionCommand}"
+                            Click="OnOpenDropCapsuleClick"
                             ToolTip.Tip="{Binding Localizer[Capsule.Title]}">
                         <StackPanel Orientation="Horizontal" Spacing="5">
                             <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14"
@@ -617,7 +617,7 @@
                             <Button Grid.Column="1"
                                     Classes="ActionButton"
                                     Content="{Binding Localizer[Action.Open]}"
-                                    Command="{Binding OpenDropCapsuleCompanionCommand}"
+                                    Click="OnOpenDropCapsuleClick"
                                     Padding="14,6" FontSize="11"/>
                         </Grid>
                     </Border>

@@ -15,6 +15,27 @@ namespace DeskNest.App.Views;
 public partial class StudioView : UserControl
 {
     private readonly Dictionary<Guid, SpaceWindow> _spaceWindows = new();
+    private DropCapsuleWindow? _companion;
+
+    private void OnOpenDropCapsuleClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => OpenDropCapsuleWindow();
+
+    internal DropCapsuleWindow? OpenDropCapsuleWindow()
+    {
+        if (DataContext is not StudioViewModel studio || TopLevel.GetTopLevel(this) is not Window workbench) return null;
+        if (_companion is { } existing) { existing.Activate(); return existing; }
+
+        var companion = new DropCapsuleWindow(studio);
+        _companion = companion;
+        void CloseWithWorkbench(object? sender, EventArgs args) => companion.Close();
+        workbench.Closed += CloseWithWorkbench;
+        companion.Closed += (_, _) =>
+        {
+            workbench.Closed -= CloseWithWorkbench;
+            _companion = null;
+        };
+        companion.Show();
+        return companion;
+    }
 
     private void OnOpenSpaceWindowClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => OpenSelectedSpaceWindow();
 
