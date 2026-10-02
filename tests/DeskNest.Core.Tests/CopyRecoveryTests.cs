@@ -138,7 +138,7 @@ public sealed class CopyRecoveryTests : IDisposable
         await using var store = await WorkspaceStore.OpenAsync(root);
         await store.UpdateAsync(s => s with { Spaces = [source, target], Files = [file] });
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new ManualOrganizationCoordinator(store,
-            new DesktopOrganizationTransaction(Path.Combine(root, "move.json"))).CopyFileAsync(file.Id, target.Id, new(true)));
+            new DesktopOrganizationTransaction(Path.Combine(root, "move.json"))).CopyFileAsync(file.Id, target.Id, new CancellationToken(true)));
         Assert.False(new CopyRecoveryJournal(root).Exists);
         Assert.Empty(Directory.EnumerateFileSystemEntries(target.Folder));
     }

@@ -347,7 +347,7 @@
                                                               Command="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).ExecuteCutFileCommand}"
                                                               CommandParameter="{Binding}"
                                                               IsEnabled="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).CanCutFile}"/>
-                                                    <MenuItem Header="{Binding Localizer[Files.ActionCopy]}"
+                                                    <MenuItem Header="{Binding Localizer[Files.ActionCopy]}" InputGesture="{OnPlatform Default='Ctrl+C', macOS='Meta+C'}"
                                                               Command="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).ExecuteCopyFileCommand}"
                                                               CommandParameter="{Binding}"
                                                               IsEnabled="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).CanCopyFile}"/>

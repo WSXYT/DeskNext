@@ -178,10 +178,17 @@ public sealed class ManualOrganizationCoordinator
         finally { _gate.Release(); }
     }
 
-    /// <summary>Internal copy experiment; not production-authorized until publication recovery is complete.</summary>
+    /// <summary>Explicit catalog-to-space copy on Windows NTFS. Keeps the source; does not create move/undo history.</summary>
+    public Task<ManualOrganizationResult> CopyFileAsync(Guid fileId, Guid targetSpaceId,
+        long expectedWorkspaceRevision, CancellationToken cancellationToken = default) =>
+        CopyFileAsync(fileId, targetSpaceId, cancellationToken, beforeCopyAcknowledgement: null,
+            expectedWorkspaceRevision: expectedWorkspaceRevision);
+
+    // Internal overload retains trusted fault barriers for existing recovery probes.
     internal async Task<ManualOrganizationResult> CopyFileAsync(
         Guid fileId, Guid targetSpaceId, CancellationToken cancellationToken = default,
-        Action? beforeCopyAcknowledgement = null, Action? afterFirstStagedWrite = null)
+        Action? beforeCopyAcknowledgement = null, Action? afterFirstStagedWrite = null,
+        Action? beforeCopyPreparation = null, long? expectedWorkspaceRevision = null)
     {
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         WindowsFileCopyLease? fileCopy = null;
@@ -193,21 +200,30 @@ public sealed class ManualOrganizationCoordinator
             if (!OperatingSystem.IsWindows())
                 throw new NotSupportedException("Verified handle-relative copy is currently available only on Windows NTFS.");
             var snapshot = _store.Snapshot;
+            if (expectedWorkspaceRevision is { } revision && revision != snapshot.Revision)
+                throw new InvalidDataException("The workspace changed after selecting the copy source; retry from the current state.");
             var file = GetFile(snapshot, fileId);
             var sourceSpace = GetSpace(snapshot, file.SpaceId);
             var targetSpace = GetSpace(snapshot, targetSpaceId);
             ValidateSource(file, sourceSpace);
             string source = Path.GetFullPath(file.Path);
             string destination = GetSpaceLeafDestination(file, targetSpace);
+            // Refuse a known collision before writing an intent; publication still uses no-replace rename.
+            if (File.Exists(destination) || Directory.Exists(destination))
+                throw new IOException("The copy destination already exists.");
             Guid copiedId = Guid.NewGuid();
             var intent = new CopyRecoveryIntent(1, copiedId, file.Id, targetSpace.Id, source, destination, file.IsDirectory);
             await _copyJournal.BeginAsync(intent, cancellationToken).ConfigureAwait(false);
+            beforeCopyPreparation?.Invoke(); // Trusted internal test barrier, never read from metadata.
+            bool createDestinationParents = targetSpace.Mode == SpaceStorageMode.Managed;
             if (file.IsDirectory)
                 directoryCopy = await WindowsDirectoryCopyLease.CreateAsync(source, destination, cancellationToken,
-                    publicationId: copiedId, afterFirstStagedWrite: afterFirstStagedWrite).ConfigureAwait(false);
+                    publicationId: copiedId, afterFirstStagedWrite: afterFirstStagedWrite,
+                    createDestinationParents: createDestinationParents).ConfigureAwait(false);
             else
                 fileCopy = await WindowsFileCopyLease.CreateAsync(source, destination, cancellationToken,
-                    publicationId: copiedId, afterFirstStagedWrite: afterFirstStagedWrite).ConfigureAwait(false);
+                    publicationId: copiedId, afterFirstStagedWrite: afterFirstStagedWrite,
+                    createDestinationParents: createDestinationParents).ConfigureAwait(false);
 
             try
             {

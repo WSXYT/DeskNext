@@ -430,6 +430,11 @@ public static class HeadlessSmokeRunner
                 state with { Files = [first with { IsInTrash = true }, second] }) is not null)
             throw new InvalidOperationException("Mismatched or stale clipboard source was accepted.");
 
+        if (AvaloniaClipboardBridge.ResolveFileSource(Payload(first.Id, space, first.Path, cut: false), state)?.Id != first.Id ||
+            AvaloniaClipboardBridge.ResolveFileSource(Payload(first.Id, space, second.Path, cut: false), state) is not null ||
+            AvaloniaClipboardBridge.ResolveFileSource(Payload(null, null, first.Path, cut: false), state) is not null)
+            throw new InvalidOperationException("Copy source must bind the same catalog identity, space and path as cut.");
+
         string json = JsonSerializer.Serialize(Payload(first.Id, space, first.Path));
         var parsed = AvaloniaClipboardBridge.ParsePayload(json.PadRight(AvaloniaClipboardBridge.MaximumPayloadCharacters));
         if (parsed is null || AvaloniaClipboardBridge.ResolveCutSource(parsed, state)?.Id != first.Id)
@@ -1530,9 +1535,9 @@ public static class HeadlessSmokeRunner
                 // The production MainWindow is wired to the Core coordinator; verify that it is ready.
                 if (mainVm.Studio.OnRevealFile is null)
                     throw new InvalidOperationException("Open containing folder must be attached to the platform boundary.");
-                if (mainVm.Studio.OnCopyFile is not null || mainVm.Studio.CanCopyFile ||
-                    mainVm.Studio.CopyFileStatusNotice != localizer["Files.CopyGatedNotice"])
-                    throw new InvalidOperationException("Production copy must remain gated until the P3 path-race review is resolved.");
+                if ((mainVm.Studio.OnCopyFile is not null) != OperatingSystem.IsWindows() ||
+                    (!OperatingSystem.IsWindows() && mainVm.Studio.CopyFileStatusNotice != localizer["Files.CopyGatedNotice"]))
+                    throw new InvalidOperationException("Restricted manual copy must attach only on Windows.");
                 if (mainVm.Studio.OnCutFile is null || mainVm.Studio.OnPasteFile is null)
                     throw new InvalidOperationException("Cut/paste must remain attached to the journaled move boundary.");
                 if (!mainVm.Studio.CanExecuteManualMove)

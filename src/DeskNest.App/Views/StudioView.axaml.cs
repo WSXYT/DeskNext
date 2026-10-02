@@ -49,6 +49,7 @@ public partial class StudioView : UserControl
         {
             (Key.F2, KeyModifiers.None) when studio.CanRenameFile => studio.ExecuteRenameFileCommand,
             (Key.Delete, KeyModifiers.None) when studio.CanDeleteFile => studio.ExecuteDeleteFileCommand,
+            (Key.C, var modifiers) when modifiers == commandModifier && studio.CanCopyFile => studio.ExecuteCopyFileCommand,
             (Key.X, var modifiers) when modifiers == commandModifier && studio.CanCutFile => studio.ExecuteCutFileCommand,
             (Key.V, var modifiers) when modifiers == commandModifier && studio.CanPasteFile => studio.ExecutePasteFileCommand,
             _ => null

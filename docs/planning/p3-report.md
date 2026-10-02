@@ -2,6 +2,16 @@
 
 Status: implementation in progress. Desktop takeover and watcher-driven automatic moves remain disabled.
 
+## Current increment: restricted Windows manual Copy/Paste (2026-10-02)
+
+**Copy/Paste is now connected on Windows for single cataloged items on supported local NTFS paths**, into managed spaces or existing mapped folders. Clipboard source ID, space ID and path must agree; the current revision reaches Core. Copies retain the source and clipboard, enroll a new file with publication evidence, and create no move/undo history. Known destination collisions refuse before writing an intent. External clipboard paths without catalog identity, non-Windows copying, unsupported streams/EFS/offline content and unattended copying remain unavailable. Directory copies retain the existing same-volume and entry/depth restrictions.
+
+Independent review `c3f8e322-96ec-4357-b74f-e5fc2b3985f1` identified one mapped-root creation blocker. Both native copy leases now receive a mode-derived create/open-existing policy; a mapped root that disappears during preparation is never recreated. Same-reviewer follow-up `dbae4339-1f61-45a5-b632-febb7fb7e2af` returned **Merge OK; restricted Windows manual enablement OK with notes**. These were read-only source reviews, not independent test executions or certification of subsequent UI wiring. Reports are retained in the session's `subagent-artifacts/outputs/<run-id>/` directories.
+
+Relevant execution only: the four-case managed/mapped × file/directory disappearance regression passed **4/4**, including stale revision refusal; App Release build passed with **zero warnings/errors**. The existing production-command/clipboard smoke covers managed and mapped copy, retained source/clipboard, new publication evidence, unchanged operation history and occupied-target refusal for both shapes: `artifacts/p3-publication-tests/headless-restricted-copy.log`, `Success=true`, `ManagedClipboardWorkflowVerified=true`, 9695 ms. The failure path uses the existing recovery/consented keep-files screen; no unconfirmed object is adopted or deleted. All twelve copy notices describe this restriction. No full suite, CI or package rerun for this increment.
+
+Earlier sections below retain their **historical snapshot** wording (including Copy-gated status); this current section supersedes that status, not their evidence limits. Actual external file-manager negotiation, non-Windows copying, physical power-loss and full release acceptance remain unproven. P3 is not marked complete.
+
 ## Outgoing drag entry point
 
 The workbench and independent space-window lists now start an Avalonia system drag after a left-mouse drag threshold. `Services/FileDragSource.cs` resolves the clicked item through the current catalog and existing local-path checks, then exports one `DataFormat.File` item with **Copy only**. It does not invoke Core copy, set a cut marker, delete the source, change workspace metadata, or promise undo for a receiving application's operation. Normal click/double-click behavior remains in the existing UI smoke.
@@ -236,7 +246,7 @@ The entries above are historical snapshots; they do not include the changes belo
 
 ## Remaining P3 gates
 
-- Internal copy review is recorded above; production enablement still needs acceptance of user-visible manual reconciliation, remaining copy fault boundaries, extended NTFS metadata/stream policy, long-scan time/byte budgets, and non-Windows capability policy. Path binding is checked at defined boundaries, not claimed immutable forever. The Windows file/directory move conversion above is separate from the copy receipt protocol; other platforms retain their own safety gates.
+- Restricted Windows manual Copy/Paste is enabled within the scope above, with supported-content refusal and consented recovery archiving. Wider copy support (non-Windows, uncataloged clipboard imports, additional NTFS metadata, cross-volume directories and automation) is not enabled. Path binding is checked at defined boundaries, not claimed immutable forever. Long-scan limits and physical fault coverage remain explicit limitations; the Windows move conversion is separate from the copy receipt protocol.
 - Validate native clipboard/open/preview integrations on each supported platform and actual external drag/drop; UI callback and headless test coverage alone do not establish F02 acceptance.
 - Managed deletion now moves into the app-owned `.desknest-trash/<operation-id>/<name>` recovery area through the journaled coordinator and marks `IsInTrash`; undo restores it. This is neither permanent deletion nor OS trash. Windows temp-directory tests cover the Core operation; cross-platform runtime and installation/restart acceptance remain open. The UI confirmation follow-up passed integrated Windows headless/native smoke; broader cross-platform behavior remains unverified.
 - Complete native S01 evidence: actual Linux bind/overmounts, macOS APFS/firmlinks, Windows mounted folders/junctions, network and unavailable-volume refusals. Parser fixtures and local Windows temp-directory tests do not establish the full platform gate.

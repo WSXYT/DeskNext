@@ -1,4 +1,5 @@
 using DeskNest.Core.Storage;
+using DeskNest.Core.Workspace;
 using Xunit;
 
 namespace DeskNest.Core.Tests;
@@ -65,6 +66,59 @@ public sealed class WindowsCopyDestinationTests : IDisposable
         Assert.False(Directory.Exists(Path.GetDirectoryName(destination)));
         Assert.Equal(new[] { "sentinel.txt" }, Directory.GetFileSystemEntries(source).Select(Path.GetFileName));
         Assert.Equal("preserve", File.ReadAllText(Path.Combine(source, "sentinel.txt")));
+    }
+
+    [WindowsHandleTheory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task TargetDisappearingAfterPreflightIsCreatedOnlyForManagedSpaces(bool directory, bool mapped)
+    {
+        string sourceRoot = Directory.CreateDirectory(Path.Combine(root, "source")).FullName;
+        string targetRoot = Directory.CreateDirectory(Path.Combine(root, "target")).FullName;
+        string retired = Path.Combine(root, "retired-target");
+        string path = Path.Combine(sourceRoot, directory ? "tree" : "item.txt");
+        if (directory) Directory.CreateDirectory(path);
+        string content = directory ? Path.Combine(path, "item.txt") : path;
+        await File.WriteAllTextAsync(content, "preserved source");
+        await File.WriteAllTextAsync(Path.Combine(targetRoot, "sentinel.txt"), "existing target");
+        var source = new WorkspaceSpace(Guid.NewGuid(), "Source", "", SpaceStorageMode.Managed, sourceRoot);
+        var target = new WorkspaceSpace(Guid.NewGuid(), "Target", "",
+            mapped ? SpaceStorageMode.Mapped : SpaceStorageMode.Managed, targetRoot);
+        var file = new WorkspaceFile(Guid.NewGuid(), source.Id, Path.GetFileName(path), path, directory);
+        await using var store = await WorkspaceStore.OpenAsync(Path.Combine(root, "state"));
+        await store.UpdateAsync(s => s with { Spaces = [source, target], Files = [file] });
+        var coordinator = new ManualOrganizationCoordinator(store,
+            new DesktopOrganizationTransaction(Path.Combine(store.DataDirectory, "organization-recovery.json")));
+        long revision = store.Snapshot.Revision;
+        await Assert.ThrowsAsync<InvalidDataException>(() => coordinator.CopyFileAsync(file.Id, target.Id, revision - 1));
+        Assert.False(new CopyRecoveryJournal(store.DataDirectory).Exists);
+        var copy = coordinator.CopyFileAsync(file.Id, target.Id,
+            beforeCopyPreparation: () => Directory.Move(targetRoot, retired));
+        if (mapped)
+        {
+            await Assert.ThrowsAsync<IOException>(() => copy);
+            Assert.False(Directory.Exists(targetRoot));
+            Assert.Equal(revision, store.Snapshot.Revision);
+            Assert.Single(store.Snapshot.Files);
+            Assert.Empty(store.Snapshot.Operations);
+            var intent = new CopyRecoveryJournal(store.DataDirectory);
+            Assert.True(intent.Exists);
+            await Assert.ThrowsAsync<InvalidDataException>(() => coordinator.RecoverPendingAsync());
+            Assert.True(intent.Exists);
+        }
+        else
+        {
+            await copy;
+            Assert.Equal(2, store.Snapshot.Files.Count);
+            Assert.True(Directory.Exists(targetRoot));
+            string copied = Path.Combine(targetRoot, file.Name);
+            Assert.Equal("preserved source", File.ReadAllText(directory ? Path.Combine(copied, "item.txt") : copied));
+            Assert.False(new CopyRecoveryJournal(store.DataDirectory).Exists);
+        }
+        Assert.Equal("preserved source", File.ReadAllText(content));
+        Assert.Equal("existing target", File.ReadAllText(Path.Combine(retired, "sentinel.txt")));
     }
 
     public void Dispose() => Directory.Delete(root, recursive: true);

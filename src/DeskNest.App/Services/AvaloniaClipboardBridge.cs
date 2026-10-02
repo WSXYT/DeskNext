@@ -56,10 +56,13 @@ public static class AvaloniaClipboardBridge
     public static readonly DataFormat<string> WorkspaceFileFormat =
         DataFormat.CreateStringApplicationFormat("desknest.file-transfer");
 
-    internal static WorkspaceFile? ResolveCutSource(WorkspaceClipboardPayload payload, WorkspaceState snapshot)
+    internal static WorkspaceFile? ResolveCutSource(WorkspaceClipboardPayload payload, WorkspaceState snapshot) =>
+        payload.IsCut ? ResolveFileSource(payload, snapshot) : null;
+
+    internal static WorkspaceFile? ResolveFileSource(WorkspaceClipboardPayload payload, WorkspaceState snapshot)
     {
-        // The clipboard is untrusted: identifiers, path and source space must name the same item.
-        if (!payload.IsCut || payload.SourceFileId is null || payload.SourceSpaceId is null ||
+        // Both copy and cut are catalog-bound; never trust an external path or identifier alone.
+        if (payload.SourceFileId is null || payload.SourceSpaceId is null ||
             payload.Paths is not { Count: 1 } || !IsSupportedPath(payload.Paths[0])) return null;
         string path = Path.TrimEndingDirectorySeparator(Path.GetFullPath(payload.Paths[0]));
         var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;

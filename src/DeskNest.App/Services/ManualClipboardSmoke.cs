@@ -337,6 +337,51 @@ internal static class ManualClipboardSmoke
             }
             else if (pending.ResolutionNotice != main.Localizer["Triage.ImportUnavailable"] || !Exists(external))
                 throw new InvalidOperationException("Unsupported native import must remain visibly unavailable.");
+
+            if (OperatingSystem.IsWindows())
+            {
+                // Same production clipboard path, for a new managed folder and an existing mapping.
+                foreach (var mode in new[] { SpaceStorageMode.Managed, SpaceStorageMode.Mapped })
+                {
+                    studio.SelectedTabIndex = 0;
+                    studio.OpenAddSpaceDialog();
+                    studio.NewSpaceMode = mode;
+                    studio.NewSpaceName = "Copy " + mode;
+                    if (mode == SpaceStorageMode.Mapped)
+                        studio.NewSpaceFolder = Directory.CreateDirectory(Path.Combine(root, "copy-mapped")).FullName;
+                    await studio.ConfirmAddSpaceAsync();
+                    var copyTarget = studio.AllSpaces.Single(s => s.Name == "Copy " + mode);
+                    studio.SelectSpace(studio.AllSpaces.Single(s => s.Id == source.Id));
+                    studio.SelectFile(studio.SelectedSpace!.Files.Single(f => f.Id == fileId));
+                    window.UpdateLayout();
+                    view.FindControl<ListBox>("FilesListBox")!.ContainerFromIndex(0)!.Focus();
+                    window.KeyPress(Key.C, commandModifier, PhysicalKey.C, null);
+                    window.KeyRelease(Key.C, commandModifier, PhysicalKey.C, null);
+                    await (studio.ExecuteCopyFileCommand.ExecutionTask ?? throw new InvalidOperationException("Copy shortcut did not run."));
+                    var copyPayload = await AvaloniaClipboardBridge.TryGetFilePayloadAsync(clipboard);
+                    if (copyPayload is null || copyPayload.IsCut ||
+                        AvaloniaClipboardBridge.ResolveFileSource(copyPayload, store.Snapshot)?.Id != fileId)
+                        throw new InvalidOperationException("Copy must preserve its exact catalog source without a cut marker.");
+                    var beforeCopy = store.Snapshot;
+                    studio.SelectSpace(copyTarget);
+                    await studio.ExecutePasteFileAsync(copyTarget);
+                    var copied = store.Snapshot.Files.SingleOrDefault(f => f.SpaceId == copyTarget.Id);
+                    string copiedPath = Path.Combine(copyTarget.Folder, Path.GetFileName(sourcePath));
+                    if (copied is null || copied.Id == fileId || copied.Publication is null ||
+                        store.Snapshot.Files.Count != beforeCopy.Files.Count + 1 ||
+                        store.Snapshot.Operations.Count != beforeCopy.Operations.Count ||
+                        File.ReadAllText(contentPath) != "clipboard fixture" ||
+                        File.ReadAllText(directory ? Path.Combine(copiedPath, "document.txt") : copiedPath) != "clipboard fixture" ||
+                        directory && !Directory.Exists(Path.Combine(copiedPath, "empty")) ||
+                        (await AvaloniaClipboardBridge.TryGetFilePayloadAsync(clipboard))?.IsCut != false)
+                        throw new InvalidOperationException("Manual copy must retain source/clipboard, publish a new receipt, and not invent undo history: " + studio.FileActionNotice);
+                    long copiedRevision = store.Snapshot.Revision;
+                    await studio.ExecutePasteFileAsync(copyTarget); // A known collision must not replace or start recovery.
+                    if (store.Snapshot.Revision != copiedRevision || main.HasStartupError ||
+                        File.Exists(Path.Combine(store.DataDirectory, "copy-recovery.json")))
+                        throw new InvalidOperationException("Repeated paste must refuse an existing destination without changing metadata.");
+                }
+            }
             window.Close();
             if (floating.IsVisible || floating.DataContext is not null)
                 throw new InvalidOperationException("Closing the workbench must close its space windows.");

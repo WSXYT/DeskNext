@@ -348,6 +348,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             studio.AttachRevealFileExecutor(ExecuteRevealFileAsync);
             studio.AttachPreviewFileExecutor(ExecutePreviewFileAsync);
             studio.AttachCutFileExecutor(ExecuteCutFileAsync);
+            if (OperatingSystem.IsWindows()) studio.AttachCopyFileExecutor(ExecuteCopyFileAsync);
             studio.AttachPasteFileExecutor(ExecutePasteFileAsync);
             studio.OnPreviewClassification = ExecuteClassificationPreviewAsync;
             studio.OnImportPending = OperatingSystem.IsWindows() ? ExecuteImportPendingAsync : null;
@@ -556,7 +557,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         }
     }
 
-    private async Task ExecuteCutFileAsync(WorkspaceFileItemViewModel file)
+    private Task ExecuteCutFileAsync(WorkspaceFileItemViewModel file) => SetClipboardFileAsync(file, isCut: true);
+
+    // Only attached on Windows; the Core boundary enforces the reviewed NTFS restrictions.
+    private Task ExecuteCopyFileAsync(WorkspaceFileItemViewModel file) => SetClipboardFileAsync(file, isCut: false);
+
+    private async Task SetClipboardFileAsync(WorkspaceFileItemViewModel file, bool isCut)
     {
         if (file is null || string.IsNullOrWhiteSpace(file.Path))
         {
@@ -569,7 +575,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         if (clipboard is null)
         {
             if (Studio is not null)
-                Studio.FileActionNotice = Studio.CutFileStatusNotice;
+                Studio.FileActionNotice = isCut ? Studio.CutFileStatusNotice : Studio.CopyFileStatusNotice;
             return;
         }
 
@@ -618,16 +624,16 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             var payload = new WorkspaceClipboardPayload
             {
                 Paths = [fullPath],
-                IsCut = true,
+                IsCut = isCut,
                 SourceFileId = file.Id,
                 SourceSpaceId = file.SpaceId
             };
-            await AvaloniaClipboardBridge.SetFilePayloadAsync(clipboard, payload).ConfigureAwait(false);
+            await AvaloniaClipboardBridge.SetFilePayloadAsync(clipboard, payload);
             if (Studio is not null)
             {
                 await SetUIStateAsync(() =>
                 {
-                    Studio.FileActionNotice = Localizer.GetString("Files.CutSuccessNotice", file.Name);
+                    Studio.FileActionNotice = Localizer.GetString(isCut ? "Files.CutSuccessNotice" : "Files.CopySuccessNotice", file.Name);
                 });
             }
         }
@@ -681,7 +687,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
                 return;
             }
 
-            if (!payload.IsCut)
+            if (!payload.IsCut && !OperatingSystem.IsWindows())
             {
                 if (Studio is not null)
                     Studio.FileActionNotice = Localizer["Files.CopyGatedNotice"];
@@ -758,7 +764,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             }
 
             // Never fall back to another item when a clipboard identifier/path is stale or inconsistent.
-            WorkspaceFile? file = AvaloniaClipboardBridge.ResolveCutSource(payload, snapshot);
+            WorkspaceFile? file = AvaloniaClipboardBridge.ResolveFileSource(payload, snapshot);
 
             if (file is null)
             {
@@ -774,9 +780,23 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
                 return;
             }
 
-            await _manualCoordinator.MoveFileAsync(file.Id, targetSpaceModel.Id,
-                expectedWorkspaceRevision: snapshot.Revision);
-            try { await clipboard.ClearAsync(); } catch { }
+            ManualOrganizationResult result;
+            if (payload.IsCut)
+            {
+                result = await _manualCoordinator.MoveFileAsync(file.Id, targetSpaceModel.Id,
+                    expectedWorkspaceRevision: snapshot.Revision);
+                try { await clipboard.ClearAsync(); } catch { }
+            }
+            else
+            {
+                try { result = await _manualCoordinator.CopyFileAsync(file.Id, targetSpaceModel.Id, snapshot.Revision); }
+                catch
+                {
+                    // Retained copy intent uses the existing recovery/keep-files UI immediately.
+                    await InitializeWorkspaceAsync();
+                    throw;
+                }
+            }
 
             if (_store is not null)
             {
@@ -789,7 +809,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
                         if (updatedSpace is not null)
                         {
                             Studio.SelectSpace(updatedSpace);
-                            var updatedFile = updatedSpace.Files.FirstOrDefault(f => f.Name == file.Name);
+                            var updatedFile = updatedSpace.Files.FirstOrDefault(f => f.Id == result.FileId);
                             if (updatedFile is not null)
                             {
                                 Studio.SelectFile(updatedFile);
@@ -797,13 +817,14 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
                         }
 
                         Studio.FileActionNotice = Localizer.GetString(
-                            "Files.PasteCutSuccessNotice", file.Name, targetSpaceModel.Name);
+                            payload.IsCut ? "Files.PasteCutSuccessNotice" : "Files.PasteCopySuccessNotice", file.Name, targetSpaceModel.Name);
                     }
                 });
             }
         }
         catch (Exception ex)
         {
+            if (HasStartupError) return; // Keep the recovery/error screen; do not reactivate the Studio below.
             if (Studio is not null)
             {
                 await SetUIStateAsync(() =>

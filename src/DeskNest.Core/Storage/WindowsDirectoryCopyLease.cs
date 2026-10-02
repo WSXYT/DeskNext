@@ -28,12 +28,13 @@ internal sealed class WindowsDirectoryCopyLease : IDisposable
 
     internal static Task<WindowsDirectoryCopyLease> CreateAsync(string sourcePath, string destinationPath,
         CancellationToken token = default, Action<string>? afterPublishBeforeReopen = null, Guid? publicationId = null,
-        Action? afterFirstStagedWrite = null) =>
+        Action? afterFirstStagedWrite = null, bool createDestinationParents = true) =>
         Task.Run(() => Create(sourcePath, destinationPath, token, afterPublishBeforeReopen,
-            publicationId ?? Guid.NewGuid(), afterFirstStagedWrite), token);
+            publicationId ?? Guid.NewGuid(), afterFirstStagedWrite, createDestinationParents), token);
 
     private static WindowsDirectoryCopyLease Create(string sourcePath, string destinationPath,
-        CancellationToken token, Action<string>? afterPublishBeforeReopen, Guid publicationId, Action? afterFirstStagedWrite)
+        CancellationToken token, Action<string>? afterPublishBeforeReopen, Guid publicationId, Action? afterFirstStagedWrite,
+        bool createDestinationParents)
     {
         token.ThrowIfCancellationRequested();
         if (!Path.IsPathFullyQualified(sourcePath) || !Path.IsPathFullyQualified(destinationPath))
@@ -61,7 +62,7 @@ internal sealed class WindowsDirectoryCopyLease : IDisposable
         try
         {
             token.ThrowIfCancellationRequested();
-            parent = WindowsDirectoryLease.Open(Path.GetDirectoryName(destinationFull)!, create: true,
+            parent = WindowsDirectoryLease.Open(Path.GetDirectoryName(destinationFull)!, create: createDestinationParents,
                 requiredVolumePath: sourceParent.VolumePath,
                 forbiddenAncestorNativeId: WindowsFileIdentity.Capture(sourceRoot).NativeId);
             if (!string.Equals(sourceParent.VolumePath, parent.VolumePath, StringComparison.OrdinalIgnoreCase))

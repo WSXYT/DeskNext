@@ -19,11 +19,13 @@ internal sealed class WindowsFileCopyLease : IDisposable
     private WindowsFileCopyLease(string destinationPath) => DestinationPath = destinationPath;
 
     internal static Task<WindowsFileCopyLease> CreateAsync(string sourcePath, string destinationPath,
-        CancellationToken cancellationToken = default, Guid? publicationId = null, Action? afterFirstStagedWrite = null) =>
-        Task.Run(() => Create(sourcePath, destinationPath, cancellationToken, publicationId ?? Guid.NewGuid(), afterFirstStagedWrite), cancellationToken);
+        CancellationToken cancellationToken = default, Guid? publicationId = null, Action? afterFirstStagedWrite = null,
+        bool createDestinationParents = true) =>
+        Task.Run(() => Create(sourcePath, destinationPath, cancellationToken, publicationId ?? Guid.NewGuid(),
+            afterFirstStagedWrite, createDestinationParents), cancellationToken);
 
     private static WindowsFileCopyLease Create(string sourcePath, string destinationPath, CancellationToken token,
-        Guid publicationId, Action? afterFirstStagedWrite)
+        Guid publicationId, Action? afterFirstStagedWrite, bool createDestinationParents)
     {
         token.ThrowIfCancellationRequested();
         if (!Path.IsPathFullyQualified(sourcePath) || !Path.IsPathFullyQualified(destinationPath))
@@ -38,7 +40,7 @@ internal sealed class WindowsFileCopyLease : IDisposable
             lease.source = WindowsFileHandles.OpenFile(lease.sourceParent.Handle, Path.GetFileName(sourceFull));
             FileIdentity original = Capture(lease.source, token);
             token.ThrowIfCancellationRequested();
-            lease.destinationParent = WindowsDirectoryLease.Open(Path.GetDirectoryName(destinationFull)!, create: true);
+            lease.destinationParent = WindowsDirectoryLease.Open(Path.GetDirectoryName(destinationFull)!, create: createDestinationParents);
             lease.output = WindowsFileHandles.OpenFile(lease.destinationParent.Handle,
                 ".desknext-copy-" + publicationId.ToString("N"), create: true);
             byte[] buffer = new byte[64 * 1024];
