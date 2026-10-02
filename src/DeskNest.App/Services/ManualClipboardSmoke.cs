@@ -86,7 +86,13 @@ internal static class ManualClipboardSmoke
                 choice.Command != studio.ExecuteManualMoveCommand ||
                 !Equals(choice.CommandParameter, (fileId, target.Id)) || studio.SelectedFile?.Id != fileId)
                 throw new InvalidOperationException("Move menu did not bind the clicked file and target space.");
+            var classification = menu.Items.OfType<MenuItem>().Single(item => item.Name == "ClassificationPreviewMenu");
+            if (classification.Command != studio.PreviewClassificationCommand || classification.CommandParameter != row.DataContext)
+                throw new InvalidOperationException("Classification preview must target the clicked file row.");
             menu.Close();
+            await studio.PreviewClassificationCommand.ExecuteAsync(studio.SelectedFile);
+            if (studio.FileActionNotice != main.Localizer["Classification.Setup"] || studio.IsPreviewDialogOpen)
+                throw new InvalidOperationException("An unconfigured model must show setup guidance, not a fake suggestion.");
 
             // Route real headless mouse/key input to the existing Open boundary; never launch a shell here.
             int opens = 0;

@@ -51,6 +51,28 @@ public sealed class ProbeTests
     }
 
     [Fact]
+    public void PreviewRejectsStaleOrInconsistentResults()
+    {
+        using var config = Config();
+        var request = Request();
+        var result = Probe.Decide(request, Tensors(), [3, 1, 0], [1, 0], config.RootElement);
+        LocalPreviewClient.ValidateResult(request, result);
+        Assert.Throws<InvalidDataException>(() => LocalPreviewClient.ValidateResult(request, result with { Revision = 8 }));
+        Assert.Throws<InvalidDataException>(() => LocalPreviewClient.ValidateResult(request, result with { Choice = Probe.Ambiguous }));
+        Assert.Throws<InvalidDataException>(() => LocalPreviewClient.ValidateResult(request, result with { Probabilities = [double.NaN, 0, 0] }));
+    }
+
+    [Fact]
+    public async Task PreviewRefusesOversizedOrCancelledInputBeforeStartingAProcess()
+    {
+        var start = new System.Diagnostics.ProcessStartInfo("must-not-be-launched");
+        await Assert.ThrowsAsync<InvalidDataException>(() => LocalPreviewClient.RunAsync(start, Path.GetTempPath(),
+            Request() with { State = new string('x', 1024 * 1024) }));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => LocalPreviewClient.RunAsync(start, Path.GetTempPath(),
+            Request(), new CancellationToken(true)));
+    }
+
+    [Fact]
     public void WorkerRejectsOversizedFrameBeforeModelAccess()
     {
         Span<byte> frame = stackalloc byte[4];

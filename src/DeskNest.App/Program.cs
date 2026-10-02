@@ -14,6 +14,22 @@ public static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        // Dispatch before Avalonia, workspace ownership, or any desktop service is initialized.
+        if (args.Length > 0 && args[0] == "--inference-worker")
+        {
+            if (args.Length != 2) return 2;
+            try
+            {
+                DeskNest.Inference.Probe.Worker(args[1], Console.OpenStandardInput(), Console.OpenStandardOutput());
+                return 0;
+            }
+            catch (Exception error)
+            {
+                Console.Error.WriteLine(error.Message);
+                return 1;
+            }
+        }
+
         // Support opt-in native OS desktop window smoke test
         if (args.Any(a => a.Equals("--native-window-smoke", StringComparison.OrdinalIgnoreCase)))
         {

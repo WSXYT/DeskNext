@@ -71,6 +71,7 @@ public sealed class SmokeTestResult
     public bool FileRowLifetimeVerified { get; set; }
     public bool WorkspaceViewModelLifetimeVerified { get; set; }
     public bool ManagedClipboardWorkflowVerified { get; set; }
+    public bool LocalClassificationPreviewVerified { get; set; }
     public bool WorkspaceFileCallbacksInvoked { get; set; }
     public bool WorkspaceFileManagedVsMappedVerified { get; set; }
     public bool WorkspaceFileSelectionRetentionVerified { get; set; }
@@ -388,6 +389,34 @@ public static class HeadlessSmokeRunner
             throw new InvalidOperationException("Malformed or oversized clipboard input was accepted.");
     }
 
+    private static async Task VerifyLocalClassificationPreviewAsync(string root, string modelDirectory)
+    {
+        string folder = Directory.CreateDirectory(Path.Combine(root, "files")).FullName;
+        string path = Path.Combine(folder, "Quarterly financial report.txt");
+        File.WriteAllText(path, "Fixture content must remain untouched.");
+        var space = new WorkspaceSpace(Guid.NewGuid(), "Documents", "Reports and office documents", SpaceStorageMode.Managed, folder);
+        var file = new WorkspaceFile(Guid.NewGuid(), space.Id, Path.GetFileName(path), path, false);
+        await using var store = await WorkspaceStore.OpenAsync(Path.Combine(root, "state"));
+        await store.UpdateAsync(s => s with { OnboardingComplete = true, OnboardingStep = 5,
+            Spaces = [space], Files = [file], Settings = s.Settings with { ModelCacheDirectory = Path.GetFullPath(modelDirectory) } });
+        await using var main = new MainWindowViewModel(store);
+        var studio = main.Studio!;
+        long revision = store.Snapshot.Revision;
+        await studio.PreviewClassificationCommand.ExecuteAsync(studio.SelectedFile);
+        if (!studio.IsPreviewDialogOpen || studio.PreviewKind != main.Localizer["Classification.LocalCpu"] ||
+            !studio.PreviewContent.Contains(space.Name) || store.Snapshot.Revision != revision ||
+            store.Snapshot.Operations.Count != 0 || File.ReadAllText(path) != "Fixture content must remain untouched.")
+            throw new InvalidOperationException("Local preview failed or changed files/metadata: " + studio.FileActionNotice);
+        Console.WriteLine("LOCAL_CLASSIFICATION_PREVIEW: " + JsonSerializer.Serialize(studio.PreviewContent));
+        studio.ClosePreviewDialog();
+        var cancelled = studio.PreviewClassificationCommand.ExecuteAsync(studio.SelectedFile);
+        studio.PreviewClassificationCommand.Cancel();
+        await cancelled;
+        if (studio.IsPreviewDialogOpen || studio.FileActionNotice != main.Localizer["Classification.Cancelled"] ||
+            store.Snapshot.Revision != revision)
+            throw new InvalidOperationException("Cancelled preview must not publish suggestions or mutate metadata.");
+    }
+
     public static async Task<int> RunSmokeAsync(string[] args)
     {
         var sw = Stopwatch.StartNew();
@@ -491,6 +520,13 @@ public static class HeadlessSmokeRunner
                 AwaitOnUIThread(ManualClipboardSmoke.VerifyAsync(clipboardFixture.Path, directory), "managed clipboard workflow");
             }
             result.ManagedClipboardWorkflowVerified = true;
+            string? localModel = args.FirstOrDefault(a => a.StartsWith("--local-model=", StringComparison.Ordinal))?["--local-model=".Length..];
+            if (localModel is not null)
+            {
+                using var modelFixture = new TempTestDir();
+                AwaitOnUIThread(VerifyLocalClassificationPreviewAsync(modelFixture.Path, localModel), "local CPU classification preview", 150);
+                result.LocalClassificationPreviewVerified = true;
+            }
             result.HeadlessInitialized = (Application.Current != null);
             Console.WriteLine($"  ✓ Avalonia Application.Current active: {result.HeadlessInitialized}");
 

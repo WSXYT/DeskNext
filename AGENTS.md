@@ -11,5 +11,5 @@
 - Release singleton subscriptions with UI owners.
 - Monitor Desktop and selected folders: whitelist, baseline, health, pause/rescan, target binding. No takeover before S01–S08.
 - CI: physical macOS temp paths, hosted-only aliases, terminal probe JSON. Skips aren't native evidence.
-- Preserve provenance, twelve-locale parity, F01–F13/inference evidence. Python/models stay in ignored `artifacts/`; synthetic images cannot prove desktop compositing.
+- Preserve provenance, twelve-locale parity, F01–F13/inference evidence. Local preview never moves files. Python/models stay in ignored `artifacts/`; synthetic images cannot prove desktop compositing.
 <!-- pi-agents-md:end -->

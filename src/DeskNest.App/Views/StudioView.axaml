@@ -330,6 +330,12 @@
                                                               Command="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).ExecutePreviewFileCommand}"
                                                               CommandParameter="{Binding}"
                                                               IsEnabled="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).CanPreviewFile}"/>
+                                                    <MenuItem Name="ClassificationPreviewMenu" Header="{Binding Localizer[Classification.Action]}"
+                                                              Command="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).PreviewClassificationCommand}"
+                                                              CommandParameter="{Binding}"/>
+                                                    <MenuItem Header="{Binding Localizer[Action.Cancel]}"
+                                                              Command="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).PreviewClassificationCancelCommand}"
+                                                              IsVisible="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).PreviewClassificationCommand.IsRunning}"/>
                                                     <Separator/>
                                                     <MenuItem Name="MoveToSpaceMenu" Header="{Binding Localizer[Files.ActionMoveToSpace]}"/>
                                                     <MenuItem Header="{Binding Localizer[Files.ActionCut]}"
@@ -637,6 +643,8 @@
                         <TextBlock Text="{Binding Localizer[Settings.Engine]}" FontWeight="SemiBold" FontSize="13"/>
                         <StackPanel Spacing="4">
                             <TextBlock Text="{Binding Localizer[OOBE.Step2.ModelCache]}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <TextBlock Text="{Binding Localizer[Classification.Setup]}" TextWrapping="Wrap"
+                                       FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             <TextBox Text="{Binding SettingsModelCache}"
                                      CornerRadius="{DynamicResource RadiusSmall}"
                                      FontFamily="Consolas,Menlo,Monospace"

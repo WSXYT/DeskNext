@@ -349,6 +349,34 @@ public sealed partial class StudioViewModel : ViewModelBase
         OnPropertyChanged(nameof(DeleteConfirmActionText));
     }
 
+    public Func<WorkspaceFileItemViewModel, System.Threading.CancellationToken, Task>? OnPreviewClassification { get; set; }
+
+    [RelayCommand(IncludeCancelCommand = true)]
+    public async Task PreviewClassificationAsync(WorkspaceFileItemViewModel? file, System.Threading.CancellationToken token)
+    {
+        if (file is null || file.IsInTrash) return;
+        if (OnPreviewClassification is null)
+        {
+            FileActionNotice = Localizer["Classification.Setup"];
+            return;
+        }
+        FileActionNotice = Localizer["Classification.Running"];
+        try { await OnPreviewClassification(file, token); }
+        catch (OperationCanceledException) { FileActionNotice = Localizer["Classification.Cancelled"]; }
+        catch (Exception error) { FileActionNotice = Localizer.GetString("Files.ActionFailedNotice", error.Message); }
+    }
+
+    public void ShowClassificationPreview(string fileName, string content)
+    {
+        PreviewFileName = fileName;
+        PreviewKind = Localizer["Classification.LocalCpu"];
+        PreviewContent = content;
+        PreviewDetails = Localizer["Classification.ReadOnly"];
+        IsPreviewTruncated = false;
+        IsPreviewDialogOpen = true;
+        FileActionNotice = PreviewDetails;
+    }
+
     // ==========================================
     // PREVIEW BOUNDED RESULT SURFACE (P3 UI)
     // ==========================================
