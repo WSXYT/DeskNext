@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Observation.Scan": "فحص العناصر الموجودة",
+  "Observation.Scanning": "جارٍ فحص المصادر المحفوظة للمراجعة فقط…",
+  "Observation.ScanComplete": "اكتمل الفحص. العناصر الجديدة قيد المراجعة؛ لم تُنقل ملفات.",
   "Files.SearchName": "البحث بالاسم في هذه المساحة",
   "Files.SortDescending": "الاسم تنازلياً",
   "Files.NoMatches": "لا توجد عناصر مطابقة.",

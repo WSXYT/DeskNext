@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Observation.Scan": "Vorhandene Elemente scannen",
+  "Observation.Scanning": "Gespeicherte Quellen nur zur Prüfung scannen…",
+  "Observation.ScanComplete": "Scan abgeschlossen. Neue Elemente stehen zur Prüfung bereit; keine Dateien verschoben.",
   "Files.SearchName": "In diesem Bereich nach Namen suchen",
   "Files.SortDescending": "Name absteigend",
   "Files.NoMatches": "Keine passenden Elemente.",

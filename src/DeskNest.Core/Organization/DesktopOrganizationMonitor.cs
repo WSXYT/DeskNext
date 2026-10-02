@@ -64,6 +64,19 @@ public sealed class DesktopOrganizationMonitor : IAsyncDisposable
     public bool HasOverflowed => Volatile.Read(ref _overflowed) != 0;
     public IReadOnlyCollection<string> BaselinePaths => _baseline.Keys.ToArray();
 
+    /// <summary>Read current paths without starting watchers or claiming a settled filesystem snapshot.</summary>
+    public static IReadOnlyList<string> ScanPaths(IReadOnlyList<string> roots, IReadOnlyList<string> exclusions,
+        CancellationToken token = default)
+    {
+        token.ThrowIfCancellationRequested();
+        var selected = NormalizeRoots(roots);
+        if (selected.Count == 0) throw new InvalidOperationException("No existing observation folder was selected.");
+        foreach (var root in selected) FileSystemVolume.RequireNoReparsePoints(root);
+        var excluded = exclusions.Select(path => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path))).Distinct(PathComparer).ToArray();
+        // Parent paths precede children so the review queue can represent a whole folder once.
+        return CaptureBaseline(selected, excluded, token).OrderBy(path => path.Length).ThenBy(path => path, PathComparer).ToArray();
+    }
+
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
         if (_worker is not null)

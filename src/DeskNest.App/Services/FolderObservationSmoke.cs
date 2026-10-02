@@ -15,6 +15,8 @@ internal static class FolderObservationSmoke
         var ignored = Directory.CreateDirectory(Path.Combine(first, "ignored")).FullName;
         string existing = Path.Combine(first, "existing.txt");
         File.WriteAllText(existing, "baseline");
+        string oldFolder = Directory.CreateDirectory(Path.Combine(first, "old-folder")).FullName;
+        File.WriteAllText(Path.Combine(oldFolder, "child.txt"), "scanned in place");
         await using var store = await WorkspaceStore.OpenAsync(Path.Combine(root, "store"));
         await store.UpdateAsync(state => state with
         {
@@ -61,6 +63,19 @@ internal static class FolderObservationSmoke
             File.WriteAllText(Path.Combine(first, "after-stop.txt"), "untouched");
             await Task.Delay(50);
             if (store.Snapshot.Revision != revision) throw new InvalidOperationException("A stopped observer accepted a late event.");
+            var scan = view.FindControl<Button>("ScanObservedFoldersButton");
+            if (scan?.Command != studio.ScanObservedFoldersCommand || !scan.IsEffectivelyVisible)
+                throw new InvalidOperationException("Manual scanning must have a real settings entry.");
+            await studio.ScanObservedFoldersCommand.ExecuteAsync(null);
+            var scanned = store.Snapshot;
+            if (studio.FolderScanNotice != studio.Localizer["Observation.ScanComplete"] || studio.IsFolderObservationActive ||
+                scanned.Revision != revision + 1 || scanned.Pending.Count != 5 || scanned.Operations.Count != 0 || scanned.Files.Count != 0 ||
+                !scanned.Pending.Any(item => item.Path == existing) || !scanned.Pending.Any(item => item.Path == oldFolder) ||
+                scanned.Pending.Any(item => item.Path.StartsWith(ignored + Path.DirectorySeparatorChar)) ||
+                File.ReadAllText(existing) != "baseline changed" || File.ReadAllText(Path.Combine(oldFolder, "child.txt")) != "scanned in place")
+                throw new InvalidOperationException("Scanning must find existing items once, respect exclusions and preserve files: " + studio.FolderScanNotice);
+            await studio.ScanObservedFoldersCommand.ExecuteAsync(null);
+            if (store.Snapshot.Revision != scanned.Revision) throw new InvalidOperationException("Repeated scans must not duplicate review entries.");
             await studio.StartFolderObservationCommand.ExecuteAsync(null);
             if (!studio.IsFolderObservationActive) throw new InvalidOperationException(studio.FolderObservationNotice);
             await vm.DisposeAsync();

@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Observation.Scan": "既存の項目をスキャン",
+  "Observation.Scanning": "保存済みの監視元を確認用にスキャン中…",
+  "Observation.ScanComplete": "スキャン完了。新しい項目を保留リストに追加しました。ファイルは移動していません。",
   "Files.SearchName": "このスペースで名前を検索",
   "Files.SortDescending": "名前の降順",
   "Files.NoMatches": "一致する項目はありません。",

@@ -353,6 +353,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             studio.AttachPasteFileExecutor(ExecutePasteFileAsync);
             studio.OnPreviewClassification = ExecuteClassificationPreviewAsync;
             studio.OnStartFolderObservation = StartFolderObservationAsync;
+            studio.OnScanObservedFolders = ScanObservedFoldersAsync;
             studio.OnStopFolderObservation = StopFolderObservationAsync;
             studio.OnImportPending = OperatingSystem.IsWindows() ? ExecuteImportPendingAsync : null;
         }

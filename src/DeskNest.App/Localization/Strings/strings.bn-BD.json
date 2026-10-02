@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Observation.Scan": "বিদ্যমান আইটেম স্ক্যান করুন",
+  "Observation.Scanning": "শুধু পর্যালোচনার জন্য সংরক্ষিত উৎস স্ক্যান করা হচ্ছে…",
+  "Observation.ScanComplete": "স্ক্যান সম্পন্ন। নতুন আইটেম অপেক্ষমাণ; কোনো ফাইল সরানো হয়নি।",
   "Files.SearchName": "এই স্পেসে নাম দিয়ে খুঁজুন",
   "Files.SortDescending": "নামের অধঃক্রম",
   "Files.NoMatches": "মিলে যাওয়া কোনো আইটেম নেই।",

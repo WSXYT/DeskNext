@@ -55,10 +55,33 @@ public sealed partial class MainWindowViewModel
         finally { _observationGate.Release(); }
     }
 
+    private async Task ScanObservedFoldersAsync(CancellationToken token)
+    {
+        await _observationGate.WaitAsync(token);
+        try
+        {
+            if (_disposed || _store is null || _manualCoordinator is null || StartupState != StartupState.Ready) return;
+            var store = _store;
+            var snapshot = store.Snapshot;
+            var excluded = ObservationExclusions(snapshot, store.DataDirectory);
+            var roots = snapshot.Settings.MonitoredFolders.Select(FilePath)
+                .Where(path => !excluded.Any(folder => ObservationContains(folder, path))).Distinct(ObservationPathComparer).ToArray();
+            if (roots.Length == 0) throw new InvalidOperationException(Localizer["Observation.NoFolders"]);
+            var paths = await Task.Run(() => DesktopOrganizationMonitor.ScanPaths(roots, excluded, token), token);
+            bool changed = await Task.Run(() => _manualCoordinator.RecordObservedPathsAsync(paths, token), token);
+            if (changed) await SetUIStateAsync(() => { if (!_disposed) ApplySnapshot(store.Snapshot); });
+        }
+        finally { _observationGate.Release(); }
+    }
+
     private async Task StopFolderObservationAsync()
     {
         Interlocked.Increment(ref _observationEpoch);
-        await SetUIStateAsync(() => Studio?.StartFolderObservationCommand.Cancel());
+        await SetUIStateAsync(() =>
+        {
+            Studio?.StartFolderObservationCommand.Cancel();
+            Studio?.ScanObservedFoldersCommand.Cancel();
+        });
         await _observationGate.WaitAsync();
         try
         {

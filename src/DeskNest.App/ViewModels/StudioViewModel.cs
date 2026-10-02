@@ -665,6 +665,22 @@ public sealed partial class StudioViewModel : ViewModelBase
 
     public Func<CancellationToken, Task>? OnStartFolderObservation { get; set; }
     public Func<Task>? OnStopFolderObservation { get; set; }
+    public Func<CancellationToken, Task>? OnScanObservedFolders { get; set; }
+    [ObservableProperty] private string _folderScanNotice = string.Empty;
+
+    [RelayCommand(IncludeCancelCommand = true)]
+    private async Task ScanObservedFoldersAsync(CancellationToken token)
+    {
+        try
+        {
+            if (OnScanObservedFolders is null) { FolderScanNotice = Localizer["Observation.NoFolders"]; return; }
+            FolderScanNotice = Localizer["Observation.Scanning"];
+            await OnScanObservedFolders(token);
+            FolderScanNotice = Localizer["Observation.ScanComplete"];
+        }
+        catch (OperationCanceledException) { FolderScanNotice = Localizer["Observation.Stopped"]; }
+        catch (Exception error) { FolderScanNotice = Localizer.GetString("Files.ActionFailedNotice", error.Message); }
+    }
     [ObservableProperty] private bool _isFolderObservationActive;
     [ObservableProperty] private string _folderObservationNotice = string.Empty;
 
@@ -684,6 +700,7 @@ public sealed partial class StudioViewModel : ViewModelBase
     private async Task StopFolderObservationAsync()
     {
         StartFolderObservationCommand.Cancel();
+        ScanObservedFoldersCommand.Cancel();
         if (OnStopFolderObservation is not null) await OnStopFolderObservation();
     }
 

@@ -59,6 +59,8 @@ public sealed class ManualOrganizationCoordinator
                     try { FileSystemVolume.RequireNoReparsePoints(path); }
                     catch (IOException) { continue; }
                     catch (UnauthorizedAccessException) { continue; }
+                    if (state.Pending.Count + additions.Count >= 10_000)
+                        throw new InvalidOperationException("Pending review is full; resolve items before scanning again.");
                     additions.Add(new PendingFile(Guid.NewGuid(), Path.GetFileName(path), path,
                         TriageReason.FilenameAmbiguous, null, DateTimeOffset.UtcNow));
                 }

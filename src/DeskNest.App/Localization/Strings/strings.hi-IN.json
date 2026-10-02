@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Observation.Scan": "मौजूदा आइटम स्कैन करें",
+  "Observation.Scanning": "केवल समीक्षा के लिए सहेजे गए स्रोत स्कैन हो रहे हैं…",
+  "Observation.ScanComplete": "स्कैन पूरा हुआ। नए आइटम लंबित हैं; कोई फ़ाइल नहीं हटाई या स्थानांतरित की गई।",
   "Files.SearchName": "इस स्पेस में नाम से खोजें",
   "Files.SortDescending": "नाम का अवरोही क्रम",
   "Files.NoMatches": "कोई मेल खाता आइटम नहीं।",

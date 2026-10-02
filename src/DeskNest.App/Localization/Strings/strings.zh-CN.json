@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Observation.Scan": "扫描现有项目",
+  "Observation.Scanning": "正在扫描已保存的来源；仅登记待处理。",
+  "Observation.ScanComplete": "扫描完成。新项目已加入待处理，未移动文件。",
   "Files.SearchName": "在此空间按名称查找",
   "Files.SortDescending": "名称倒序",
   "Files.NoMatches": "没有匹配的项目。",

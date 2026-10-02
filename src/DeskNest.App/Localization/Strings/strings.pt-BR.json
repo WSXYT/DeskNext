@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Observation.Scan": "Examinar itens existentes",
+  "Observation.Scanning": "Examinando fontes salvas apenas para revisão…",
+  "Observation.ScanComplete": "Exame concluído. Novos itens pendentes; nenhum arquivo foi movido.",
   "Files.SearchName": "Buscar por nome neste espaço",
   "Files.SortDescending": "Nome decrescente",
   "Files.NoMatches": "Nenhum item correspondente.",
