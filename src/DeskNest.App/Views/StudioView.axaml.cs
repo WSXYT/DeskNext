@@ -282,7 +282,7 @@ public partial class StudioView : UserControl
 
     private async void OnBrowseSpaceFolderClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (DataContext is not StudioViewModel vm || !vm.IsNewSpaceMapped || sender is not Button button) return;
+        if (DataContext is not StudioViewModel vm || vm.IsEditingSpace || !vm.IsNewSpaceMapped || sender is not Button button) return;
         var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
         if (storage?.CanPickFolder != true)
         {
@@ -290,7 +290,7 @@ public partial class StudioView : UserControl
             return;
         }
 
-        button.IsEnabled = false;
+        button.SetCurrentValue(Button.IsEnabledProperty, false);
         try
         {
             var folders = await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions
@@ -298,7 +298,7 @@ public partial class StudioView : UserControl
                 Title = vm.Localizer["Spaces.DialogFolder"], AllowMultiple = false
             });
             using var folder = folders.FirstOrDefault();
-            if (folder is null || !vm.IsAddSpaceDialogOpen || !vm.IsNewSpaceMapped || DataContext != vm) return;
+            if (folder is null || !vm.IsAddSpaceDialogOpen || vm.IsEditingSpace || !vm.IsNewSpaceMapped || DataContext != vm) return;
             string? path = folder.TryGetLocalPath();
             if (path is null)
             {
@@ -313,7 +313,7 @@ public partial class StudioView : UserControl
         {
             vm.SpaceDialogError = vm.Localizer.GetString("Files.ActionFailedNotice", error.Message);
         }
-        finally { button.IsEnabled = true; }
+        finally { button.SetCurrentValue(Button.IsEnabledProperty, !vm.IsEditingSpace); }
     }
 
     private async void OnFileDoubleTapped(object? sender, TappedEventArgs e)

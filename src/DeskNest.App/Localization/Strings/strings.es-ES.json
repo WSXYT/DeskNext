@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Spaces.EditDetails": "Editar espacio",
+  "Spaces.EditNotice": "Cambia solo el nombre y la descripción. Las carpetas y archivos no se mueven.",
+  "Action.Save": "Guardar",
   "Search.Workspace": "Buscar",
   "Search.Notice": "Buscar por nombre archivos y carpetas registrados en todos los espacios, sin explorar el disco. Ctrl/Cmd+K abre la búsqueda.",
   "Search.ShowInSpace": "Mostrar en el espacio",

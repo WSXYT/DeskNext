@@ -20,6 +20,8 @@ This is the P0 **acceptance inventory**, not a claim of working features. All ce
 
 ## Bounded implementation evidence (updated 2026-10-03)
 
+- F01 space details: the space-list context menu edits only name/description using the existing form. Physical folder, mode, files and history stay unchanged; cancel and floating-window refresh pass the existing UI workflow. See the P3 report; this does not implement directory migration.
+
 - F08 catalog search: sidebar Search or in-app Ctrl/Cmd+K searches registered names across all spaces, independently of the sidebar filter. Bounded results navigate back to existing file actions without changing metadata/files. Build and real headless shortcut/navigation checks pass; external indexes, OS-global hotkeys and per-platform interaction remain open. See [P6 partial report](p6-report.md).
 
 - F04 tray: normal startup registers an optional Avalonia tray entry for restoring the workbench, opening the existing capsule and exiting. Localization, command routing and disposal pass the existing headless workflow; native tray display/clicks, background lifetime and global hotkeys remain unverified. Closing the workbench still exits. See [P6 partial report](p6-report.md).

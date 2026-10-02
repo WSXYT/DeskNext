@@ -347,7 +347,36 @@ internal static class ManualClipboardSmoke
             floatingMenu.Close();
             Avalonia.Threading.Dispatcher.UIThread.RunJobs();
             window.Activate();
-            await main.UpdateStoreAsync(s => s with { Spaces = s.Spaces.Select(x => x.Id == source.Id ? x with { Name = "Updated space" } : x).ToList() });
+            var spaceRow = view.FindControl<ListBox>("SpacesListBox")!.GetVisualDescendants().OfType<Border>()
+                .First(border => border.ContextMenu is not null && border.DataContext is SpaceItemViewModel item && item.Id == source.Id);
+            var spaceMenu = spaceRow.ContextMenu!;
+            spaceMenu.Open(spaceRow);
+            var editSpace = spaceMenu.Items.OfType<MenuItem>().Single();
+            if (editSpace.Command != studio.OpenEditSpaceCommand || editSpace.CommandParameter is not SpaceItemViewModel editingSpace ||
+                editingSpace.Id != source.Id)
+                throw new InvalidOperationException("The space menu must edit the clicked space.");
+            editSpace.Command!.Execute(editSpace.CommandParameter);
+            spaceMenu.Close();
+            Dispatcher.UIThread.RunJobs();
+            var beforeSpaceEdit = store.Snapshot;
+            if (!studio.IsEditingSpace || !studio.IsAddSpaceDialogOpen ||
+                !view.FindControl<TextBox>("NewSpaceFolderInput")!.IsReadOnly ||
+                view.FindControl<RadioButton>("NewSpaceMappedMode")!.IsEffectivelyEnabled ||
+                studio.NewSpaceFolder != source.Folder)
+                throw new InvalidOperationException("Editing space details must keep storage mode and path read-only.");
+            studio.NewSpaceName = "Cancelled name";
+            studio.CloseAddSpaceDialog();
+            if (store.Snapshot.Revision != beforeSpaceEdit.Revision)
+                throw new InvalidOperationException("Cancelling space details must not save the draft.");
+            studio.OpenEditSpace(studio.AllSpaces.Single(item => item.Id == source.Id));
+            studio.NewSpaceName = "Updated space";
+            studio.NewSpaceDesc = "Updated description";
+            await studio.ConfirmAddSpaceAsync();
+            var editedSpace = store.Snapshot.Spaces.Single(item => item.Id == source.Id);
+            if (studio.IsAddSpaceDialogOpen || editedSpace.Folder != source.Folder || editedSpace.Mode != source.Mode ||
+                editedSpace.Description != "Updated description" || store.Snapshot.Revision != beforeSpaceEdit.Revision + 1 ||
+                store.Snapshot.Operations.Count != beforeSpaceEdit.Operations.Count || File.ReadAllText(contentPath) != "clipboard fixture")
+                throw new InvalidOperationException("Saving space details must change metadata only, preserving storage and history.");
             Avalonia.Threading.Dispatcher.UIThread.RunJobs();
             if (floating.Space?.Name != "Updated space" || !floating.IsVisible ||
                 (floatingFiles.SelectedItem as WorkspaceFileItemViewModel)?.Id != fileId)

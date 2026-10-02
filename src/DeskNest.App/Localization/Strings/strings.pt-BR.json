@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Spaces.EditDetails": "Editar espaço",
+  "Spaces.EditNotice": "Altere apenas o nome e a descrição. Pastas e arquivos permanecem no lugar.",
+  "Action.Save": "Salvar",
   "Search.Workspace": "Pesquisar",
   "Search.Notice": "Pesquisar por nome arquivos e pastas cadastrados em todos os espaços, sem examinar o disco. Ctrl/Cmd+K abre a pesquisa.",
   "Search.ShowInSpace": "Mostrar no espaço",

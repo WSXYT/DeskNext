@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Spaces.EditDetails": "تعديل تفاصيل المساحة",
+  "Spaces.EditNotice": "تغيير الاسم والوصف فقط. تبقى المجلدات والملفات في مكانها.",
+  "Action.Save": "حفظ",
   "Search.Workspace": "بحث",
   "Search.Notice": "ابحث بالاسم عن الملفات والمجلدات المسجلة في جميع المساحات دون فحص القرص. يفتح Ctrl/Cmd+K البحث.",
   "Search.ShowInSpace": "عرض في المساحة",

@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Spaces.EditDetails": "স্পেসের বিবরণ সম্পাদনা",
+  "Spaces.EditNotice": "শুধু নাম ও বিবরণ বদলান। ফোল্ডার ও ফাইল একই জায়গায় থাকবে।",
+  "Action.Save": "সংরক্ষণ",
   "Search.Workspace": "অনুসন্ধান",
   "Search.Notice": "ডিস্ক স্ক্যান না করে সব স্পেসের নিবন্ধিত ফাইল ও ফোল্ডার নাম দিয়ে খুঁজুন। Ctrl/Cmd+K দিয়ে অনুসন্ধান খুলুন।",
   "Search.ShowInSpace": "স্পেসে দেখান",

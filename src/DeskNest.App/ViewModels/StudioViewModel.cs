@@ -78,6 +78,18 @@ public sealed partial class StudioViewModel : ViewModelBase
     public string ManagedSpacesCountText => Localizer.GetString("Spaces.ManagedCountFormat", ManagedSpacesCount);
     public string MappedSpacesCountText => Localizer.GetString("Spaces.MappedCountFormat", MappedSpacesCount);
 
+    // Shared create/edit form; editing never changes physical storage.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsEditingSpace))]
+    [NotifyPropertyChangedFor(nameof(IsSpaceFolderReadOnly))]
+    [NotifyPropertyChangedFor(nameof(SpaceDialogTitle))]
+    [NotifyPropertyChangedFor(nameof(SpaceDialogConfirmText))]
+    private Guid? _editingSpaceId;
+    public bool IsEditingSpace => EditingSpaceId.HasValue;
+    public bool IsSpaceFolderReadOnly => IsEditingSpace || IsNewSpaceManaged;
+    public string SpaceDialogTitle => Localizer[IsEditingSpace ? "Spaces.EditDetails" : "Spaces.DialogTitle"];
+    public string SpaceDialogConfirmText => Localizer[IsEditingSpace ? "Action.Save" : "Spaces.DialogConfirm"];
+
     // New Space Dialog fields
     [ObservableProperty]
     private bool _isAddSpaceDialogOpen;
@@ -87,7 +99,7 @@ public sealed partial class StudioViewModel : ViewModelBase
 
     partial void OnNewSpaceNameChanged(string value)
     {
-        if (NewSpaceMode == SpaceStorageMode.Managed && !string.IsNullOrWhiteSpace(SettingsManagedRoot))
+        if (!IsEditingSpace && NewSpaceMode == SpaceStorageMode.Managed && !string.IsNullOrWhiteSpace(SettingsManagedRoot))
         {
             var trimmed = value?.Trim() ?? string.Empty;
             NewSpaceFolder = string.IsNullOrWhiteSpace(trimmed)
@@ -102,6 +114,7 @@ public sealed partial class StudioViewModel : ViewModelBase
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsNewSpaceManaged))]
     [NotifyPropertyChangedFor(nameof(IsNewSpaceMapped))]
+    [NotifyPropertyChangedFor(nameof(IsSpaceFolderReadOnly))]
     private SpaceStorageMode _newSpaceMode = SpaceStorageMode.Managed;
 
     public bool IsNewSpaceManaged
@@ -758,6 +771,8 @@ public sealed partial class StudioViewModel : ViewModelBase
     private void OnLocalizerChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName != nameof(LocalizationManager.CurrentLanguage)) return;
+        OnPropertyChanged(nameof(SpaceDialogTitle));
+        OnPropertyChanged(nameof(SpaceDialogConfirmText));
         OnPropertyChanged(nameof(ManualMoveStatusNotice));
         OnPropertyChanged(nameof(ManualUndoStatusNotice));
         NotifyFileActionGates();
@@ -1015,6 +1030,7 @@ public sealed partial class StudioViewModel : ViewModelBase
     [RelayCommand]
     public void OpenAddSpaceDialog()
     {
+        EditingSpaceId = null;
         NewSpaceName = string.Empty;
         NewSpaceDesc = string.Empty;
         NewSpaceMode = SpaceStorageMode.Managed;
@@ -1024,15 +1040,62 @@ public sealed partial class StudioViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    public void OpenEditSpace(SpaceItemViewModel? space)
+    {
+        var current = AllSpaces.FirstOrDefault(item => item.Id == (space ?? SelectedSpace)?.Id);
+        if (current is null) return;
+        SelectSpace(current);
+        EditingSpaceId = current.Id;
+        NewSpaceName = current.Name;
+        NewSpaceDesc = current.Description;
+        NewSpaceMode = current.Mode;
+        NewSpaceFolder = current.Folder;
+        SpaceDialogError = null;
+        IsAddSpaceDialogOpen = true;
+    }
+
+    [RelayCommand]
     public void CloseAddSpaceDialog()
     {
         IsAddSpaceDialogOpen = false;
+        EditingSpaceId = null;
         SpaceDialogError = null;
     }
 
     [RelayCommand]
     public async Task ConfirmAddSpaceAsync()
     {
+        if (EditingSpaceId is { } editingId)
+        {
+            string name = NewSpaceName.Trim();
+            string description = NewSpaceDesc.Trim();
+            if (name.Length is 0 or > 160)
+            {
+                SpaceDialogError = Localizer["Validation.InvalidSpaceName"];
+                return;
+            }
+            try
+            {
+                var updated = await _updateStore(state =>
+                {
+                    if (!state.Spaces.Any(space => space.Id == editingId))
+                        throw new InvalidOperationException(Localizer["Files.NoSpaceSelectedNotice"]);
+                    return state with
+                    {
+                        Spaces = state.Spaces.Select(space => space.Id == editingId
+                            ? space with { Name = name, Description = description } : space).ToList()
+                    };
+                });
+                RefreshFromState(updated);
+                SelectSpace(AllSpaces.Single(space => space.Id == editingId));
+                CloseAddSpaceDialog();
+            }
+            catch (Exception error)
+            {
+                SpaceDialogError = Localizer.GetString("Files.ActionFailedNotice", error.Message);
+            }
+            return;
+        }
         if (NewSpaceMode == SpaceStorageMode.Managed)
         {
             if (!TrySanitizeSpaceLeafName(NewSpaceName, SettingsManagedRoot, out var safeName, out var safeFolder))

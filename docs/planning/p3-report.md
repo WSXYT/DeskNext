@@ -2,6 +2,10 @@
 
 Status: implementation in progress. Desktop takeover and watcher-driven automatic moves remain disabled.
 
+## Space details editing (2026-10-03)
+
+The space-list context menu reuses the existing form to edit a space's display name and description. Storage mode and folder are read-only; saving changes neither files nor operation history, and the open space window follows the renamed entry. Cancelling does not save. The twelve locales are complete. Relevant verification only: Release build zero warnings/errors and `headless-edit-space.log` reports terminal Success/DictionaryParityVerified/ManagedClipboardWorkflowVerified true (9953 ms), including the actual menu, cancellation and unchanged storage checks. No full suite, CI or package rerun; this is not a physical-folder rename or phase acceptance.
+
 ## Space file search and sorting (2026-10-03)
 
 The workbench file list now filters cataloged names within the selected space, orders directories first and names ascending/descending, and preserves selection by ID. No disk scan or metadata save is performed. A no-match result clears the file-action subject; an explicit floating-window selection reveals that item in the workbench. Search survives a same-space snapshot refresh. App build: zero warnings/errors; the existing checked UI workflow passes (`headless-file-filter.log`, terminal Success/ManagedClipboardWorkflowVerified/FolderObservationVerified true, 17121 ms). This is not global search or an F08 acceptance claim; no full suite/CI/package rerun.
