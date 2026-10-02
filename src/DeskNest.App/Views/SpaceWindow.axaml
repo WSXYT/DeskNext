@@ -30,8 +30,15 @@
                     <TextBlock Text="{Binding #SpaceRoot.Space.ModeLocalized}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     <TextBlock Text="{Binding #SpaceRoot.Space.ItemCountText}" FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}"/>
                 </StackPanel>
-                <Button Grid.Column="1" Content="{Binding Localizer[Spaces.ReturnToStudio]}" Click="OnReturnClick"
-                        FontSize="11" ToolTip.Tip="{Binding Localizer[Spaces.WindowNotice]}"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                    <Button Name="SaveSpaceLayoutButton" Click="OnSaveLayoutClick" Width="32" Padding="6"
+                            ToolTip.Tip="{Binding Localizer[Spaces.SaveLayout]}"
+                            AutomationProperties.Name="{Binding Localizer[Spaces.SaveLayout]}">
+                        <PathIcon Data="{StaticResource IconCheck}" Width="14" Height="14"/>
+                    </Button>
+                    <Button Content="{Binding Localizer[Spaces.ReturnToStudio]}" Click="OnReturnClick"
+                            FontSize="11" ToolTip.Tip="{Binding Localizer[Spaces.WindowNotice]}"/>
+                </StackPanel>
             </Grid>
             <Border Grid.Row="2" x:Name="SpaceWindowDropSurface" DragDrop.AllowDrop="True" Background="Transparent" Margin="8,0">
                 <Grid>

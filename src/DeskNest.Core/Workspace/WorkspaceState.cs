@@ -6,7 +6,12 @@ public enum InferenceProvider { Laya, Jev }
 public enum TriageReason { FilenameAmbiguous, CategoriesInsufficient, NearTie }
 public enum ProposedOperationStatus { Proposed, PendingUser, Completed, Undone, RecoveryRequired }
 
-public sealed record WorkspaceSpace(Guid Id, string Name, string Description, SpaceStorageMode Mode, string Folder);
+// Position is in desktop pixels; size is in device-independent units.
+public sealed record SpaceWindowPlacement(int X, int Y, double Width, double Height);
+public sealed record WorkspaceSpace(Guid Id, string Name, string Description, SpaceStorageMode Mode, string Folder)
+{
+    public SpaceWindowPlacement? WindowPlacement { get; init; }
+}
 public sealed record WorkspacePublishedNodeIdentity(string RelativePath, string NativeId, bool IsDirectory,
     long Length, long LastWriteTimeUtcTicks, string Sha256);
 public sealed record WorkspacePublicationEvidence(string NativeId, string VolumePath, long Length,

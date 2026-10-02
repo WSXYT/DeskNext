@@ -924,6 +924,16 @@ public sealed partial class StudioViewModel : ViewModelBase
         IsAddSpaceDialogOpen = false;
     }
 
+    internal async Task SaveSpaceWindowPlacementAsync(Guid spaceId, SpaceWindowPlacement placement)
+    {
+        var updated = await _updateStore(state => state with
+        {
+            Spaces = state.Spaces.Select(space => space.Id == spaceId
+                ? space with { WindowPlacement = placement } : space).ToList()
+        });
+        RefreshFromState(updated);
+    }
+
     [RelayCommand]
     public async Task EnrollUserFileMetadataAsync(string? filePath)
     {

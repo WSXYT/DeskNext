@@ -29,6 +29,7 @@ public partial class StudioView : UserControl
         {
             Position = workbench.Position + new Avalonia.PixelPoint(40 + offset, 60 + offset)
         };
+        window.RestorePlacement();
         _spaceWindows.Add(spaceId, window);
         window.Closed += (_, _) => _spaceWindows.Remove(spaceId);
         window.Show();

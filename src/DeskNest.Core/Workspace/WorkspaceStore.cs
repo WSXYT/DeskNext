@@ -193,6 +193,10 @@ public sealed class WorkspaceStore : IAsyncDisposable
                 space.Description is null || space.Description.Length > 1_000 ||
                 !Enum.IsDefined(space.Mode) || !Path.IsPathFullyQualified(space.Folder))
                 throw new InvalidDataException("Invalid or duplicate workspace space");
+            if (space.WindowPlacement is { } placement &&
+                (!double.IsFinite(placement.Width) || !double.IsFinite(placement.Height) ||
+                 placement.Width is < 1 or > 32768 || placement.Height is < 1 or > 32768))
+                throw new InvalidDataException("Invalid space window size.");
         }
         var files = new HashSet<Guid>();
         foreach (var file in state.Files)

@@ -36,6 +36,7 @@ public sealed partial class SpaceItemViewModel : ViewModelBase
     private bool _isSelected;
 
     public ObservableCollection<WorkspaceFileItemViewModel> Files { get; } = new();
+    public SpaceWindowPlacement? WindowPlacement { get; }
 
     public bool IsManaged => Mode == SpaceStorageMode.Managed;
     public bool IsMapped => Mode == SpaceStorageMode.Mapped;
@@ -75,5 +76,6 @@ public sealed partial class SpaceItemViewModel : ViewModelBase
         _mode = space.Mode;
         _folder = space.Folder;
         _itemCount = itemCount;
+        WindowPlacement = space.WindowPlacement;
     }
 }

@@ -6,6 +6,7 @@ using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using DeskNest.App.ViewModels;
+using DeskNest.Core.Workspace;
 
 namespace DeskNest.App.Views;
 
@@ -18,7 +19,7 @@ public partial class SpaceWindow : Window
     private StudioViewModel? _studio;
     private Window? _workbench;
     private Guid _spaceId;
-    private bool _refreshQueued, _closed;
+    private bool _refreshQueued, _closed, _savingLayout;
 
     public SpaceWindow()
     {
@@ -67,6 +68,49 @@ public partial class SpaceWindow : Window
         _workbench = null;
         DataContext = null;
         Space = null;
+    }
+
+    internal void RestorePlacement()
+    {
+        if (Space?.WindowPlacement is not { } placement) return;
+        var screen = Screens.ScreenFromPoint(new PixelPoint(placement.X, placement.Y)) ??
+            (_workbench is null ? null : Screens.ScreenFromWindow(_workbench)) ?? Screens.Primary;
+        Width = Math.Clamp(placement.Width, MinWidth, 32768);
+        Height = Math.Clamp(placement.Height, MinHeight, 32768);
+        if (screen is null) return; // No screen geometry: retain the launcher's visible default position.
+        var area = screen.WorkingArea;
+        double scale = screen.Scaling;
+        Width = Math.Min(Width, Math.Max(MinWidth, area.Width / scale));
+        Height = Math.Min(Height, Math.Max(MinHeight, area.Height / scale));
+        Position = new PixelPoint(
+            (int)Math.Clamp((double)placement.X, area.X, Math.Max((double)area.X, (double)area.Right - Width * scale)),
+            (int)Math.Clamp((double)placement.Y, area.Y, Math.Max((double)area.Y, (double)area.Bottom - Height * scale)));
+    }
+
+    private async void OnSaveLayoutClick(object? sender, RoutedEventArgs e) => await SavePlacementAsync();
+
+    internal async Task SavePlacementAsync()
+    {
+        if (_closed || _savingLayout || _studio is null || Space is null || WindowState != WindowState.Normal) return;
+        var studio = _studio;
+        var placement = new SpaceWindowPlacement(Position.X, Position.Y, Bounds.Width, Bounds.Height);
+        var button = this.FindControl<Button>("SaveSpaceLayoutButton")!;
+        _savingLayout = true;
+        button.IsEnabled = false;
+        try
+        {
+            await studio.SaveSpaceWindowPlacementAsync(_spaceId, placement);
+            if (!_closed) studio.FileActionNotice = studio.Localizer["Spaces.LayoutSaved"];
+        }
+        catch (Exception error)
+        {
+            if (!_closed) studio.FileActionNotice = studio.Localizer.GetString("Files.ActionFailedNotice", error.Message);
+        }
+        finally
+        {
+            _savingLayout = false;
+            if (!_closed) button.IsEnabled = true;
+        }
     }
 
     private void OnWorkbenchClosed(object? sender, EventArgs e) => Close();

@@ -12,7 +12,8 @@ public sealed class WorkspaceStoreTests
         using var temp = new TemporaryDirectory();
         string source = Path.Combine(temp.Path, "leave-original.txt");
         await File.WriteAllTextAsync(source, "untouched");
-        var mapped = new WorkspaceSpace(Guid.NewGuid(), "Studio", "Art files", SpaceStorageMode.Mapped, temp.Path);
+        var mapped = new WorkspaceSpace(Guid.NewGuid(), "Studio", "Art files", SpaceStorageMode.Mapped, temp.Path)
+            { WindowPlacement = new(-1200, 40, 420, 480) };
         var pending = new PendingFile(Guid.NewGuid(), "leave-original.txt", source,
             TriageReason.CategoriesInsufficient, mapped.Id, DateTimeOffset.UtcNow);
         await using (var store = await WorkspaceStore.OpenAsync(temp.Path))
@@ -35,7 +36,7 @@ public sealed class WorkspaceStoreTests
         {
             Assert.Equal("ar-SA", reopened.Snapshot.Settings.Language);
             Assert.Equal(InferenceProvider.Jev, reopened.Snapshot.Settings.Provider);
-            Assert.Single(reopened.Snapshot.Spaces);
+            Assert.Equal(mapped.WindowPlacement, Assert.Single(reopened.Snapshot.Spaces).WindowPlacement);
             Assert.Single(reopened.Snapshot.Pending);
         }
         Assert.Equal("untouched", await File.ReadAllTextAsync(source));
@@ -53,6 +54,10 @@ public sealed class WorkspaceStoreTests
         Assert.Empty(store.Snapshot.Spaces);
         await store.UpdateAsync(state => state with { Spaces = [space] });
         Assert.Equal(1, store.Snapshot.Revision);
+        await Assert.ThrowsAsync<InvalidDataException>(() => store.UpdateAsync(state => state with
+            { Spaces = [space with { WindowPlacement = new(0, 0, 0, 480) }] }));
+        Assert.Equal(1, store.Snapshot.Revision);
+        Assert.Null(Assert.Single(store.Snapshot.Spaces).WindowPlacement);
     }
 
     [Fact]

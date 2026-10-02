@@ -236,12 +236,36 @@ internal static class ManualClipboardSmoke
             if (floating.Space?.Name != "Updated space" || !floating.IsVisible ||
                 (floatingFiles.SelectedItem as WorkspaceFileItemViewModel)?.Id != fileId)
                 throw new InvalidOperationException("Space window must follow snapshot updates without losing selection.");
+            floating.Width = 420;
+            floating.Height = 480;
+            floating.Position = new PixelPoint(60, 80);
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            floating.UpdateLayout();
+            long layoutRevision = store.Snapshot.Revision;
+            int historyCount = store.Snapshot.Operations.Count;
+            if (floating.FindControl<Button>("SaveSpaceLayoutButton")?.IsEffectivelyVisible != true)
+                throw new InvalidOperationException("The floating window must expose its layout save action.");
+            await floating.SavePlacementAsync();
+            var savedPlacement = store.Snapshot.Spaces.Single(s => s.Id == source.Id).WindowPlacement;
+            if (savedPlacement != new SpaceWindowPlacement(60, 80, 420, 480) ||
+                store.Snapshot.Revision != layoutRevision + 1 || store.Snapshot.Operations.Count != historyCount)
+                throw new InvalidOperationException($"Saving layout must persist only space metadata: saved={savedPlacement}, bounds={floating.Bounds}, revision={store.Snapshot.Revision}/{layoutRevision + 1}, history={store.Snapshot.Operations.Count}/{historyCount}, notice={studio.FileActionNotice}");
             floating.Close();
             studio.RefreshFromState(store.Snapshot);
             Avalonia.Threading.Dispatcher.UIThread.RunJobs();
             if (floating.Space is not null || floating.DataContext is not null)
                 throw new InvalidOperationException("Closed space windows must release their borrowed workspace.");
             floating = view.OpenSelectedSpaceWindow()!;
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            floating.UpdateLayout();
+            if (floating.Position != new PixelPoint(60, 80) || floating.Bounds.Size != new Size(420, 480))
+                throw new InvalidOperationException("Reopened space window did not restore the saved position and size.");
+            floating.Close();
+            await studio.SaveSpaceWindowPlacementAsync(source.Id, savedPlacement! with { X = int.MaxValue, Y = int.MinValue });
+            floating = view.OpenSelectedSpaceWindow()!;
+            var screen = floating.Screens.ScreenFromWindow(floating);
+            if (screen is not null && !screen.WorkingArea.Contains(floating.Position))
+                throw new InvalidOperationException("A layout from a removed monitor must restore on a visible screen.");
             window.Close();
             if (floating.IsVisible || floating.DataContext is not null)
                 throw new InvalidOperationException("Closing the workbench must close its space windows.");
