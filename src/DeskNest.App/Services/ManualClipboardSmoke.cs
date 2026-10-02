@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Input;
+using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using DeskNest.App.Views;
 using DeskNest.App.ViewModels;
@@ -79,6 +80,18 @@ internal static class ManualClipboardSmoke
                 store.Snapshot.Files.Single().SpaceId != source.Id ||
                 store.Snapshot.Operations.Single().Status != ProposedOperationStatus.Undone)
                 throw new InvalidOperationException("Undo did not restore the cut source.");
+
+            // Outgoing drag supplies one platform file reference, never our private cut marker.
+            // Payload preparation does not establish native file-manager drop interoperability.
+            long dragRevision = store.Snapshot.Revision;
+            using (var item = await FileDragSource.ResolveItemAsync(window, studio, fileId, source.Id, sourcePath))
+            using (var transfer = FileDragSource.CreateTransfer(item)) // Not handed to the OS in this check.
+            {
+                if (FileDragSource.AllowedEffects != DragDropEffects.Copy || transfer.Formats.Count() != 1 ||
+                    !transfer.Formats.Contains(DataFormat.File) || transfer.TryGetFiles()?.Single().TryGetLocalPath() != sourcePath ||
+                    store.Snapshot.Revision != dragRevision || File.ReadAllText(contentPath) != "clipboard fixture")
+                    throw new InvalidOperationException("Outgoing drag must preserve source and metadata and export only a file reference.");
+            }
 
             // The real context menu uses the clicked row, even with no current selection.
             studio.SelectSpace(studio.AllSpaces.Single(s => s.Id == source.Id));

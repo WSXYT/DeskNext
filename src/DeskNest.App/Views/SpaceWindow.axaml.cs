@@ -24,6 +24,7 @@ public partial class SpaceWindow : Window
     public SpaceWindow()
     {
         InitializeComponent();
+        Services.FileDragSource.Attach(this.FindControl<ListBox>("SpaceWindowFiles")!, () => _studio);
         Closed += OnClosed;
         var drop = this.FindControl<Border>("SpaceWindowDropSurface")!;
         drop.AddHandler(DragDrop.DragOverEvent, OnDragOver);

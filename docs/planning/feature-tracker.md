@@ -20,6 +20,7 @@ This is the P0 **acceptance inventory**, not a claim of working features. All ce
 
 ## Bounded implementation evidence (2026-09-30)
 
+- F02 outgoing entry point: workbench and independent space-window file rows export a single platform file reference through Avalonia drag/drop, offering Copy only and never deleting the source. File/directory payload checks and the existing UI smoke pass; actual external-file-manager drop negotiation remains unverified. This does not enable the internal Copy/copy-Paste commands.
 - F02 current increment: Windows NTFS pending items can be explicitly confirmed into a space and undone back to the original external location and pending record. This reuses the journaled move coordinator, with file/directory UI-command coverage. Direct space drops remain in-root cataloging; Copy and cross-platform/external-file-manager negotiation are not established.
 
 - F01/F02/F04/F12: `src/DeskNest.App/Views/StudioView.axaml`, `DropCapsuleWindow.axaml`, `Services/HeadlessSmokeRunner.cs`, `src/DeskNest.Platform/PlatformFileActions.cs` and `ManualOrganizationCoordinator` supply the current entrypoints. The Windows headless suite checks actual production views, 287-key parity across twelve languages, keyboard/DnD callback routing, and bounded 10k virtualization. It does **not** prove real Explorer/Finder/Nautilus negotiation, desktop compositing, IME or assistive-technology behavior. Production Copy/copy-Paste remains gated regardless of the internal copy tests.

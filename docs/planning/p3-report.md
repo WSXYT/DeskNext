@@ -2,6 +2,12 @@
 
 Status: implementation in progress. Desktop takeover and watcher-driven automatic moves remain disabled.
 
+## Outgoing drag entry point
+
+The workbench and independent space-window lists now start an Avalonia system drag after a left-mouse drag threshold. `Services/FileDragSource.cs` resolves the clicked item through the current catalog and existing local-path checks, then exports one `DataFormat.File` item with **Copy only**. It does not invoke Core copy, set a cut marker, delete the source, change workspace metadata, or promise undo for a receiving application's operation. Normal click/double-click behavior remains in the existing UI smoke.
+
+Relevant checks only: App Release build passed with zero warnings/errors; `artifacts/p3-publication-tests/headless-outgoing-drag.log` reports `Success=true` and `ManagedClipboardWorkflowVerified=true` (11639 ms), including file/directory reference preparation and unchanged source/metadata. This is payload and existing-input regression coverage, **not native Explorer/Finder/Nautilus drop acceptance**. Production Copy/copy-Paste remains gated. No full suite, CI or packaging was repeated for this increment.
+
 ## Manual recovery: keep unconfirmed copy files
 
 For a valid copy intent with **no enrolled copy and no move journal**, the recovery screen now shows source, destination and staging paths plus an unchecked acknowledgement. **Keep files and continue** checkpoints the existing workspace, archives the exact intent beside the workspace, and retries startup on the same owner. It does not adopt, inspect recursively, move or delete any source/staged/destination item. Changed confirmation details, corrupt/overlapping evidence and already-enrolled publications cannot use this action; they retain normal recovery verification. Read-only evidence inspection remains separate.

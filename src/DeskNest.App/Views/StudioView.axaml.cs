@@ -70,6 +70,7 @@ public partial class StudioView : UserControl
     public StudioView()
     {
         InitializeComponent();
+        Services.FileDragSource.Attach(this.FindControl<ListBox>("FilesListBox")!, () => DataContext as StudioViewModel);
 
         var spaceSurface = this.FindControl<Border>("SpaceDetailSurface");
         if (spaceSurface != null)
