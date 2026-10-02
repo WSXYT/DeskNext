@@ -74,12 +74,38 @@ internal static class ManualClipboardSmoke
                 throw new InvalidOperationException("Cut/paste into a new managed space failed: " + studio.FileActionNotice);
             if (await AvaloniaClipboardBridge.TryGetFilePayloadAsync(clipboard) is not null)
                 throw new InvalidOperationException("Successful cut/paste did not clear the clipboard.");
-            await studio.ExecuteUndoManualMoveAsync(moved.Operations[0].Id);
+            // Undo is reachable from the clicked file, in either workspace surface.
+            window.UpdateLayout();
+            var undoRow = view.GetVisualDescendants().OfType<Border>().Single(b =>
+                b.ContextMenu is not null && b.DataContext is WorkspaceFileItemViewModel f && f.Id == fileId);
+            studio.SelectedFile = null;
+            undoRow.ContextMenu!.Open(undoRow);
+            var undoMenu = undoRow.ContextMenu.Items.OfType<MenuItem>().Single(item => item.Name == "UndoFileMenu");
+            if (!undoMenu.IsVisible || undoMenu.Command != studio.ExecuteUndoManualMoveCommand ||
+                !Equals(undoMenu.CommandParameter, moved.Operations[0].Id))
+                throw new InvalidOperationException("Workbench undo must address the clicked file's recorded operation.");
+            undoRow.ContextMenu.Close();
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            var undoWindow = view.OpenSelectedSpaceWindow() ?? throw new InvalidOperationException("Undo space window is unavailable.");
+            undoWindow.UpdateLayout();
+            var floatingUndoRow = undoWindow.GetVisualDescendants().OfType<Border>().Single(b =>
+                b.ContextMenu is not null && b.DataContext is WorkspaceFileItemViewModel f && f.Id == fileId);
+            floatingUndoRow.ContextMenu!.Open(floatingUndoRow);
+            var floatingUndoMenu = floatingUndoRow.ContextMenu.Items.OfType<MenuItem>().Single(item => item.Name == "UndoFileMenu");
+            if (floatingUndoMenu.Command != undoMenu.Command || !Equals(floatingUndoMenu.CommandParameter, undoMenu.CommandParameter))
+                throw new InvalidOperationException("Space-window undo must reuse the same recorded operation.");
+            floatingUndoRow.ContextMenu.Close();
+            undoWindow.Close();
+            window.Activate();
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            await studio.ExecuteUndoManualMoveCommand.ExecuteAsync(undoMenu.CommandParameter);
             if (File.ReadAllText(contentPath) != "clipboard fixture" || Exists(destination) ||
                 (directory && !Directory.Exists(Path.Combine(sourcePath, "empty"))) ||
                 store.Snapshot.Files.Single().SpaceId != source.Id ||
                 store.Snapshot.Operations.Single().Status != ProposedOperationStatus.Undone)
                 throw new InvalidOperationException("Undo did not restore the cut source.");
+            if (studio.FindUndoForFile(studio.AllSpaces.SelectMany(s => s.Files).Single(f => f.Id == fileId)) is not null)
+                throw new InvalidOperationException("An undone operation must not remain offered in the file menu.");
 
             // Outgoing drag supplies one platform file reference, never our private cut marker.
             // Payload preparation does not establish native file-manager drop interoperability.

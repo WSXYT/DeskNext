@@ -176,6 +176,13 @@ public partial class SpaceWindow : Window
             move.Items.Add(new MenuItem { Header = target.Name, Command = studio.ExecuteManualMoveCommand, CommandParameter = (file.Id, target.Id) });
         move.IsEnabled &= move.Items.Count > 0;
         menu.Items.Add(move);
+        if (studio.FindUndoForFile(file) is { } undo)
+        {
+            var undoItem = Action("Operations.UndoAction", studio.ExecuteUndoManualMoveCommand, undo.Id, true);
+            undoItem.Name = "UndoFileMenu";
+            ToolTip.SetTip(undoItem, new TextBlock { Text = undo.SourcePath, FlowDirection = Avalonia.Media.FlowDirection.LeftToRight });
+            menu.Items.Add(undoItem);
+        }
         menu.Items.Add(new Separator());
         menu.Items.Add(Action("Files.ActionRename", studio.ExecuteRenameFileCommand, file, studio.CanRenameFile, showWorkbench: true));
         menu.Items.Add(Action(file.DeleteActionKey, studio.ExecuteDeleteFileCommand, file, studio.CanDeleteFile, showWorkbench: true));

@@ -180,6 +180,16 @@ public sealed partial class StudioViewModel : ViewModelBase
         ? Localizer["Operations.UndoReadyNotice"]
         : Localizer["Operations.UndoGatedNotice"];
 
+    // Presentation only; Core revalidates recorded identity before performing the undo.
+    internal OperationItemViewModel? FindUndoForFile(WorkspaceFileItemViewModel? file)
+    {
+        if (!CanUndoManualMove || file is null || file.IsInTrash) return null;
+        var operation = OperationHistory.FirstOrDefault(item => item.FileId == file.Id && !item.IsUndone);
+        return operation is { CanUndo: true } && string.Equals(operation.DestinationPath, file.Path,
+            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal)
+            ? operation : null;
+    }
+
     public void AttachManualUndoExecutor(Func<Guid, Task> executor)
     {
         OnUndoManualMove = executor ?? throw new ArgumentNullException(nameof(executor));

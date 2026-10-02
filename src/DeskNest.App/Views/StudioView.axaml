@@ -342,6 +342,7 @@
                                                               IsVisible="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).PreviewClassificationCommand.IsRunning}"/>
                                                     <Separator/>
                                                     <MenuItem Name="MoveToSpaceMenu" Header="{Binding Localizer[Files.ActionMoveToSpace]}"/>
+                                                    <MenuItem Name="UndoFileMenu" Header="{Binding Localizer[Operations.UndoAction]}" IsVisible="False"/>
                                                     <MenuItem Header="{Binding Localizer[Files.ActionCut]}"
                                                               InputGesture="{OnPlatform Default='Ctrl+X', macOS='Meta+X'}"
                                                               Command="{Binding #FilesListBox.((vm:StudioViewModel)DataContext).ExecuteCutFileCommand}"

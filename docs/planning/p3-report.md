@@ -2,6 +2,10 @@
 
 Status: implementation in progress. Desktop takeover and watcher-driven automatic moves remain disabled.
 
+## File-row undo entry (2026-10-03)
+
+Workbench and independent-space context menus now offer the clicked file's latest still-applicable recorded operation through the existing Undo command. Copied entries have no move history and receive no copy-undo action; undone/recovery-required entries and mismatched destinations are not offered. The tooltip shows the original path LTR. Core identity/recovery checks remain authoritative. Relevant checks only: App build zero warnings/errors and the existing file/directory workflow passed through both menus (`headless-file-menu-undo.log`, terminal Success/ManagedClipboardWorkflowVerified true, 8073 ms). No new transaction, localization key, full suite, CI or package rerun.
+
 ## Installed Explorer workflow (2026-10-03)
 
 Unsigned package `0.3.0-installed-explorer-20261003` was installed into a path containing spaces. The **installed App**, launched from a fresh unelevated driver, created a managed space through the production dialog command, then passed file and directory Explorer drop → confirmation → import → Reveal → outward Copy → undo. Evidence: `artifacts/p3-publication-tests/explorer-20261003-022225/native-explorer.log`, both `SpaceCreated=true` cases and terminal `Success=true, ExplorerDragVerified=true`, HWND `0x351BD0`, 250%. Drag gestures use OS mouse injection; creation, confirmation and undo use production commands. This establishes the ordinary installed Windows workflow, not its force-kill, physical-input or cross-platform acceptance.

@@ -254,8 +254,17 @@ public partial class StudioView : UserControl
         var moveMenu = menu.Items.OfType<MenuItem>().Single(item => item.Name == "MoveToSpaceMenu");
         moveMenu.ItemsSource = null;
         moveMenu.IsEnabled = false;
+        var undoMenu = menu.Items.OfType<MenuItem>().Single(item => item.Name == "UndoFileMenu");
+        undoMenu.IsVisible = false;
+        undoMenu.Command = null;
+        undoMenu.CommandParameter = null;
         if (DataContext is not StudioViewModel studio || menu.DataContext is not WorkspaceFileItemViewModel file) return;
         studio.SelectFile(file); // File actions apply to the row whose menu was opened.
+        var undo = studio.FindUndoForFile(file);
+        undoMenu.IsVisible = undo is not null;
+        undoMenu.Command = studio.ExecuteUndoManualMoveCommand;
+        undoMenu.CommandParameter = undo?.Id;
+        ToolTip.SetTip(undoMenu, new TextBlock { Text = undo?.SourcePath, FlowDirection = Avalonia.Media.FlowDirection.LeftToRight });
         if (file.IsInTrash || !studio.CanExecuteManualMove) return;
 
         // Populate only the opened menu, not every file row. Capture the clicked row's ID,
