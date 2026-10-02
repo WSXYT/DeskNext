@@ -356,6 +356,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             studio.OnStartFolderObservation = StartFolderObservationAsync;
             studio.OnScanObservedFolders = ScanObservedFoldersAsync;
             studio.OnStopFolderObservation = StopFolderObservationAsync;
+            studio.OnSetObservationSourcePaused = SetObservationSourcePausedAsync;
+            studio.OnObservationSourceSelected = RefreshObservationStatus;
+            RefreshObservationStatus();
             studio.OnImportPending = OperatingSystem.IsWindows() ? ExecuteImportPendingAsync : null;
         }
     }

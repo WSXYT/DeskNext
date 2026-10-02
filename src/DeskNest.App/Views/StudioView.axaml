@@ -831,6 +831,13 @@
                             <ComboBox Name="ObservationSourcePicker" ItemsSource="{Binding ObservationSources}"
                                       SelectedItem="{Binding ObservationSourcePath}" HorizontalAlignment="Stretch"
                                       FlowDirection="LeftToRight"/>
+                            <TextBlock Text="{Binding ObservationSourceStatus}" TextWrapping="Wrap" FontSize="12"/>
+                            <WrapPanel IsEnabled="{Binding !IsChangingObservationSource}">
+                                <Button Name="PauseObservationSourceButton" Content="{Binding Localizer[Observation.PauseSource]}"
+                                        Command="{Binding PauseObservationSourceCommand}" Margin="0,0,8,4"/>
+                                <Button Name="ResumeObservationSourceButton" Content="{Binding Localizer[Observation.ResumeSource]}"
+                                        Command="{Binding ResumeObservationSourceCommand}" Margin="0,0,0,4"/>
+                            </WrapPanel>
                             <ComboBox Name="ObservationTargetPicker" ItemsSource="{Binding AllSpaces}"
                                       SelectedItem="{Binding ObservationTargetSpace}" HorizontalAlignment="Stretch"
                                       PlaceholderText="{Binding Localizer[Triage.SelectTargetPrompt]}">

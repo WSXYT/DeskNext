@@ -94,8 +94,52 @@ internal static class FolderObservationSmoke
             if (store.Snapshot.Settings.MonitoredFolderTargets.Count != 0 ||
                 store.Snapshot.Pending.Single(item => item.Path == fresh[0]).SuggestedSpaceId != target.Id)
                 throw new InvalidOperationException("Clearing a source preset must not rewrite existing pending choices.");
+            // A selected nested source must not leak events through its still-running parent when paused.
+            string nested = Directory.CreateDirectory(Path.Combine(first, "nested-source")).FullName;
+            await vm.UpdateStoreAsync(state => state with { Settings = state.Settings with { MonitoredFolders = [first, second, nested] } });
             await studio.StartFolderObservationCommand.ExecuteAsync(null);
             if (!studio.IsFolderObservationActive) throw new InvalidOperationException(studio.FolderObservationNotice);
+            sourcePicker.SelectedItem = nested;
+            var pause = view.FindControl<Button>("PauseObservationSourceButton")!;
+            var resume = view.FindControl<Button>("ResumeObservationSourceButton")!;
+            if (pause.Command != studio.PauseObservationSourceCommand || resume.Command != studio.ResumeObservationSourceCommand || !pause.IsEnabled)
+                throw new InvalidOperationException("Per-source controls must use the selected source and live capability state.");
+            revision = store.Snapshot.Revision;
+            await studio.PauseObservationSourceCommand.ExecuteAsync(null);
+            if (studio.CanPauseObservationSource || !studio.CanResumeObservationSource ||
+                studio.ObservationSourceStatus != studio.Localizer["Observation.Paused"] || store.Snapshot.Revision != revision)
+                throw new InvalidOperationException("Pausing a source must stop only its runtime observer without saving metadata.");
+            string duringPause = Path.Combine(nested, "during-pause.txt");
+            File.WriteAllText(duringPause, "keep for explicit scan");
+            string liveOther = Path.Combine(second, "still-observed.txt");
+            string stagedOther = Path.Combine(root, "staged-other.txt");
+            File.WriteAllText(stagedOther, "another source stays live");
+            File.Move(stagedOther, liveOther);
+            using var pauseTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(6));
+            while (!store.Snapshot.Pending.Any(item => item.Path == liveOther)) await Task.Delay(25, pauseTimeout.Token);
+            if (store.Snapshot.Pending.Any(item => item.Path == duringPause) || !studio.IsFolderObservationActive)
+                throw new InvalidOperationException("A paused nested source leaked through its parent or stopped another source.");
+            revision = store.Snapshot.Revision;
+            await studio.ResumeObservationSourceCommand.ExecuteAsync(null);
+            if (!studio.CanPauseObservationSource || studio.CanResumeObservationSource ||
+                studio.ObservationSourceStatus != studio.Localizer["Observation.Resumed"] || store.Snapshot.Revision != revision)
+                throw new InvalidOperationException("Resume must establish a new baseline and report the need for explicit scanning.");
+            string afterResume = Path.Combine(nested, "after-resume.txt");
+            string stagedResume = Path.Combine(root, "staged-resume.txt");
+            File.WriteAllText(stagedResume, "resumed source stays in place");
+            File.Move(stagedResume, afterResume);
+            while (!store.Snapshot.Pending.Any(item => item.Path == afterResume)) await Task.Delay(25, pauseTimeout.Token);
+            if (store.Snapshot.Pending.Any(item => item.Path == duringPause) || store.Snapshot.Operations.Count != 0 ||
+                File.ReadAllText(duringPause) != "keep for explicit scan" || File.ReadAllText(afterResume) != "resumed source stays in place")
+                throw new InvalidOperationException("Resuming must not claim missed-event repair or move any source.");
+            Directory.Move(second, second + "-offline");
+            sourcePicker.SelectedItem = second;
+            if (studio.ObservationSourceStatus != studio.Localizer["Validation.FileNotFound"] || !studio.CanResumeObservationSource)
+                throw new InvalidOperationException("An unavailable source must have visible status and a retry entry.");
+            Directory.Move(second + "-offline", second);
+            await studio.ResumeObservationSourceCommand.ExecuteAsync(null);
+            if (studio.ObservationSourceStatus != studio.Localizer["Observation.Resumed"])
+                throw new InvalidOperationException("A returned source must support an explicit restart.");
             await vm.DisposeAsync();
             if (studio.IsFolderObservationActive) throw new InvalidOperationException("Workbench disposal must stop its observer.");
         }

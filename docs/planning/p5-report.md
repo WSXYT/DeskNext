@@ -27,6 +27,14 @@ Settings can bind or clear a suggested space for each **saved** observation sour
 
 The existing two-source workflow uses the actual source/space pickers and binding command, checks persisted JSON, verifies one source suggests its bound space while the other has no preset, and confirms clearing retains earlier review choices. App build: zero warnings/errors; related WorkspaceStore tests: 15 passed; checked UI workflow: `headless-observation-targets.log`, terminal Success/FolderObservationVerified/ManagedClipboardWorkflowVerified true, 16,990 ms. No full-suite, CI or package rerun.
 
+## Per-source pause and status (2026-10-03)
+
+The saved-source picker now shows that source's runtime status and Pause/Resume controls, alongside an active-source count. Each source reuses the existing bounded monitor; pausing cancels/drains its callback and disposes only its watcher. A selected nested source owns its subtree even while paused, so an active parent cannot bypass the pause. Startup failure of one source does not stop the others. Unavailable sources have a visible status and an explicit retry entry.
+
+Pause is session-only and does not change workspace metadata. Resume establishes a new baseline and explicitly asks for a manual scan of missed items; it does not silently replay them. The existing explicit scan can still include paused sources. Global Stop, configuration changes and disposal continue to release every watcher. No model calls or physical moves were added.
+
+App build: zero warnings/errors. The existing workflow verifies the actual controls, a paused nested source with its parent and another source still running, resume without adopting pause-period items, unavailable-source status/retry, and unchanged source content/zero file operations. `headless-observation-pause.log`: terminal Success/FolderObservationVerified/ManagedClipboardWorkflowVerified/dictionary parity true, 11,098 ms. LSP still reports the already-compiled ScanPaths/MonitoredFolderTargets members missing; no source was weakened for stale diagnostics. No full suite, CI or package repetition.
+
 ## Still open
 
-Per-source pause/health and capsule/extension bindings, complete rescan reconciliation, durable event attribution, all overflow/257/1000-event guarantees, root replacement/unavailability policy, 24-hour resource testing, and Flow editor/scheduling/unified execution remain open. Observation is **not** automatic organization and cannot authorize file moves. P3/P5 and the full F05 row remain incomplete.
+Durable per-source pause/health semantics, capsule/extension bindings, complete rescan reconciliation, durable event attribution, all overflow/257/1000-event guarantees, native root-replacement policy, aggregate multi-source resource limits and 24-hour testing, and Flow editor/scheduling/unified execution remain open. Observation is **not** automatic organization and cannot authorize file moves. P3/P5 and the full F05 row remain incomplete.

@@ -9,7 +9,7 @@
 - Managed deletion uses app recovery storage. Open/reveal/preview reject relative/URI/reparse paths; previews bounded.
 - Copy: cataloged Windows NTFS items; managed/existing mapped targets; no copy-undo. Unsupported streams fail closed. Retain intents; never auto-adopt/delete unconfirmed copies. Validate ancestry before creation.
 - Drops catalog in-root; confirmed Windows imports retain undo origins. Outgoing drags: Copy file references, never source deletion. Clipboard: UI thread. Never create missing mapped roots.
-- Release singleton subscriptions; space windows borrow workbench. Observation: explicit session→Pending only; no models/moves; stop/dispose releases watchers. Desktop/selected-folder binding/rescan/health remain open; no takeover before S01–S08.
+- Release singleton subscriptions; space windows borrow workbench. Observation: session→Pending only, no models/moves. Pause/dispose releases watchers; nested sources own subtrees. Resume starts a new baseline; scan missed items explicitly. No takeover before S01–S08.
 - CI: physical macOS temp paths, hosted-only aliases, terminal JSON; skips aren't evidence.
 - Preserve provenance, twelve-locale parity, F01–F13/inference evidence. Suggestions never move files. Jev consent session-only; saved keys use OS storage, never JSON. Python/models: ignored `artifacts/`. Synthetic images don't prove desktop compositing.
 <!-- pi-agents-md:end -->

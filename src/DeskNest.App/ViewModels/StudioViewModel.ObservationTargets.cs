@@ -12,9 +12,37 @@ public sealed partial class StudioViewModel
     [ObservableProperty] private SpaceItemViewModel? _observationTargetSpace;
     private IReadOnlyDictionary<string, Guid> _savedObservationTargets = new Dictionary<string, Guid>();
 
-    partial void OnObservationSourcePathChanged(string? value) =>
+    public Func<string, bool, CancellationToken, Task>? OnSetObservationSourcePaused { get; set; }
+    public Action? OnObservationSourceSelected { get; set; }
+    [ObservableProperty] private string _observationSourceStatus = string.Empty;
+    [ObservableProperty] private bool _isChangingObservationSource;
+    [ObservableProperty, NotifyCanExecuteChangedFor(nameof(PauseObservationSourceCommand))]
+    private bool _canPauseObservationSource;
+    [ObservableProperty, NotifyCanExecuteChangedFor(nameof(ResumeObservationSourceCommand))]
+    private bool _canResumeObservationSource;
+
+    partial void OnObservationSourcePathChanged(string? value)
+    {
         ObservationTargetSpace = value is not null && _savedObservationTargets.TryGetValue(value, out var id)
             ? AllSpaces.FirstOrDefault(space => space.Id == id) : null;
+        OnObservationSourceSelected?.Invoke();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanPauseObservationSource))]
+    private Task PauseObservationSourceAsync() => ChangeObservationSourceAsync(true);
+
+    [RelayCommand(IncludeCancelCommand = true, CanExecute = nameof(CanResumeObservationSource))]
+    private Task ResumeObservationSourceAsync(CancellationToken token) => ChangeObservationSourceAsync(false, token);
+
+    private async Task ChangeObservationSourceAsync(bool paused, CancellationToken token = default)
+    {
+        if (IsChangingObservationSource || ObservationSourcePath is not { } root || OnSetObservationSourcePaused is null) return;
+        IsChangingObservationSource = true;
+        try { await OnSetObservationSourcePaused(root, paused, token); }
+        catch (OperationCanceledException) { ObservationSourceStatus = Localizer["Observation.Stopped"]; }
+        catch (Exception error) { ObservationSourceStatus = Localizer.GetString("Files.ActionFailedNotice", error.Message); }
+        finally { IsChangingObservationSource = false; }
+    }
 
     private void RefreshObservationTargets(WorkspaceState state, Guid? target)
     {
