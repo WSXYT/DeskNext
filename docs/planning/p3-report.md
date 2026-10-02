@@ -2,6 +2,14 @@
 
 Status: implementation in progress. Desktop takeover and watcher-driven automatic moves remain disabled.
 
+## Actual desktop review capture (2026-10-02)
+
+`build/windows/Capture-UiReview.ps1` starts the existing native runner with an opt-in `--desktop-review` fixture. It briefly shows a Chinese workbench, independent space window and capsule, then copies their bounding rectangle from the **actual Windows desktop**. No default workspace, clipboard or display setting is changed. The three windows close automatically. This developer script is not shipped in application payloads.
+
+Current image: `artifacts/ui-review/native-20261002-235314-d36d2e/desktop-composite.png` (3360×1750 desktop pixels). Its `capture.json` records three distinct HWNDs, observed scaling **250%** and `ActualTransparencyLevel=Transparent`; terminal native success and `SpaceWindowVerified=true` are in `native-window.log`. The gaps between windows contain other visible desktop content; these ignored images stay local and are not published. This is no longer an offscreen/headless composition, but it proves neither Mica/Acrylic nor physical input, multiple monitors/DPI, IME, screen readers or full P3 acceptance.
+
+Inspection exposed obsolete P2-only/no-file-moves UI wording. Ten existing strings across all twelve locales now describe actual manual behavior, review-before-import and the still-disabled automatic organization; resource keys and the layout are unchanged. App build: zero warnings/errors. The existing checked headless workflow passed (`headless-native-review-copy.log`, `Success=true`, `ManagedClipboardWorkflowVerified=true`, twelve-language parity, 10513 ms). No full suite, CI or installer repetition for this UI-only increment; PowerShell analyzer unavailable, C# LSP reports only existing redundant-using warnings. Earlier image directories remain historical snapshots.
+
 ## Direct external-drop confirmation (2026-10-02)
 
 Dropping one external file or directory onto a space on Windows now opens the **existing import confirmation** with that space preselected. The drop only creates/reuses pending review metadata; only confirmation calls the existing journaled `ImportPendingAsync`, and existing undo restores the external path. Cancelling leaves the source in place and its review item available. A space-window drop brings its borrowed workbench forward to show that confirmation. Already-cataloged external items are directed to **Move to space** rather than duplicated as imports. Multi-item external drops and non-Windows imports retain the prior refusal/capsule path. In-root registration still uses the metadata membership check.

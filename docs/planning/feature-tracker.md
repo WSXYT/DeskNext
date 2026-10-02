@@ -20,6 +20,8 @@ This is the P0 **acceptance inventory**, not a claim of working features. All ce
 
 ## Bounded implementation evidence (updated 2026-10-02)
 
+- F01/F04/F10 native review: the opt-in `build/windows/Capture-UiReview.ps1` captures actual Windows desktop pixels containing the isolated Chinese workbench, space window and capsule. Current private output: `artifacts/ui-review/native-20261002-235314-d36d2e/`, three HWNDs at 250% with Transparent compositing. This is not a headless image or proof of Mica/Acrylic, multi-DPI, IME, physical input or release readiness; see [P3 report](p3-report.md).
+
 - F01/F02 space-window actions: floating file rows reuse workbench commands for open/reveal/preview, clipboard, moves, rename and deletion; existing workbench dialogs handle confirmation. Local build and menu-subject UI checks pass. Integration CI [37017430842](https://github.com/WSXYT/desknest-p1-probes/actions/runs/37017430842) covers the earlier restricted-copy/import snapshot, including the Windows installed native clipboard workflow, not this later floating-menu change.
 - F02 restricted Copy/Paste: Windows manual single-item catalog-to-space copying is enabled after the mapped-destination creation fix and independent follow-up review. Managed/existing mapped targets, source preservation, new publication identity, no copy-undo claim, stale subject/revision and collision refusal are covered by focused Core checks plus the production clipboard smoke. Non-Windows and uncataloged external clipboard copying remain unavailable. See the current increment in [P3 report](p3-report.md).
 

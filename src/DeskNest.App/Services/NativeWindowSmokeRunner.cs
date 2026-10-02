@@ -24,31 +24,41 @@ public static class NativeWindowSmokeRunner
     private static bool _inspectRecovery;
     private static bool _spaceWindow;
     private static bool _manualWorkflow;
+    private static bool _desktopReview;
 
     public static int Run(string[] args)
     {
         IsActive = true;
         _exitCode = 1;
         _inspectRecovery = args.Contains("--inspect-recovery", StringComparer.Ordinal);
-        _spaceWindow = args.Contains("--space-window", StringComparer.Ordinal);
+        _desktopReview = args.Contains("--desktop-review", StringComparer.Ordinal);
+        _spaceWindow = _desktopReview || args.Contains("--space-window", StringComparer.Ordinal);
         _manualWorkflow = args.Contains("--manual-workflow", StringComparer.Ordinal);
         var tempDir = Path.Combine(Path.GetTempPath(), "DeskNest.NativeSmoke." + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempDir);
 
         try
         {
-            if (_manualWorkflow && (_inspectRecovery || _spaceWindow))
-                throw new ArgumentException("Run the manual workflow separately from recovery/space-window inspection.");
+            if (_manualWorkflow && (_inspectRecovery || _spaceWindow) || _desktopReview && _inspectRecovery)
+                throw new ArgumentException("Run the manual workflow, recovery inspection and desktop review separately.");
+            if (_desktopReview && !OperatingSystem.IsWindows())
+                throw new PlatformNotSupportedException("Desktop pixel review currently uses the Windows capture script.");
             var spaceId = Guid.NewGuid();
-            var testSpace = new WorkspaceSpace(spaceId, "NativeSmokeSpace", "Temporary space for native window smoke", SpaceStorageMode.Managed, Path.Combine(tempDir, "SmokeSpace"));
+            var testSpace = new WorkspaceSpace(spaceId, _desktopReview ? "工作资料" : "NativeSmokeSpace",
+                _desktopReview ? "本周的文档与项目 · 隔离示例" : "Temporary space for native window smoke",
+                SpaceStorageMode.Managed, Path.Combine(tempDir, "SmokeSpace"));
 
             var files = new List<WorkspaceFile>();
             if (_spaceWindow)
             {
                 Directory.CreateDirectory(testSpace.Folder);
-                string file = Path.Combine(testSpace.Folder, "NativeSmoke.txt");
-                File.WriteAllText(file, "Isolated native window fixture");
-                files.Add(new WorkspaceFile(Guid.NewGuid(), spaceId, Path.GetFileName(file), file, false));
+                string[] names = _desktopReview ? ["项目计划.md", "会议纪要.txt", "设计说明.md", "本周清单.txt", "参考资料.txt"] : ["NativeSmoke.txt"];
+                foreach (string name in names)
+                {
+                    string file = Path.Combine(testSpace.Folder, name);
+                    File.WriteAllText(file, "Isolated native window fixture");
+                    files.Add(new WorkspaceFile(Guid.NewGuid(), spaceId, name, file, false));
+                }
             }
 
             // Initialize isolated workspace state in temporary directory (never default user app data)
@@ -107,6 +117,47 @@ public static class NativeWindowSmokeRunner
             catch { }
             IsActive = false;
         }
+    }
+
+    // Opt-in review fixture only. The companion capture script takes actual desktop pixels;
+    // no synthetic rasterization, clipboard access or default workspace is involved.
+    private static async Task ShowDesktopReviewAsync(Window window, SpaceWindow floating)
+    {
+        var studio = ((MainWindowViewModel)window.DataContext!).Studio!;
+        var screen = window.Screens.ScreenFromWindow(window) ?? window.Screens.Primary
+            ?? throw new InvalidOperationException("No screen is available for desktop review.");
+        var area = screen.WorkingArea;
+        double scale = window.RenderScaling;
+        if (area.Width / scale < 1370 || area.Height / scale < 740)
+            throw new InvalidOperationException("Desktop review needs at least 1370×740 logical pixels without changing display settings.");
+        window.Width = 960;
+        window.Height = 700;
+        window.Position = new PixelPoint(area.X + (int)(16 * scale), area.Y + (int)(16 * scale));
+        window.Topmost = true;
+        floating.Width = 360;
+        floating.Height = 420;
+        floating.Position = new PixelPoint(window.Position.X + (int)(984 * scale), window.Position.Y);
+        floating.Topmost = true;
+        var capsule = new DropCapsuleWindow(studio) { Topmost = true, WindowStartupLocation = WindowStartupLocation.Manual };
+        try
+        {
+            capsule.Show();
+            capsule.Position = new PixelPoint(floating.Position.X, floating.Position.Y + (int)(440 * scale));
+            await Task.Delay(1200); // Let the OS compositor render all three actual windows.
+            object Describe(Window value, string role) => new
+            {
+                Role = role, Handle = value.TryGetPlatformHandle()!.Handle.ToInt64(),
+                Scaling = value.RenderScaling, Transparency = value.ActualTransparencyLevel.ToString()
+            };
+            Console.WriteLine("DESKTOP_REVIEW_READY:" + JsonSerializer.Serialize(new
+            {
+                Windows = new[] { Describe(window, "main"), Describe(floating, "space"), Describe(capsule, "capsule") },
+                Fixture = "Isolated sample files; actual Windows desktop pixels, not headless rendering."
+            }));
+            Console.Out.Flush();
+            await Task.Delay(5000); // Bounded opportunity for the developer capture script.
+        }
+        finally { capsule.Close(); }
     }
 
     // Uses the actual native clipboard, but commands rather than physical key/mouse injection.
@@ -290,17 +341,20 @@ public static class NativeWindowSmokeRunner
                         recoveryInspected = true;
                     }
                     string? spaceHandle = null;
+                    SpaceWindow? floating = null;
                     if (_spaceWindow)
                     {
                         var view = window.GetVisualDescendants().OfType<StudioView>().Single();
-                        var floating = view.OpenSelectedSpaceWindow() ?? throw new InvalidOperationException("No space window was created.");
+                        floating = view.OpenSelectedSpaceWindow() ?? throw new InvalidOperationException("No space window was created.");
                         floating.UpdateLayout();
                         var handle = floating.TryGetPlatformHandle()?.Handle;
                         if (handle is null || handle == IntPtr.Zero || handle == platformHandle ||
-                            !floating.IsVisible || floating.Bounds.Width <= 0 || floating.Space?.Files.Count != 1)
+                            !floating.IsVisible || floating.Bounds.Width <= 0 || floating.Space?.Files.Count != (_desktopReview ? 5 : 1))
                             throw new InvalidOperationException("Space window needs a distinct native handle, layout and catalog.");
                         spaceHandle = $"0x{handle.Value.ToInt64():X}";
                     }
+                    if (_desktopReview) await ShowDesktopReviewAsync(window, floating!);
+                    bounds = window.Bounds;
                     Console.WriteLine("================================================================================");
                     Console.WriteLine($"DeskNext - Native Window Real-OS Startup Smoke ({RuntimeInformation.OSDescription})");
                     Console.WriteLine("================================================================================");
@@ -319,6 +373,7 @@ public static class NativeWindowSmokeRunner
                         NativeClipboardRoundTripVerified = manualWorkflowVerified,
                         SpaceWindowVerified = spaceHandle is not null,
                         SpaceWindowHandle = spaceHandle,
+                        DesktopReviewShown = _desktopReview,
                         InputMethod = "Production view-model commands in a native window; not physical keyboard/mouse injection",
                         HostOS = RuntimeInformation.OSDescription,
                         HostRID = RuntimeInformation.RuntimeIdentifier,
