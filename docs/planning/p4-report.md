@@ -36,6 +36,10 @@ The pending drawer now invokes the same Laya/Jev preview from the actual review 
 
 Bounded evidence: App Release build **0 warnings/errors**; existing checked headless smoke with the real pinned local CPU bundle passed (`artifacts/p3-publication-tests/headless-pending-classification.log`, terminal `Success=true`, `LocalClassificationPreviewVerified=true`, 20390 ms). It checks the pending-row button, actual worker response, no implicit target selection/file movement/metadata change, explicit draft selection, cancellation, and creating a category without importing the item. Existing import/undo coverage runs in the same smoke. No new protocol, dependency, full suite, installer or CI run; no live Jev call or quality claim. Active LSP still reported stale file-tail errors despite the clean compiler/runtime result.
 
+## Installed CPU preview (2026-10-03)
+
+The installed `0.3.0-installed-explorer-20261003` App hosted the actual CPU inference worker with the separately supplied pinned bundle. `artifacts/package-evidence/installed-explorer-20261003-final/installed-local-model.log` reports terminal `Success=true, LocalClassificationPreviewVerified=true`, including the pending-item draft-only suggestion and cancellation checks (28900 ms for the whole smoke). This is a real installed-executable worker/UI path with headless rendering, not a bundled model, authenticated deployment, full A–D equivalence, live Jev, automatic organization or quality acceptance. The fixture's ambiguous outcome remained a review result; no model-authorized move occurred. The same installation subsequently uninstalled while retaining its unknown-file sentinel.
+
 ## Still open
 
 Live Jev/credential-vault acceptance; authenticated deployment/download/activation/repair; offline import UX; production worker negotiation and model identity; broader lifecycle/error handling; unattended classification; independent quality data and full A–D installed-path acceptance; GPU and per-platform runtime evidence. No P4 gate is marked passed by this preview.

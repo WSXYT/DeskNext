@@ -16,6 +16,8 @@ public static class ExplorerDragNative {
     [DllImport("user32.dll")] public static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
     [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
     [DllImport("user32.dll")] public static extern bool GetCursorPos(out Point point);
+    [DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(Point point);
+    [DllImport("user32.dll")] public static extern IntPtr GetAncestor(IntPtr hwnd, uint flags);
     [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extra);
     [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int width, int height, uint flags);
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hwnd);
@@ -89,7 +91,13 @@ try {
             $item = @($items | Where-Object { $_.Current.Name -eq $stage.Item -or $_.Current.Name -eq [IO.Path]::GetFileNameWithoutExtension($stage.Item) }) | Select-Object -First 1
             if (!$item) { throw 'Explorer fixture item is not exposed in the native file view.' }
             $rect = $item.Current.BoundingRectangle
-            Drag @{X=$rect.X+($rect.Width/2); Y=$rect.Y+($rect.Height/2)} $stage.Point $view.HWND
+            $point = New-Object ExplorerDragNative+Point
+            $point.X = $stage.Point.X; $point.Y = $stage.Point.Y
+            $hitWindow = [ExplorerDragNative]::GetAncestor([ExplorerDragNative]::WindowFromPoint($point), 2)
+            Write-Output ("Inbound geometry: item=" + $rect.ToString() + "; target=" + $point.X + ',' + $point.Y + '; expected=' + $stage.Window + '; hit=' + $hitWindow.ToInt64())
+            if ($hitWindow.ToInt64() -ne $stage.Window) { throw 'Another window obscures the announced drop point; no drag was injected.' }
+            # In Details view ListItem spans blank columns too; start on the icon/name, not the row center.
+            Drag @{X=$rect.X+[Math]::Min(40, $rect.Width/2); Y=$rect.Y+($rect.Height/2)} $stage.Point $view.HWND
         } elseif ($stage.Stage -eq 'outbound') {
             # The production Reveal action, not this driver, must have opened the managed folder.
             $located = $null

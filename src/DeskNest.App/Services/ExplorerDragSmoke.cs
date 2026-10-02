@@ -16,7 +16,12 @@ internal static class ExplorerDragSmoke
     {
         var main = (MainWindowViewModel)mainWindow.DataContext!;
         var studio = main.Studio!;
-        var space = store.Snapshot.Spaces.Single();
+        studio.OpenAddSpaceDialog();
+        studio.NewSpaceName = "Explorer workspace";
+        await studio.ConfirmAddSpaceCommand.ExecuteAsync(null);
+        var space = store.Snapshot.Spaces.Single(s => s.Name == "Explorer workspace");
+        if (Directory.Exists(space.Folder))
+            throw new InvalidOperationException("Creating a managed space must not preempt its guarded import.");
         var area = mainWindow.Screens.ScreenFromWindow(mainWindow)!.WorkingArea;
         double scale = mainWindow.RenderScaling;
         if (area.Width / scale < 1100 || area.Height / scale < 600)
@@ -80,7 +85,7 @@ internal static class ExplorerDragSmoke
                     store.Snapshot.Operations.Single(o => o.Id == operation.Id).Status != ProposedOperationStatus.Undone ||
                     directory && !System.IO.Directory.Exists(Path.Combine(source, "empty")))
                     throw new InvalidOperationException("Undo did not restore the external fixture after Explorer copied it.");
-                Console.WriteLine($"EXPLORER_DRAG_CASE: {JsonSerializer.Serialize(new { Directory = directory, ImportConfirmed = true, ExternalCopyPreservedSource = true, UndoRestored = true })}");
+                Console.WriteLine($"EXPLORER_DRAG_CASE: {JsonSerializer.Serialize(new { Directory = directory, SpaceCreated = true, ImportConfirmed = true, ExternalCopyPreservedSource = true, UndoRestored = true })}");
             }
         }
         finally { floating.Close(); }
