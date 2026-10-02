@@ -159,6 +159,53 @@ public static class NativeWindowSmokeRunner
                     store.Snapshot.Files.Single(f => f.Id == file.Id).Path != path ||
                     store.Snapshot.Operations.Single(o => o.Id == operation.Id).Status != ProposedOperationStatus.Undone)
                     throw new InvalidOperationException("Native manual undo did not restore the original item.");
+
+                if (OperatingSystem.IsWindows())
+                {
+                    studio.SelectSpace(studio.AllSpaces.Single(s => s.Id == source.Id));
+                    studio.SelectFile(studio.SelectedSpace!.Files.Single(f => f.Id == file.Id));
+                    await studio.ExecuteCopyFileCommand.ExecuteAsync(studio.SelectedFile);
+                    var copiedPayload = await AvaloniaClipboardBridge.TryGetFilePayloadAsync(clipboard);
+                    if (copiedPayload is null || copiedPayload.IsCut ||
+                        AvaloniaClipboardBridge.ResolveFileSource(copiedPayload, store.Snapshot)?.Id != file.Id)
+                        throw new InvalidOperationException("The native clipboard did not round-trip the exact copy subject.");
+                    int historyCount = store.Snapshot.Operations.Count;
+                    await studio.ExecutePasteFileCommand.ExecuteAsync(studio.AllSpaces.Single(s => s.Id == target.Id));
+                    var copied = store.Snapshot.Files.SingleOrDefault(f => f.SpaceId == target.Id);
+                    if (copied is null || copied.Id == file.Id || copied.Publication is null ||
+                        store.Snapshot.Operations.Count != historyCount ||
+                        File.ReadAllText(content) != "native clipboard fixture" ||
+                        File.ReadAllText(directory ? Path.Combine(destination, "document.txt") : destination) != "native clipboard fixture" ||
+                        (directory && !Directory.Exists(Path.Combine(destination, "empty"))) ||
+                        (await AvaloniaClipboardBridge.TryGetFilePayloadAsync(clipboard))?.IsCut != false)
+                        throw new InvalidOperationException("Native copy must retain source/clipboard and enroll a distinct publication without undo history.");
+
+                    // Existing confirmation/undo commands, from outside the managed space.
+                    string external = Path.Combine(store.DataDirectory, directory ? "External project" : "External document.txt");
+                    if (directory) Directory.CreateDirectory(Path.Combine(external, "empty"));
+                    string externalContent = directory ? Path.Combine(external, "document.txt") : external;
+                    await File.WriteAllTextAsync(externalContent, "native import fixture");
+                    await studio.RegisterPathToTriageAsync(external);
+                    var pending = studio.PendingItems.Single(p => p.Path == external);
+                    pending.TargetSpace = studio.AllSpaces.Single(s => s.Id == target.Id);
+                    studio.OpenImportConfirmation(pending);
+                    if (!studio.IsImportConfirmationOpen || studio.ImportSourcePath != external)
+                        throw new InvalidOperationException("Native import must require confirmation of its external source.");
+                    await studio.ConfirmImportAsync();
+                    var imported = store.Snapshot.Operations.Single(o => o.ImportSource?.Id == pending.Id);
+                    if (studio.IsImportConfirmationOpen || imported.Status != ProposedOperationStatus.Completed ||
+                        File.Exists(external) || Directory.Exists(external))
+                        throw new InvalidOperationException("Confirmed native import did not move the external item.");
+                    await studio.ExecuteUndoManualMoveCommand.ExecuteAsync(imported.Id);
+                    if (File.ReadAllText(externalContent) != "native import fixture" ||
+                        (directory && !Directory.Exists(Path.Combine(external, "empty"))) ||
+                        !store.Snapshot.Pending.Any(p => p.Id == pending.Id) ||
+                        store.Snapshot.Operations.Single(o => o.Id == imported.Id).Status != ProposedOperationStatus.Undone)
+                        throw new InvalidOperationException("Native import undo must restore both the external item and pending review.");
+                    // Only our fixture payload, never arbitrary clipboard formats.
+                    var remainingCopy = await AvaloniaClipboardBridge.TryGetFilePayloadAsync(clipboard);
+                    if (remainingCopy?.SourceFileId == file.Id) await clipboard.ClearAsync();
+                }
             }
         }
         finally
