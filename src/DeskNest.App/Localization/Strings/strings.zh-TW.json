@@ -1,5 +1,11 @@
 {
   "App.Title": "DeskNext",
+  "Triage.ImportAction": "移入空間",
+  "Triage.ImportNotice": "這會實際移動檔案或資料夾。可在操作歷程中復原至原始位置。",
+  "Triage.ImportFrom": "來源",
+  "Triage.ImportTo": "目標",
+  "Triage.ImportUnavailable": "手動匯入目前僅支援 Windows NTFS，未移動任何內容。",
+  "Triage.ImportSuccess": "已匯入，可在操作歷程中復原。",
   "Spaces.OpenWindow": "開啟獨立視窗",
   "Spaces.ReturnToStudio": "工作台",
   "Spaces.WindowNotice": "隨工作台關閉。點擊「儲存視窗配置」記住位置與大小。",

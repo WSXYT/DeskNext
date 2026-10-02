@@ -1,5 +1,11 @@
 {
   "App.Title": "DeskNext",
+  "Triage.ImportAction": "移入空间",
+  "Triage.ImportNotice": "这会实际移动文件或文件夹。可在操作历史中撤销，恢复到原始位置。",
+  "Triage.ImportFrom": "来源",
+  "Triage.ImportTo": "目标",
+  "Triage.ImportUnavailable": "手动导入目前仅支持 Windows NTFS，未移动任何内容。",
+  "Triage.ImportSuccess": "已导入，可在操作历史中撤销。",
   "Spaces.OpenWindow": "打开独立窗口",
   "Spaces.ReturnToStudio": "工作台",
   "Spaces.WindowNotice": "随工作台关闭。点击“保存窗口布局”记住位置和尺寸。",

@@ -1,5 +1,11 @@
 {
   "App.Title": "DeskNext",
+  "Triage.ImportAction": "Déplacer vers l’espace",
+  "Triage.ImportNotice": "Le fichier ou dossier sera déplacé sur le disque. L’annulation dans l’historique rétablit son emplacement d’origine.",
+  "Triage.ImportFrom": "De",
+  "Triage.ImportTo": "Vers",
+  "Triage.ImportUnavailable": "L’importation manuelle nécessite actuellement Windows NTFS. Rien n’a été déplacé.",
+  "Triage.ImportSuccess": "Importé. Vous pouvez annuler dans l’historique.",
   "Spaces.OpenWindow": "Ouvrir une fenêtre indépendante",
   "Spaces.ReturnToStudio": "Espace de travail",
   "Spaces.WindowNotice": "Se ferme avec l’espace de travail. Enregistrez la disposition pour mémoriser la position et la taille.",

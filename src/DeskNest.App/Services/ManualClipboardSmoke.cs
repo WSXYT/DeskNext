@@ -287,6 +287,43 @@ internal static class ManualClipboardSmoke
             var screen = floating.Screens.ScreenFromWindow(floating);
             if (screen is not null && !screen.WorkingArea.Contains(floating.Position))
                 throw new InvalidOperationException("A layout from a removed monitor must restore on a visible screen.");
+            // The explicit import uses the same production coordinator and existing undo path.
+            string externalParent = Directory.CreateDirectory(Path.Combine(root, "external-import")).FullName;
+            string external = Path.Combine(externalParent, directory ? "ImportedProject" : "Imported.txt");
+            if (directory) Directory.CreateDirectory(Path.Combine(external, "empty"));
+            string externalContent = directory ? Path.Combine(external, "item.txt") : external;
+            File.WriteAllText(externalContent, "external fixture");
+            await studio.RegisterPathToTriageAsync(external);
+            studio.SelectedTabIndex = 1;
+            var pending = studio.PendingItems.Single(p => p.Path == external);
+            pending.TargetSpace = studio.AllSpaces.Single(s => s.Id == source.Id);
+            window.UpdateLayout();
+            var importButton = view.GetVisualDescendants().OfType<Button>().Single(b =>
+                b.Name == "ImportPendingButton" && b.DataContext is PendingItemViewModel p && p.Id == pending.Id);
+            long importRevision = store.Snapshot.Revision;
+            importButton.Command!.Execute(importButton.CommandParameter);
+            if (OperatingSystem.IsWindows())
+            {
+                window.UpdateLayout();
+                if (view.FindControl<Border>("ImportConfirmationOverlay")?.IsEffectivelyVisible != true || !Exists(external))
+                    throw new InvalidOperationException("Import must show confirmation before moving anything.");
+                studio.CloseImportConfirmation();
+                if (store.Snapshot.Revision != importRevision || !Exists(external))
+                    throw new InvalidOperationException("Cancelling import must leave files and metadata unchanged.");
+                studio.OpenImportConfirmation(pending);
+                await studio.ConfirmImportAsync();
+                if (studio.IsImportConfirmationOpen || Exists(external))
+                    throw new InvalidOperationException("Confirmed import failed: " + studio.ImportError);
+                var importedOperation = store.Snapshot.Operations.Single(o => o.ImportSource?.Id == pending.Id);
+                await studio.ExecuteUndoManualMoveAsync(importedOperation.Id);
+                if (File.ReadAllText(externalContent) != "external fixture" ||
+                    !store.Snapshot.Pending.Any(p => p.Id == pending.Id) ||
+                    store.Snapshot.Operations.Single(o => o.Id == importedOperation.Id).Status != ProposedOperationStatus.Undone ||
+                    directory && !Directory.Exists(Path.Combine(external, "empty")))
+                    throw new InvalidOperationException("Undo import must restore the external item and its pending record.");
+            }
+            else if (pending.ResolutionNotice != main.Localizer["Triage.ImportUnavailable"] || !Exists(external))
+                throw new InvalidOperationException("Unsupported native import must remain visibly unavailable.");
             window.Close();
             if (floating.IsVisible || floating.DataContext is not null)
                 throw new InvalidOperationException("Closing the workbench must close its space windows.");

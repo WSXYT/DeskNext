@@ -2,6 +2,12 @@
 
 Status: implementation in progress. Desktop takeover and watcher-driven automatic moves remain disabled.
 
+## Current functional increment: confirmed external import
+
+The pending drawer now exposes **Move into space** with explicit source/destination confirmation. Windows NTFS files and whole directories move through the existing transaction and backup checkpoint; Undo restores the external location and original pending record. `ImportSource` records that origin without inventing a source space, and completed undo/failure history survives dismissing the restored review item. Missing mapped roots, occupied targets and stale selections remain refused. Direct space drops still only catalog in-root items; macOS/Linux import and production Copy remain visibly unavailable.
+
+Verification was limited to the related Core cases (47 passed), App build (zero warnings/errors), and the existing headless file/directory confirmation/cancel/import/undo workflow (`headless-confirmed-import.log`, Success/ManagedClipboardWorkflowVerified true, 5729 ms). No repeated full suite, installer, or CI run. This is real temporary-file movement through UI commands, not physical file-manager interaction; the preceding CI snapshot does not cover this increment.
+
 ## Verified at the current worktree
 
 - `DesktopOrganizationTransaction` performs fail-closed journaled regular-file moves and same-volume directory moves.
@@ -146,7 +152,7 @@ The entries above are historical snapshots; they do not include the changes belo
 ## Space-drop metadata membership boundary
 
 - The old fallback enrolled any existing external path into the selected managed/mapped space without relocating it. It now catalogs only paths already strictly inside the **current persisted** space root, checked inside the metadata update; the space root itself, sibling-prefix paths, traversal spellings escaping the root, relative/URI paths and linked paths are refused. Existing entries are not duplicated. This changes no physical move/undo protocol and preserves legacy metadata readability.
-- External drops are explicitly refused with localized guidance to use the capsule for review, rather than presented as a completed import. An injected trusted callback remains a separate boundary; production has no external-import executor attached. Full external drag/import is still an open F02/P3 feature.
+- External drops are explicitly refused with localized guidance to use the capsule for review, rather than presented as a completed import. Direct space-drop import remains unbound; the newer confirmed pending-drawer import described above is separate. External file-manager drag negotiation remains open.
 - Headless `SpaceMetadataBoundaryVerified` covers both managed/mapped modes, unchanged revision on refusal, files/directories, duplicate drops and a space root changed behind the selected projection. The production drop surface also tests external refusal and contained metadata registration, with bounded dispatcher pumping rather than assuming async persistence finishes instantly. OOBE smoke now explicitly uses a temporary managed root, never the user's default storage directory.
 - Local App build: zero warnings/errors; smoke: 290 keys across 12 locales, 14139 ms, new flag true. Core: 248 passed/1 environment-dependent skip; Inference: 4 passed. Evidence: `artifacts/p3-publication-tests/headless-space-boundary.log`. CI run `36856274764` at `d5c6055` subsequently reported all jobs successful; Linux/macOS logs explicitly carry the new flag. Its Windows direct-executable headless step again lacks terminal JSON, so full Windows completion is withheld pending the checked driver below.
 
@@ -184,7 +190,7 @@ The entries above are historical snapshots; they do not include the changes belo
 
 ## Independent space windows
 
-- **Open floating window** in a space header now opens a real, independently draggable/resizable `SpaceWindow`, not another Studio card. The window shows that space's virtualized file list, uses the existing Open action on double-click/Enter, and routes drops through the existing in-root catalog boundary. External imports and production Copy remain disabled. Other actions remain available through the **Workbench** button.
+- **Open floating window** in a space header now opens a real, independently draggable/resizable `SpaceWindow`, not another Studio card. The window shows that space's virtualized file list, uses the existing Open action on double-click/Enter, and routes drops through the existing in-root catalog boundary. Direct floating-window import and production Copy remain disabled; confirmed pending import is available in the workbench. Other actions remain available through the **Workbench** button.
 - A space reuses its existing window. Metadata refreshes follow the space ID and retain the selected file ID; subscriptions are released on close. Windows borrow the workbench/store and close with the workbench. Position persistence, desktop attachment and tray-based lifetime are not implemented by this change.
 - App Release build passed with zero warnings/errors. The existing headless manual-workflow check covers both file/directory shapes, separate list binding, Enter routing, window reuse, refresh/selection and closure of borrowed windows (`headless-space-window.log`, terminal Success/ManagedClipboardWorkflowVerified true, 21893 ms). The strict native probe `--native-window-smoke --space-window` opened distinct real Windows handles: workbench `0x419BC`, space `0x51A1C`, observed scaling 250%; `SpaceWindowVerified=true` (`native-space-window.log`). This is native window creation/layout evidence, not physical input or desktop-compositing acceptance.
 - Optional review renders now include `artifacts/ui-review/synthetic-space-window-{light|dark}-{zh|en|de|ar}.png`. The renderer check passed in 22437 ms; these images remain explicitly synthetic. Probe-driver checks are 6/6. No full test/installer/three-platform CI repetition for this UI change; P3 remains incomplete.

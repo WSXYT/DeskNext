@@ -217,6 +217,10 @@ public sealed class WorkspaceStore : IAsyncDisposable
                 item.SuggestedSpaceId is { } target && !spaces.Contains(target))
                 throw new InvalidDataException("Invalid pending decision");
         }
+        // An undone import may have returned its item outside the catalog. Its completed
+        // undo history remains readable even after the restored pending item is dismissed.
+        var returnedImports = state.Operations.Where(o => o.ImportSource is not null &&
+            o.Status == ProposedOperationStatus.Undone).Select(o => o.FileId).ToHashSet();
         var operations = new HashSet<Guid>();
         foreach (var operation in state.Operations)
         {
@@ -236,7 +240,25 @@ public sealed class WorkspaceStore : IAsyncDisposable
                         new FileIdentity(item.Length, item.LastWriteTimeUtcTicks, item.Sha256)
                         { NativeId = item.NativeId })).ToArray(), directories, operation.OriginalDirectoryNativeIds);
             }
-            if (operation.Id == Guid.Empty || !operations.Add(operation.Id) || !files.Contains(operation.FileId) ||
+            bool knownItem = files.Contains(operation.FileId) ||
+                operation.Status == ProposedOperationStatus.Undone && returnedImports.Contains(operation.FileId);
+            if (operation.ImportSource is { } import)
+            {
+                if (import.Id == Guid.Empty || string.IsNullOrWhiteSpace(import.Name) || import.Name.Length > 260 ||
+                    !Path.IsPathFullyQualified(import.Path) || !Enum.IsDefined(import.Reason) ||
+                    import.SuggestedSpaceId is { } suggestion && !spaces.Contains(suggestion) ||
+                    operation.SourceSpaceId != Guid.Empty ||
+                    !string.Equals(operation.SourcePath, Path.TrimEndingDirectorySeparator(Path.GetFullPath(import.Path)),
+                        OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal) ||
+                    operation.DestinationPath is null || operation.TargetSpaceId is null ||
+                    operation.Status == ProposedOperationStatus.Proposed)
+                    throw new InvalidDataException("Invalid external import source history.");
+                if (operation.Status == ProposedOperationStatus.PendingUser)
+                    knownItem = state.Pending.Any(p => p.Id == import.Id && p.Path == import.Path);
+                else if (operation.Status == ProposedOperationStatus.RecoveryRequired)
+                    knownItem = true; // Immutable failure history survives dismissing its review item.
+            }
+            if (operation.Id == Guid.Empty || operation.FileId == Guid.Empty || !operations.Add(operation.Id) || !knownItem ||
                 !Enum.IsDefined(operation.Status) ||
                 operation.TargetSpaceId is { } operationTarget && !spaces.Contains(operationTarget) ||
                 invalidPaths || invalidManifest)

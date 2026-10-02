@@ -1,5 +1,11 @@
 {
   "App.Title": "DeskNext",
+  "Triage.ImportAction": "スペースへ移動",
+  "Triage.ImportNotice": "ファイルまたはフォルダーを実際に移動します。操作履歴から元の場所に戻せます。",
+  "Triage.ImportFrom": "移動元",
+  "Triage.ImportTo": "移動先",
+  "Triage.ImportUnavailable": "手動インポートは現在 Windows NTFS のみ対応です。何も移動していません。",
+  "Triage.ImportSuccess": "インポートしました。操作履歴から元に戻せます。",
   "Spaces.OpenWindow": "独立ウィンドウを開く",
   "Spaces.ReturnToStudio": "ワークベンチ",
   "Spaces.WindowNotice": "ワークベンチと一緒に閉じます。「ウィンドウ配置を保存」で位置とサイズを記録します。",

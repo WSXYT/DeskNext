@@ -40,7 +40,7 @@ public partial class StudioView : UserControl
     {
         if (DataContext is not StudioViewModel studio || !studio.IsSpacesTab ||
             studio.IsAddSpaceDialogOpen || studio.IsRenameDialogOpen ||
-            studio.IsDeleteConfirmationDialogOpen || studio.IsPreviewDialogOpen ||
+            studio.IsDeleteConfirmationDialogOpen || studio.IsPreviewDialogOpen || studio.IsImportConfirmationOpen ||
             e.Source is TextBox || (e.Source as Avalonia.Visual)?.FindAncestorOfType<TextBox>() is not null)
             return;
 

@@ -487,9 +487,10 @@
 
                                             <!-- Assign Button -->
                                             <Button Classes="ActionButton"
-                                                    Content="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).Localizer[Triage.ActionAssign]}"
-                                                    Command="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).AssignPendingToSpaceCommand}"
-                                                    CommandParameter="{Binding TargetSpace}"/>
+                                                    Name="ImportPendingButton"
+                                                    Content="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).Localizer[Triage.ImportAction]}"
+                                                    Command="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).OpenImportConfirmationCommand}"
+                                                    CommandParameter="{Binding}"/>
 
                                             <!-- Create Space Button -->
                                             <Button Classes="ActionButton"
@@ -1056,6 +1057,29 @@
             </Grid>
         </Grid>
         </Grid>
+
+        <Border Name="ImportConfirmationOverlay" Grid.ColumnSpan="2" IsVisible="{Binding IsImportConfirmationOpen}"
+                Background="{DynamicResource AcrylicOverlayBrush}">
+            <Border Width="520" Margin="24" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Background="{DynamicResource AcrylicBackgroundBrush}" BorderBrush="{DynamicResource AcrylicBorderBrush}"
+                    BorderThickness="1" CornerRadius="{DynamicResource RadiusLarge}">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="{Binding Localizer[Triage.ImportAction]}" FontSize="18" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding Localizer[Triage.ImportNotice]}" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding Localizer[Triage.ImportFrom]}"/>
+                    <TextBox Text="{Binding ImportSourcePath, Mode=OneWay}" IsReadOnly="True" FlowDirection="LeftToRight"/>
+                    <TextBlock Text="{Binding Localizer[Triage.ImportTo]}"/>
+                    <TextBox Text="{Binding ImportDestinationPath, Mode=OneWay}" IsReadOnly="True" FlowDirection="LeftToRight"/>
+                    <TextBlock Text="{Binding ImportError}" TextWrapping="Wrap" Foreground="{DynamicResource WarningBadgeFgBrush}"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                        <Button Content="{Binding Localizer[Action.Cancel]}" Command="{Binding CloseImportConfirmationCommand}"
+                                IsEnabled="{Binding !IsImportBusy}"/>
+                        <Button Classes="PrimaryAction" Content="{Binding Localizer[Triage.ImportAction]}" Command="{Binding ConfirmImportCommand}"
+                                IsEnabled="{Binding !IsImportBusy}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Border>
 
         <!-- ADD SPACE DIALOG MODAL -->
         <Border Grid.Column="0" Grid.ColumnSpan="2"

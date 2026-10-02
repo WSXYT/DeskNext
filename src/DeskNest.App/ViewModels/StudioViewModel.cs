@@ -503,6 +503,57 @@ public sealed partial class StudioViewModel : ViewModelBase
     public int PendingCount => PendingItems.Count;
     public bool HasPendingItems => PendingCount > 0;
 
+    public Func<Guid, Guid, long, Task>? OnImportPending { get; set; }
+    private long _workspaceRevision;
+    private (Guid PendingId, Guid TargetId, long Revision) _importRequest;
+    [ObservableProperty] private bool _isImportConfirmationOpen;
+    [ObservableProperty] private bool _isImportBusy;
+    [ObservableProperty] private string _importSourcePath = string.Empty;
+    [ObservableProperty] private string _importDestinationPath = string.Empty;
+    [ObservableProperty] private string? _importError;
+
+    [RelayCommand]
+    public void OpenImportConfirmation(PendingItemViewModel? item)
+    {
+        if (item is null || IsImportBusy) return;
+        if (OnImportPending is null) { item.ResolutionNotice = Localizer["Triage.ImportUnavailable"]; return; }
+        var target = item.TargetSpace ?? AllSpaces.FirstOrDefault(s => s.Id == item.SuggestedSpaceId);
+        if (target is null) { item.ResolutionNotice = Localizer["Triage.SelectTargetPrompt"]; return; }
+        SelectedPendingItem = item;
+        _importRequest = (item.Id, target.Id, _workspaceRevision);
+        ImportSourcePath = item.Path;
+        ImportDestinationPath = Path.Combine(target.Folder, Path.GetFileName(Path.TrimEndingDirectorySeparator(item.Path)));
+        ImportError = null;
+        IsImportConfirmationOpen = true;
+    }
+
+    [RelayCommand]
+    public void CloseImportConfirmation()
+    {
+        if (IsImportBusy) return;
+        IsImportConfirmationOpen = false;
+        ImportSourcePath = ImportDestinationPath = string.Empty;
+        ImportError = null;
+        _importRequest = default;
+    }
+
+    [RelayCommand]
+    public async Task ConfirmImportAsync()
+    {
+        if (!IsImportConfirmationOpen || IsImportBusy || OnImportPending is null) return;
+        IsImportBusy = true;
+        ImportError = null;
+        try
+        {
+            await OnImportPending(_importRequest.PendingId, _importRequest.TargetId, _importRequest.Revision);
+            IsImportBusy = false;
+            CloseImportConfirmation();
+            FileActionNotice = Localizer["Triage.ImportSuccess"];
+        }
+        catch (Exception error) { ImportError = Localizer.GetString("Files.ActionFailedNotice", error.Message); }
+        finally { IsImportBusy = false; }
+    }
+
     // Triage Action Dialog fields
     [ObservableProperty]
     private bool _isCreateSpaceFromTriageOpen;
@@ -661,6 +712,7 @@ public sealed partial class StudioViewModel : ViewModelBase
 
     public void RefreshFromState(WorkspaceState state)
     {
+        _workspaceRevision = state.Revision;
         var prevSpaceId = SelectedSpace?.Id;
         var prevPendingId = SelectedPendingItem?.Id;
         var prevFileId = SelectedFile?.Id;

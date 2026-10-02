@@ -1,5 +1,11 @@
 {
   "App.Title": "DeskNext",
+  "Triage.ImportAction": "স্পেসে সরান",
+  "Triage.ImportNotice": "এটি ডিস্কে ফাইল বা ফোল্ডার সরাবে। কাজের ইতিহাস থেকে পূর্বাবস্থায় ফিরিয়ে মূল অবস্থান পুনরুদ্ধার করা যাবে।",
+  "Triage.ImportFrom": "উৎস",
+  "Triage.ImportTo": "গন্তব্য",
+  "Triage.ImportUnavailable": "ম্যানুয়াল আমদানির জন্য বর্তমানে Windows NTFS প্রয়োজন। কিছুই সরানো হয়নি।",
+  "Triage.ImportSuccess": "আমদানি হয়েছে। কাজের ইতিহাস থেকে পূর্বাবস্থায় ফেরাতে পারবেন।",
   "Spaces.OpenWindow": "আলাদা উইন্ডো খুলুন",
   "Spaces.ReturnToStudio": "কর্মক্ষেত্র",
   "Spaces.WindowNotice": "কর্মক্ষেত্রের সঙ্গে বন্ধ হয়। অবস্থান ও আকার মনে রাখতে উইন্ডোর বিন্যাস সংরক্ষণ করুন।",

@@ -1,5 +1,11 @@
 {
   "App.Title": "DeskNext",
+  "Triage.ImportAction": "نقل إلى المساحة",
+  "Triage.ImportNotice": "سيُنقل الملف أو المجلد على القرص. يعيده التراجع في سجل العمليات إلى موقعه الأصلي.",
+  "Triage.ImportFrom": "من",
+  "Triage.ImportTo": "إلى",
+  "Triage.ImportUnavailable": "يتطلب الاستيراد اليدوي حاليًا Windows NTFS. لم يُنقل أي شيء.",
+  "Triage.ImportSuccess": "تم الاستيراد. يمكن التراجع في سجل العمليات.",
   "Spaces.OpenWindow": "فتح نافذة مستقلة",
   "Spaces.ReturnToStudio": "مساحة العمل",
   "Spaces.WindowNotice": "تُغلق مع مساحة العمل. احفظ تخطيط النافذة لتذكّر موضعها وحجمها.",

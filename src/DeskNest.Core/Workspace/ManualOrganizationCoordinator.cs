@@ -85,6 +85,42 @@ public sealed class ManualOrganizationCoordinator
         finally { _gate.Release(); }
     }
 
+    // Explicit manual import only; callers must confirm source/target at the supplied revision.
+    public async Task<ManualOrganizationResult> ImportPendingAsync(
+        Guid pendingId, Guid targetSpaceId, long expectedWorkspaceRevision, CancellationToken cancellationToken = default)
+    {
+        if (!OperatingSystem.IsWindows())
+            throw new NotSupportedException("External import currently requires the Windows NTFS move boundary.");
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var snapshot = _store.Snapshot;
+            if (snapshot.Revision != expectedWorkspaceRevision)
+                throw new InvalidDataException("The workspace changed after selecting the import; review it again.");
+            var pending = snapshot.Pending.SingleOrDefault(p => p.Id == pendingId)
+                ?? throw new KeyNotFoundException("The pending import no longer exists.");
+            string source = Path.TrimEndingDirectorySeparator(Path.GetFullPath(pending.Path));
+            if (snapshot.Files.Any(f => PathComparer.Equals(Path.TrimEndingDirectorySeparator(Path.GetFullPath(f.Path)), source)))
+                throw new InvalidDataException("This item is already cataloged; use its existing move action.");
+            if (!File.Exists(source) && !Directory.Exists(source))
+                throw new FileNotFoundException("The pending import source is unavailable.", source);
+            var file = new WorkspaceFile(Guid.NewGuid(), Guid.Empty, Path.GetFileName(source), source, Directory.Exists(source));
+            var target = GetSpace(snapshot, targetSpaceId);
+            string destination = GetSpaceLeafDestination(file, target);
+            if (file.IsDirectory && IsDescendantPath(destination, source))
+                throw new InvalidDataException("A directory cannot be imported into its own tree.");
+            if (File.Exists(destination) || Directory.Exists(destination))
+                throw new IOException("The import destination is occupied; nothing was changed.");
+            FileSystemVolume.RequireNoReparsePoints(source);
+            FileSystemVolume.RequireNoReparsePoints(destination);
+            FileSystemVolume.RequireSameVolume(source, destination);
+            return await MoveAndCommitAsync(file, target.Id, destination, null, cancellationToken,
+                expectedWorkspaceRevision: expectedWorkspaceRevision,
+                importSource: pending).ConfigureAwait(false);
+        }
+        finally { _gate.Release(); }
+    }
+
     public async Task<ManualOrganizationResult> MoveFileAsync(
         Guid fileId, Guid targetSpaceId, CancellationToken cancellationToken = default,
         long? expectedWorkspaceRevision = null)
@@ -227,10 +263,20 @@ public sealed class ManualOrganizationCoordinator
             var operation = snapshot.Operations.FirstOrDefault(o => o.Id == operationId)
                 ?? throw new KeyNotFoundException($"Workspace operation was not found: {operationId}");
             if (operation.Status != ProposedOperationStatus.Completed || operation.SourcePath is null ||
-                operation.DestinationPath is null || operation.SourceSpaceId == Guid.Empty)
+                operation.DestinationPath is null || operation.SourceSpaceId == Guid.Empty && operation.ImportSource is null)
                 throw new InvalidDataException("Only completed operations with recovery paths can be undone.");
             var file = GetFile(snapshot, operation.FileId);
-            GetSpace(snapshot, operation.SourceSpaceId);
+            if (operation.ImportSource is { } import)
+            {
+                string originalPath = Path.GetFullPath(operation.SourcePath);
+                if (!Directory.Exists(Path.GetDirectoryName(originalPath)))
+                    throw new DirectoryNotFoundException("The original external parent is unavailable; it will not be recreated.");
+                if (snapshot.Pending.Any(p => p.Id == import.Id || PathComparer.Equals(Path.TrimEndingDirectorySeparator(Path.GetFullPath(p.Path)), originalPath)) ||
+                    snapshot.Files.Any(f => f.Id != file.Id && PathComparer.Equals(Path.TrimEndingDirectorySeparator(Path.GetFullPath(f.Path)), originalPath)) ||
+                    snapshot.Operations.Any(o => o.FileId == file.Id && o.Id != operation.Id && o.Status != ProposedOperationStatus.Undone))
+                    throw new InvalidDataException("Resolve this item's later operations or pending entries before undoing its import.");
+            }
+            else GetSpace(snapshot, operation.SourceSpaceId);
             // Do not undo an older move after a subsequent move/rename of the same item.
             if (!PathComparer.Equals(Path.GetFullPath(file.Path), Path.GetFullPath(operation.DestinationPath)))
                 throw new InvalidDataException("The operation is not the file's current location.");
@@ -273,7 +319,7 @@ public sealed class ManualOrganizationCoordinator
     private async Task<ManualOrganizationResult> MoveAndCommitAsync(
         WorkspaceFile file, Guid targetSpaceId, string destination, ProposedOperation? undo,
         CancellationToken cancellationToken, bool markInTrash = false, Guid? requestedOperationId = null,
-        long? expectedWorkspaceRevision = null)
+        long? expectedWorkspaceRevision = null, PendingFile? importSource = null)
     {
         if (_transaction.HasRecoveryJournal || _copyJournal.Exists)
             throw new InvalidOperationException("Resolve retained move/copy recovery evidence before another operation.");
@@ -292,6 +338,7 @@ public sealed class ManualOrganizationCoordinator
                         ProposedOperationStatus.PendingUser, DateTimeOffset.UtcNow)
                     {
                         SourceSpaceId = file.SpaceId, SourcePath = source, DestinationPath = destination,
+                        ImportSource = importSource,
                         OriginalLength = identity?.Length, OriginalLastWriteUtcTicks = identity?.LastWriteTimeUtcTicks,
                         OriginalSha256 = identity?.Sha256, OriginalNativeId = identity?.NativeId
                     }]
@@ -328,9 +375,20 @@ public sealed class ManualOrganizationCoordinator
             if (file.IsDirectory && (manifest is null || directories is null))
                 throw new InvalidDataException("The directory transaction returned no recovery manifest.");
 
-            await _store.UpdateAsync(state => state with
+            await _store.UpdateAsync(state =>
             {
-                Files = state.Files.Select(item => item.Id == file.Id
+                var catalog = importSource is not null ? state.Files.Append(file) : state.Files;
+                var pending = state.Pending.Where(item => !PathComparer.Equals(Path.GetFullPath(item.Path), source)).ToList();
+                if (undo?.ImportSource is { } restored)
+                {
+                    if (pending.Any(p => p.Id == restored.Id || PathComparer.Equals(Path.TrimEndingDirectorySeparator(Path.GetFullPath(p.Path)), destination)))
+                        throw new InvalidDataException("The pending import changed during undo; recovery evidence is retained.");
+                    catalog = catalog.Where(item => item.Id != file.Id);
+                    pending.Add(restored);
+                }
+                return state with
+                {
+                Files = catalog.Select(item => item.Id == file.Id
                     ? item with
                     {
                         SpaceId = targetSpaceId,
@@ -338,7 +396,7 @@ public sealed class ManualOrganizationCoordinator
                         Name = Path.GetFileName(destination),
                         IsInTrash = undo is null && markInTrash
                     } : item).ToList(),
-                Pending = state.Pending.Where(item => !PathComparer.Equals(Path.GetFullPath(item.Path), source)).ToList(),
+                Pending = pending,
                 Operations = state.Operations.Select(item => item.Id == operationId
                     ? item with
                     {
@@ -352,6 +410,7 @@ public sealed class ManualOrganizationCoordinator
                         OriginalDirectoryPaths = undo is null ? directories : item.OriginalDirectoryPaths,
                         OriginalDirectoryNativeIds = undo is null ? directoryNativeIds : item.OriginalDirectoryNativeIds
                     } : item).ToList()
+                };
             }, cancellationToken).ConfigureAwait(false);
             metadataCommitted = true;
             await _store.CheckpointRecoveryBackupAsync().ConfigureAwait(false);

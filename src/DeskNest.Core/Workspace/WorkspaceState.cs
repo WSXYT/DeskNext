@@ -38,6 +38,8 @@ public sealed record ProposedOperation(Guid Id, Guid FileId, Guid? TargetSpaceId
 {
     // Persisted atomically with the metadata result, before transaction journal cleanup.
     public Guid? CommittedTransactionId { get; init; }
+    // Explicit external-import history; undo returns this item to review, not to an invented space.
+    public PendingFile? ImportSource { get; init; }
     public string? SourcePath { get; init; }
     public Guid SourceSpaceId { get; init; }
     public string? DestinationPath { get; init; }

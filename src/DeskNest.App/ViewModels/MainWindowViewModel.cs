@@ -328,7 +328,15 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             studio.AttachCutFileExecutor(ExecuteCutFileAsync);
             studio.AttachPasteFileExecutor(ExecutePasteFileAsync);
             studio.OnPreviewClassification = ExecuteClassificationPreviewAsync;
+            studio.OnImportPending = OperatingSystem.IsWindows() ? ExecuteImportPendingAsync : null;
         }
+    }
+
+    private async Task ExecuteImportPendingAsync(Guid pendingId, Guid targetSpaceId, long revision)
+    {
+        if (_manualCoordinator is null) throw new InvalidOperationException("Manual organization is not initialized.");
+        try { await _manualCoordinator.ImportPendingAsync(pendingId, targetSpaceId, revision); }
+        finally { if (_store is not null) await SetUIStateAsync(() => ApplySnapshot(_store.Snapshot)); }
     }
 
     private async Task ExecuteClassificationPreviewAsync(WorkspaceFileItemViewModel selected, System.Threading.CancellationToken token)

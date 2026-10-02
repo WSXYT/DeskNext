@@ -1,5 +1,11 @@
 {
   "App.Title": "DeskNext",
+  "Triage.ImportAction": "Mover al espacio",
+  "Triage.ImportNotice": "Esto mueve el archivo o la carpeta en el disco. Deshacer en el historial restaura su ubicación original.",
+  "Triage.ImportFrom": "Desde",
+  "Triage.ImportTo": "Hacia",
+  "Triage.ImportUnavailable": "La importación manual requiere Windows NTFS por ahora. No se movió nada.",
+  "Triage.ImportSuccess": "Importado. Puedes deshacerlo en el historial.",
   "Spaces.OpenWindow": "Abrir ventana independiente",
   "Spaces.ReturnToStudio": "Área de trabajo",
   "Spaces.WindowNotice": "Se cierra con el área de trabajo. Guarda la disposición para recordar la posición y el tamaño.",

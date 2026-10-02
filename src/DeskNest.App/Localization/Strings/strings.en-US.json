@@ -1,5 +1,11 @@
 {
   "App.Title": "DeskNext",
+  "Triage.ImportAction": "Move into space",
+  "Triage.ImportNotice": "This moves the file or folder on disk. Undo in Operation History restores its original location.",
+  "Triage.ImportFrom": "From",
+  "Triage.ImportTo": "To",
+  "Triage.ImportUnavailable": "Manual import currently requires Windows NTFS. Nothing was moved.",
+  "Triage.ImportSuccess": "Imported. Undo is available in Operation History.",
   "Spaces.OpenWindow": "Open floating window",
   "Spaces.ReturnToStudio": "Workbench",
   "Spaces.WindowNotice": "Closes with the workbench. Use Save window layout to remember the position and size.",

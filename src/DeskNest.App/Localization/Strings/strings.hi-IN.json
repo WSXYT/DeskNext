@@ -1,5 +1,11 @@
 {
   "App.Title": "DeskNext",
+  "Triage.ImportAction": "स्पेस में ले जाएँ",
+  "Triage.ImportNotice": "इससे फ़ाइल या फ़ोल्डर डिस्क पर स्थानांतरित होगा। कार्रवाई इतिहास से पूर्ववत करने पर मूल स्थान बहाल होगा।",
+  "Triage.ImportFrom": "यहाँ से",
+  "Triage.ImportTo": "यहाँ तक",
+  "Triage.ImportUnavailable": "मैनुअल आयात के लिए अभी Windows NTFS आवश्यक है। कुछ भी स्थानांतरित नहीं हुआ।",
+  "Triage.ImportSuccess": "आयात हो गया। कार्रवाई इतिहास से पूर्ववत कर सकते हैं।",
   "Spaces.OpenWindow": "अलग विंडो खोलें",
   "Spaces.ReturnToStudio": "कार्यक्षेत्र",
   "Spaces.WindowNotice": "कार्यक्षेत्र के साथ बंद होती है। स्थिति और आकार याद रखने के लिए विंडो विन्यास सहेजें।",

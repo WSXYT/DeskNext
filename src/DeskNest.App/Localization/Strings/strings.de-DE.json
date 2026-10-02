@@ -1,5 +1,11 @@
 {
   "App.Title": "DeskNext",
+  "Triage.ImportAction": "In Bereich verschieben",
+  "Triage.ImportNotice": "Die Datei oder der Ordner wird auf dem Datenträger verschoben. Im Verlauf lässt sich der ursprüngliche Ort wiederherstellen.",
+  "Triage.ImportFrom": "Von",
+  "Triage.ImportTo": "Nach",
+  "Triage.ImportUnavailable": "Manueller Import benötigt derzeit Windows NTFS. Nichts wurde verschoben.",
+  "Triage.ImportSuccess": "Importiert. Im Verlauf können Sie den Vorgang rückgängig machen.",
   "Spaces.OpenWindow": "Separates Fenster öffnen",
   "Spaces.ReturnToStudio": "Arbeitsbereich",
   "Spaces.WindowNotice": "Schließt mit dem Arbeitsbereich. Mit „Fensterlayout speichern“ Position und Größe merken.",
