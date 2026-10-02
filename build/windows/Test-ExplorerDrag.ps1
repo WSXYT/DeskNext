@@ -91,6 +91,13 @@ try {
             $rect = $item.Current.BoundingRectangle
             Drag @{X=$rect.X+($rect.Width/2); Y=$rect.Y+($rect.Height/2)} $stage.Point $view.HWND
         } elseif ($stage.Stage -eq 'outbound') {
+            # The production Reveal action, not this driver, must have opened the managed folder.
+            $located = $null
+            foreach ($candidate in $shell.Windows()) {
+                try { if ($candidate.Document.Folder.Self.Path -eq $stage.LocatedFolder) { $located = $candidate; break } } catch { }
+            }
+            if (!$located -or $originalWindows -contains $located.HWND) { throw 'Production Reveal did not open its isolated containing folder.' }
+            $ownedWindows.Add($located)
             $condition = New-Object Windows.Automation.PropertyCondition ([Windows.Automation.AutomationElement]::ClassNameProperty), 'UIItemsView'
             $list = $null
             $timer = [Diagnostics.Stopwatch]::StartNew()

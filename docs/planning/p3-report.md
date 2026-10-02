@@ -2,6 +2,12 @@
 
 Status: implementation in progress. Desktop takeover and watcher-driven automatic moves remain disabled.
 
+## Shell-open correction (2026-10-03)
+
+The Explorer exercise exposed a real Open/Reveal false error: a successful shell handoff may return no new `Process`. The isolated reproduction returned `ProcessWasNull=true` with `ActualExplorerOpened=true`. `PlatformFileActions.OpenAsync` now accepts that normal result; path validation and actual shell exceptions remain unchanged. This also fixes the recovery screen's Open storage directory action.
+
+The existing Explorer workflow now executes the production **Open containing folder** command after import, and its driver requires the corresponding new Explorer fixture window (without opening that folder itself). Both file and directory rounds passed with terminal success: `artifacts/p3-publication-tests/explorer-20261003-011250/native-explorer.log`. The build had zero warnings/errors; the six existing platform-action tests and the active Platform LSP check passed. No added transaction/test framework, full suite, package or CI run.
+
 ## Real Explorer drag/drop (2026-10-03)
 
 `build/windows/Test-ExplorerDrag.ps1` drives the opt-in native `--explorer-drag` fixture with OS mouse events and **real Explorer/OLE**, not injected Avalonia drag arguments. For a regular file and a directory containing an empty child: Explorer → space window requests confirmation before movement; the existing confirmation commits import; space window → a new Explorer receiver copies while retaining the source and workspace revision; existing Undo restores the original external path. Confirmation/undo use production commands, not human mouse clicks.

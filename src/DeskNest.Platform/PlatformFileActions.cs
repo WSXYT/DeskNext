@@ -17,8 +17,9 @@ public static class PlatformFileActions
     {
         cancellationToken.ThrowIfCancellationRequested();
         path = RequireExistingLocalPath(path);
-        using var process = Process.Start(new ProcessStartInfo(path) { UseShellExecute = true })
-            ?? throw new IOException("The system could not open the selected item.");
+        // A successful shell handoff (e.g. an existing Explorer) can have no new process.
+        // Start still throws when the OS rejects the request; null is not a failure receipt.
+        using var process = Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
         return Task.CompletedTask;
     }
 

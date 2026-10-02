@@ -56,6 +56,10 @@ internal static class ExplorerDragSmoke
                 if (operation.Status != ProposedOperationStatus.Completed || File.Exists(Content(source)) || File.ReadAllText(Content(published)) != "Explorer drag fixture")
                     throw new InvalidOperationException("Confirmed Explorer import did not commit: " + studio.ImportError);
 
+                var imported = studio.AllSpaces.Single(s => s.Id == space.Id).Files.Single(f => f.Id == operation.FileId);
+                await studio.ExecuteRevealFileCommand.ExecuteAsync(imported);
+                if (studio.FileActionNotice != studio.Localizer.GetString("Files.RevealSuccessNotice", name))
+                    throw new InvalidOperationException("Open containing folder reported failure: " + studio.FileActionNotice);
                 mainWindow.WindowState = WindowState.Minimized;
                 floating.Activate();
                 await Task.Delay(250, deadline.Token);
@@ -64,7 +68,8 @@ internal static class ExplorerDragSmoke
                 var rowPoint = floating.PointToScreen(row.TranslatePoint(new Point(70, row.Bounds.Height / 2), floating)!.Value);
                 long revision = store.Snapshot.Revision;
                 Announce(new { Stage = "outbound", Directory = directory, Folder = receiver, Item = name,
-                    Point = rowPoint, ExplorerRect = explorerRect, Window = floating.TryGetPlatformHandle()!.Handle.ToInt64() });
+                    Point = rowPoint, ExplorerRect = explorerRect, LocatedFolder = space.Folder,
+                    Window = floating.TryGetPlatformHandle()!.Handle.ToInt64() });
                 string received = Path.Combine(receiver, name);
                 await UntilAsync(() => File.Exists(Content(received)), deadline.Token, "Explorer did not receive the outgoing file reference: " + studio.FileActionNotice);
                 if (File.ReadAllText(Content(received)) != "Explorer drag fixture" || File.ReadAllText(Content(published)) != "Explorer drag fixture" ||
