@@ -1,5 +1,9 @@
 {
   "App.Title": "DeskNext",
+  "Search.Workspace": "Suche",
+  "Search.Notice": "Registrierte Dateien und Ordner in allen Bereichen nach Namen suchen. Kein Datenträgerscan. Ctrl/Cmd+K öffnet die Suche.",
+  "Search.ShowInSpace": "Im Bereich anzeigen",
+  "Search.Limit": "Die ersten 100 Treffer werden angezeigt. Bitte Suche eingrenzen.",
   "Observation.TargetNotice": "Vorgeschlagenen Bereich für eine gespeicherte Quelle wählen. Gilt nur für neue Prüfelemente; Importe erfordern weiterhin Bestätigung.",
   "Observation.ClearTarget": "Bereichsvorschlag löschen",
   "Observation.Scan": "Vorhandene Elemente scannen",

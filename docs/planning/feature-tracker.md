@@ -11,7 +11,7 @@ This is the P0 **acceptance inventory**, not a claim of working features. All ce
 | F05 | Monitor settings, scan preview, pending/history drawer | Baseline, whitelist, stable file/folder triage, safe move, undo and crash recovery; supports desktop plus multiple user-selected custom folders, per-source target space/capsule binding, pause and rescan | S01-S08 fault injection, custom-folder baseline/overflow tests, pause/late-result and 24h event-storm run | 部分：多目录观察/扫描/建议空间→待处理；自动整理/Flow未验收 / 未验证 / 未验证 |
 | F06 | Flow editor, import/run/log menu | 10 trigger/action/control node types, sequential scope, no untrusted import activation | S09–S16 ABI/Unicode/257-event/DST/regression tests | 未实现 / 未验证 / 未验证 |
 | F07 | Tasks and notes navigation | Recurrence, reminders, attachments, Markdown, quick capture and persistence | Date/DST, attachment integrity, restart and keyboard tests | 未实现 / 未验证 / 未验证 |
-| F08 | Global search/palette, hotkey | Incremental multi-source results; optional Everything on Windows, local alternatives elsewhere | Mixed-source failure isolation, cancellation, hotkey and memory tests | 未实现 / 未验证 / 未验证 |
+| F08 | Global search/palette, hotkey | Incremental multi-source results; optional Everything on Windows, local alternatives elsewhere | Mixed-source failure isolation, cancellation, hotkey and memory tests | 部分：跨空间目录册搜索/应用内快捷键；外部索引未完成 / 未验证 / 未验证 |
 | F09 | Optional time/weather/music widgets | Calendar/seasonal data, network/offline weather, media sessions per platform | Size/theme screenshots, cache/offline and provider capability reports | 未实现 / 未验证 / 未验证 |
 | F10 | Layout and appearance settings | Display topology, DPI/snap/group move, themes, resource mode, accessibility | Hotplug, mixed DPI, restart, reduced-motion and resource measurements | 部分：空间窗口显式保存/重开布局；多屏未验收 / 未验证 / 未验证 |
 | F11 | Tray/settings, backup/restore/update/uninstall | Single instance, safe backup including managed files, selective restore, redacted diagnostics, no user-data deletion | Real signed installer and archive corruption/upgrade/uninstall tests | 部分：未签名开发安装器；正式更新未完成 / 未验证 / 未验证 |
@@ -19,6 +19,8 @@ This is the P0 **acceptance inventory**, not a claim of working features. All ce
 | F13 | Engine choice/deploy/triage drawer | Jev or local Laya, one-click zero-Python install, two special outcomes, explicit user resolution | A–D inference, frozen model quality set, privacy/key/CPU/GPU clean-machine tests | 部分：本地CPU/Jev只读预览；云端实测/部署/质量未验收 / 未验证 / 未验证 |
 
 ## Bounded implementation evidence (updated 2026-10-03)
+
+- F08 catalog search: sidebar Search or in-app Ctrl/Cmd+K searches registered names across all spaces, independently of the sidebar filter. Bounded results navigate back to existing file actions without changing metadata/files. Build and real headless shortcut/navigation checks pass; external indexes, OS-global hotkeys and per-platform interaction remain open. See [P6 partial report](p6-report.md).
 
 - F04 tray: normal startup registers an optional Avalonia tray entry for restoring the workbench, opening the existing capsule and exiting. Localization, command routing and disposal pass the existing headless workflow; native tray display/clicks, background lifetime and global hotkeys remain unverified. Closing the workbench still exits. See [P6 partial report](p6-report.md).
 

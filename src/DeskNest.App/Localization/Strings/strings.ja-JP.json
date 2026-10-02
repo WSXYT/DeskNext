@@ -1,5 +1,9 @@
 {
   "App.Title": "DeskNext",
+  "Search.Workspace": "検索",
+  "Search.Notice": "すべてのスペースの登録済みファイルとフォルダーを名前で検索します。ディスクは走査しません。Ctrl/Cmd+K で検索を開きます。",
+  "Search.ShowInSpace": "スペースで表示",
+  "Search.Limit": "最初の100件を表示しています。検索を絞り込んでください。",
   "Observation.TargetNotice": "保存済みの監視元に推奨スペースを設定します。新しい保留項目だけに適用され、取り込みには引き続き確認が必要です。",
   "Observation.ClearTarget": "推奨スペースを解除",
   "Observation.Scan": "既存の項目をスキャン",

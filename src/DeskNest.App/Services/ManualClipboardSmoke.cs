@@ -482,6 +482,33 @@ internal static class ManualClipboardSmoke
             }
             if (!directory)
             {
+                var searchRevision = store.Snapshot.Revision;
+                studio.FilterMode = SpaceFilterMode.Mapped;
+                studio.SelectedTabIndex = 3;
+                window.Activate();
+                view.FindControl<Button>("WorkspaceSearchButton")!.Focus();
+                window.KeyPress(Key.K, commandModifier, PhysicalKey.K, null);
+                window.KeyRelease(Key.K, commandModifier, PhysicalKey.K, null);
+                Dispatcher.UIThread.RunJobs();
+                var globalInput = view.FindControl<TextBox>("WorkspaceSearchInput")!;
+                globalInput.Text = Path.GetFileName(sourcePath).ToUpperInvariant();
+                Dispatcher.UIThread.RunJobs();
+                if (!studio.IsWorkspaceSearchTab || !globalInput.IsFocused ||
+                    studio.WorkspaceSearchResults.Select(item => item.File.SpaceId).Distinct().Count() < 2)
+                    throw new InvalidOperationException("Workspace search must find matching names across spaces regardless of sidebar filtering.");
+                var searchHit = studio.WorkspaceSearchResults.Single(item => item.File.Id == fileId);
+                studio.SelectedWorkspaceResult = searchHit;
+                var revealResult = view.FindControl<Button>("RevealSearchResultButton")!;
+                if (!revealResult.IsEffectivelyVisible || !revealResult.IsEnabled)
+                    throw new InvalidOperationException("Workspace search must expose its location action.");
+                revealResult.Command!.Execute(revealResult.CommandParameter);
+                if (!studio.IsSpacesTab || studio.SelectedSpace?.Id != source.Id || studio.SelectedFile?.Id != fileId ||
+                    store.Snapshot.Revision != searchRevision || File.ReadAllText(contentPath) != "clipboard fixture")
+                    throw new InvalidOperationException("Search navigation must reveal the actual catalog item without changing metadata or files.");
+                studio.WorkspaceSearchText = "absent-search-fixture";
+                if (!studio.WorkspaceSearchHasNoResults || studio.SelectedWorkspaceResult is not null)
+                    throw new InvalidOperationException("An empty search must not retain a stale action target.");
+
                 int exitRequests = 0;
                 var app = Application.Current!;
                 int originalIcons = TrayIcon.GetIcons(app)?.Count ?? 0;

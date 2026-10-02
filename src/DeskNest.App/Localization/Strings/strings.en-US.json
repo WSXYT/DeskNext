@@ -1,5 +1,9 @@
 {
   "App.Title": "DeskNext",
+  "Search.Workspace": "Search",
+  "Search.Notice": "Find registered files and folders by name across all spaces. No disk scan. Ctrl/Cmd+K opens this search.",
+  "Search.ShowInSpace": "Show in space",
+  "Search.Limit": "Showing the first 100 matches. Refine your search.",
   "Observation.TargetNotice": "Choose a suggested space for a saved source. Only new review items are affected; imports still require confirmation.",
   "Observation.ClearTarget": "Clear suggested space",
   "Observation.Scan": "Scan existing items",

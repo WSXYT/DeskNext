@@ -38,7 +38,7 @@ public sealed partial class StudioViewModel : ViewModelBase
     };
 
     [ObservableProperty]
-    private int _selectedTabIndex = 0; // 0: Spaces, 1: Triage, 2: Capsule, 3: Settings, 4: Diagnostics
+    private int _selectedTabIndex = 0; // 0: Spaces, 1: Triage, 2: Capsule, 3: Settings, 4: Diagnostics, 5: Search
 
     public bool IsSpacesTab => SelectedTabIndex == 0;
     public bool IsTriageTab => SelectedTabIndex == 1;
@@ -53,6 +53,7 @@ public sealed partial class StudioViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsCapsuleTab));
         OnPropertyChanged(nameof(IsSettingsTab));
         OnPropertyChanged(nameof(IsProbeTab));
+        OnPropertyChanged(nameof(IsWorkspaceSearchTab));
     }
 
     // ==========================================
@@ -954,6 +955,7 @@ public sealed partial class StudioViewModel : ViewModelBase
         OnPropertyChanged(nameof(ManagedSpacesCountText));
         OnPropertyChanged(nameof(MappedSpacesCountText));
         RefreshObservationTargets(state, observationTargetDraft);
+        RefreshWorkspaceSearch();
     }
 
     // ==========================================

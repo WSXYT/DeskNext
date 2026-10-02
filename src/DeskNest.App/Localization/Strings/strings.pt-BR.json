@@ -1,5 +1,9 @@
 {
   "App.Title": "DeskNext",
+  "Search.Workspace": "Pesquisar",
+  "Search.Notice": "Pesquisar por nome arquivos e pastas cadastrados em todos os espaços, sem examinar o disco. Ctrl/Cmd+K abre a pesquisa.",
+  "Search.ShowInSpace": "Mostrar no espaço",
+  "Search.Limit": "Exibindo os primeiros 100 resultados. Refine a pesquisa.",
   "Observation.TargetNotice": "Escolha um espaço sugerido para uma fonte salva. Afeta apenas novos itens pendentes; importar ainda exige confirmação.",
   "Observation.ClearTarget": "Limpar espaço sugerido",
   "Observation.Scan": "Examinar itens existentes",

@@ -31,6 +31,10 @@
                                        Foreground="{DynamicResource PendingMarkerBrush}"/>
                         </Grid>
                     </Button>
+                    <Button Name="WorkspaceSearchButton" Classes="StudioNavTab NavRail" Classes.Active="{Binding IsWorkspaceSearchTab}"
+                            Click="OnWorkspaceSearchClick" ToolTip.Tip="{Binding Localizer[Search.Workspace]}">
+                        <TextBlock Text="{Binding Localizer[Search.Workspace]}" TextTrimming="CharacterEllipsis"/>
+                    </Button>
                     <Button Classes="StudioNavTab NavRail" Classes.Active="{Binding IsCapsuleTab}"
                             Command="{Binding SelectTabCommand}" CommandParameter="2">
                         <TextBlock Text="{Binding Localizer[Capsule.Title]}" TextTrimming="CharacterEllipsis"/>
@@ -1016,6 +1020,58 @@
                     </StackPanel>
                 </StackPanel>
             </ScrollViewer>
+
+            <!-- Cross-space catalog search: selection returns to the existing file actions. -->
+            <Grid IsVisible="{Binding IsWorkspaceSearchTab}" RowDefinitions="Auto,Auto,*,Auto" Margin="24,18">
+                <StackPanel Spacing="6" Margin="0,0,0,16">
+                    <TextBlock Text="{Binding Localizer[Search.Workspace]}" FontSize="22" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding Localizer[Search.Notice]}" TextWrapping="Wrap"
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                </StackPanel>
+                <TextBox Grid.Row="1" Name="WorkspaceSearchInput" Text="{Binding WorkspaceSearchText}"
+                         PlaceholderText="{Binding Localizer[Files.SearchName]}" MaxLength="260" Margin="0,0,0,12"
+                         AutomationProperties.Name="{Binding Localizer[Search.Workspace]}"/>
+                <Grid Grid.Row="2">
+                    <ListBox Name="WorkspaceSearchResultsList" ItemsSource="{Binding WorkspaceSearchResults}"
+                             SelectedItem="{Binding SelectedWorkspaceResult}" Background="Transparent" BorderThickness="0">
+                        <ListBox.KeyBindings>
+                            <KeyBinding Gesture="Enter" Command="{Binding RevealSearchResultCommand}"
+                                        CommandParameter="{Binding SelectedWorkspaceResult}"/>
+                        </ListBox.KeyBindings>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:WorkspaceSearchResult">
+                                <Border Padding="10,8" DoubleTapped="OnSearchResultDoubleTapped">
+                                    <ToolTip.Tip><TextBlock Text="{Binding File.Path}" FlowDirection="LeftToRight"/></ToolTip.Tip>
+                                    <Grid ColumnDefinitions="24,*">
+                                        <Grid VerticalAlignment="Center">
+                                            <PathIcon Data="{StaticResource IconFolder}" IsVisible="{Binding File.IsDirectory}"
+                                                      Width="16" Height="16" Foreground="{DynamicResource AccentPrimaryBrush}"/>
+                                            <PathIcon Data="{StaticResource IconFile}" IsVisible="{Binding !File.IsDirectory}"
+                                                      Width="16" Height="16" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                        </Grid>
+                                        <StackPanel Grid.Column="1" Spacing="3" Margin="8,0,0,0">
+                                            <TextBlock Text="{Binding File.Name}" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{Binding SpaceName}" TextTrimming="CharacterEllipsis" FontSize="12"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <TextBlock Text="{Binding Localizer[Files.NoMatches]}" IsVisible="{Binding WorkspaceSearchHasNoResults}"
+                               VerticalAlignment="Center" HorizontalAlignment="Center"
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                </Grid>
+                <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,12,0,0">
+                    <TextBlock Text="{Binding Localizer[Search.Limit]}" IsVisible="{Binding WorkspaceSearchTruncated}"
+                               TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0"
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <Button Name="RevealSearchResultButton" Grid.Column="1" Content="{Binding Localizer[Search.ShowInSpace]}"
+                            Command="{Binding RevealSearchResultCommand}" CommandParameter="{Binding SelectedWorkspaceResult}"
+                            IsEnabled="{Binding HasSelectedWorkspaceResult}"/>
+                </Grid>
+            </Grid>
 
             <!-- ================= TAB 4: SYSTEM PROBE & DIAGNOSTICS ================= -->
             <Grid RowDefinitions="Auto,Auto,*,Auto" IsVisible="{Binding IsProbeTab}" Margin="24,18">

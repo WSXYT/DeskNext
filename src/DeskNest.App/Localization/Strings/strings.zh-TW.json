@@ -1,5 +1,9 @@
 {
   "App.Title": "DeskNext",
+  "Search.Workspace": "搜尋",
+  "Search.Notice": "依名稱尋找所有空間內已登記的檔案和資料夾，不掃描磁碟。Ctrl/Cmd+K 開啟搜尋。",
+  "Search.ShowInSpace": "顯示所在空間",
+  "Search.Limit": "顯示前 100 個符合項目，請縮小搜尋範圍。",
   "Observation.TargetNotice": "為已儲存的來源選擇預設建議空間。只影響新待處理項目，移入仍需確認。",
   "Observation.ClearTarget": "取消預設建議",
   "Observation.Scan": "掃描現有項目",

@@ -59,13 +59,20 @@ public partial class StudioView : UserControl
 
     private async void OnWorkspaceKeyDown(object? sender, KeyEventArgs e)
     {
-        if (DataContext is not StudioViewModel studio || !studio.IsSpacesTab ||
-            studio.IsAddSpaceDialogOpen || studio.IsRenameDialogOpen ||
-            studio.IsDeleteConfirmationDialogOpen || studio.IsPreviewDialogOpen || studio.IsImportConfirmationOpen ||
-            e.Source is TextBox || (e.Source as Avalonia.Visual)?.FindAncestorOfType<TextBox>() is not null)
+        if (DataContext is not StudioViewModel studio ||
+            studio.IsAddSpaceDialogOpen || studio.IsRenameDialogOpen || studio.IsCreateSpaceFromTriageOpen ||
+            studio.IsDeleteConfirmationDialogOpen || studio.IsPreviewDialogOpen || studio.IsImportConfirmationOpen)
             return;
 
         var commandModifier = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
+        if (e.Key == Key.K && e.KeyModifiers == commandModifier)
+        {
+            e.Handled = true;
+            FocusWorkspaceSearch(studio);
+            return;
+        }
+        if (!studio.IsSpacesTab || e.Source is TextBox ||
+            (e.Source as Avalonia.Visual)?.FindAncestorOfType<TextBox>() is not null) return;
         IAsyncRelayCommand? command = (e.Key, e.KeyModifiers) switch
         {
             (Key.F2, KeyModifiers.None) when studio.CanRenameFile => studio.ExecuteRenameFileCommand,
@@ -87,6 +94,28 @@ public partial class StudioView : UserControl
         }
         else if (e.Key == Key.Delete && studio.IsDeleteConfirmationDialogOpen)
             this.FindControl<Button>("DeleteConfirmationCancelButton")?.Focus();
+    }
+
+    private void FocusWorkspaceSearch(StudioViewModel studio)
+    {
+        studio.SelectedTabIndex = 5;
+        var input = this.FindControl<TextBox>("WorkspaceSearchInput")!;
+        input.Focus();
+        input.SelectAll();
+    }
+
+    private void OnWorkspaceSearchClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is StudioViewModel studio) FocusWorkspaceSearch(studio);
+    }
+
+    private void OnSearchResultDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (DataContext is StudioViewModel studio && sender is Control { DataContext: WorkspaceSearchResult result })
+        {
+            e.Handled = true;
+            studio.RevealSearchResult(result);
+        }
     }
 
     public StudioView()
