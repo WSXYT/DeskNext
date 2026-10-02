@@ -2,6 +2,16 @@
 
 Status: implementation in progress. Desktop takeover and watcher-driven automatic moves remain disabled.
 
+## Space-window file actions and integration checkpoint (2026-10-02)
+
+Independent space-window rows now expose the existing Open, Reveal, Preview, Copy/Cut/Paste, Move to space, Rename and Delete/Remove commands in a context menu. The clicked row and its own space become the command subject, regardless of workbench selection. Preview/rename/delete bring the workbench forward for its existing dialog/confirmation; no second file-operation implementation or automatic move was added. Existing localized labels and platform copy gates are reused.
+
+App build: zero warnings/errors. `headless-space-actions-final.log` reports `Success=true`, `ManagedClipboardWorkflowVerified=true`, 15820 ms, with file/directory menu-subject checks. Earlier attempts are retained: the old five-second limit expired on the expanded multi-operation fixture, and input checks failed while popup teardown/focus restoration was still queued. The functional fixture now has a twenty-second watchdog (not a latency claim), drains popup teardown, and activates the intended workbench before injecting input. The assertions remain in place; this is not a diagnosis of the separate historical installed-probe timeout.
+
+Integration CI [37017430842](https://github.com/WSXYT/desknest-p1-probes/actions/runs/37017430842), source `ddae928`, passed all three jobs. Windows Core 265 passed/1 skip plus alias-target checks 7/7; Linux/macOS Core 203 passed/41 platform skips; Inference 6/6 everywhere. All three published UI/native-load runs reported terminal success with `NativeLoadSuccess=true`. The Windows installed native manual workflow reported `ManualWorkflowVerified=true` and `NativeClipboardRoundTripVerified=true`; at this source it covers cut/move/undo, catalog-bound copy preserving its source and publication receipt, and confirmed external import/undo, for files and directories. The installed recovery/sentinel checks also passed. Log: `artifacts/p3-publication-tests/ci-37017430842.log`.
+
+That CI snapshot **predates the space-window context menu and local fixture changes above**. It uses native clipboard plus production commands, not physical mouse/keyboard or Explorer drag negotiation. Installed headless does not request bridge loading (`NativeLoadSuccess=false`); non-Windows copy/import and skipped native tests remain unverified. No extra CI or package rerun for the floating-window-only follow-up.
+
 ## Current increment: restricted Windows manual Copy/Paste (2026-10-02)
 
 **Copy/Paste is now connected on Windows for single cataloged items on supported local NTFS paths**, into managed spaces or existing mapped folders. Clipboard source ID, space ID and path must agree; the current revision reaches Core. Copies retain the source and clipboard, enroll a new file with publication evidence, and create no move/undo history. Known destination collisions refuse before writing an intent. External clipboard paths without catalog identity, non-Windows copying, unsupported streams/EFS/offline content and unattended copying remain unavailable. Directory copies retain the existing same-volume and entry/depth restrictions.

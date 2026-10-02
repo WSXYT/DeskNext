@@ -146,6 +146,41 @@ public partial class SpaceWindow : Window
         await _studio.ExecuteOpenFileCommand.ExecuteAsync(file);
     }
 
+    private void OnFileMenuOpened(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not ContextMenu menu) return;
+        menu.Items.Clear();
+        if (_studio is not { } studio || Space is not { } space ||
+            menu.DataContext is not WorkspaceFileItemViewModel selected ||
+            space.Files.FirstOrDefault(f => f.Id == selected.Id && !f.IsInTrash) is not { } file) return;
+        studio.SelectSpace(space);
+        studio.SelectFile(file);
+        this.FindControl<ListBox>("SpaceWindowFiles")!.SelectedItem = file;
+
+        // Reuse the workbench executors. Dialogs stay on its existing confirmation/preview surface.
+        MenuItem Action(string key, System.Windows.Input.ICommand command, object parameter, bool enabled, bool showWorkbench = false)
+        {
+            var item = new MenuItem { Header = studio.Localizer[key], Command = command, CommandParameter = parameter, IsEnabled = enabled };
+            if (showWorkbench) item.Click += (_, args) => OnReturnClick(null, args);
+            return item;
+        }
+        menu.Items.Add(Action("Files.ActionOpen", studio.ExecuteOpenFileCommand, file, studio.CanOpenFile));
+        menu.Items.Add(Action("Files.ActionReveal", studio.ExecuteRevealFileCommand, file, studio.CanRevealFile));
+        menu.Items.Add(Action("Files.ActionPreview", studio.ExecutePreviewFileCommand, file, studio.CanPreviewFile, showWorkbench: true));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(Action("Files.ActionCopy", studio.ExecuteCopyFileCommand, file, studio.CanCopyFile));
+        menu.Items.Add(Action("Files.ActionCut", studio.ExecuteCutFileCommand, file, studio.CanCutFile));
+        menu.Items.Add(Action("Files.ActionPaste", studio.ExecutePasteFileCommand, space, studio.CanPasteFile));
+        var move = new MenuItem { Header = studio.Localizer["Files.ActionMoveToSpace"], IsEnabled = studio.CanExecuteManualMove };
+        foreach (var target in studio.AllSpaces.Where(s => s.Id != space.Id))
+            move.Items.Add(new MenuItem { Header = target.Name, Command = studio.ExecuteManualMoveCommand, CommandParameter = (file.Id, target.Id) });
+        move.IsEnabled &= move.Items.Count > 0;
+        menu.Items.Add(move);
+        menu.Items.Add(new Separator());
+        menu.Items.Add(Action("Files.ActionRename", studio.ExecuteRenameFileCommand, file, studio.CanRenameFile, showWorkbench: true));
+        menu.Items.Add(Action(file.DeleteActionKey, studio.ExecuteDeleteFileCommand, file, studio.CanDeleteFile, showWorkbench: true));
+    }
+
     private void OnDragOver(object? sender, DragEventArgs e)
     {
         e.DragEffects = StudioView.HasFiles(e) ? DragDropEffects.Copy : DragDropEffects.None;

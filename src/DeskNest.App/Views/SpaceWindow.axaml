@@ -58,6 +58,7 @@
                                 <Border Classes="FileRowCard" Padding="10,10" Background="Transparent"
                                         CornerRadius="{DynamicResource RadiusSmall}" DoubleTapped="OnFileDoubleTapped">
                                     <ToolTip.Tip><TextBlock Text="{Binding Path}" FlowDirection="LeftToRight"/></ToolTip.Tip>
+                                    <Border.ContextMenu><ContextMenu Opened="OnFileMenuOpened"/></Border.ContextMenu>
                                     <Grid ColumnDefinitions="Auto,*">
                                         <Grid Margin="0,0,10,0">
                                             <PathIcon Data="{StaticResource IconFolder}" Width="20" Height="20" IsVisible="{Binding IsDirectory}"

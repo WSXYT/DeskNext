@@ -113,6 +113,7 @@ internal static class ManualClipboardSmoke
             if (classification.Command != studio.PreviewClassificationCommand || classification.CommandParameter != row.DataContext)
                 throw new InvalidOperationException("Classification preview must target the clicked file row.");
             menu.Close();
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs(); // Finish popup teardown before injecting pointer input.
             await studio.PreviewClassificationCommand.ExecuteAsync(studio.SelectedFile);
             if (studio.FileActionNotice != main.Localizer["Classification.Setup"] || studio.IsPreviewDialogOpen)
                 throw new InvalidOperationException("An unconfigured model must show setup guidance, not a fake suggestion.");
@@ -132,7 +133,7 @@ internal static class ManualClipboardSmoke
             window.MouseUp(position, MouseButton.Left);
             window.MouseDown(position, MouseButton.Left);
             window.MouseUp(position, MouseButton.Left);
-            if (opens != 1) throw new InvalidOperationException("Double-click must open the clicked item once.");
+            if (opens != 1) throw new InvalidOperationException($"Double-click must open the clicked item once; observed {opens} opens.");
             var files = view.FindControl<ListBox>("FilesListBox")!;
             files.ContainerFromIndex(0)!.Focus();
             window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
@@ -265,6 +266,23 @@ internal static class ManualClipboardSmoke
             floating.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
             studio.AttachOpenFileExecutor(openExecutor);
             if (floatingOpens != 1) throw new InvalidOperationException("Space window Enter must use the existing open action.");
+            Console.WriteLine($"[MANUAL-WORKFLOW] {(directory ? "directory" : "file")}: space-window actions");
+            var floatingRow = floatingFiles.GetVisualDescendants().OfType<Border>()
+                .First(b => b.ContextMenu is not null && b.DataContext is WorkspaceFileItemViewModel f && f.Id == fileId);
+            studio.SelectSpace(studio.AllSpaces.Single(s => s.Id == mapped.Id));
+            studio.SelectedFile = null;
+            var floatingMenu = floatingRow.ContextMenu!;
+            floatingMenu.Open(floatingRow);
+            var floatingCopy = floatingMenu.Items.OfType<MenuItem>().Single(i => i.Command == studio.ExecuteCopyFileCommand);
+            var floatingPaste = floatingMenu.Items.OfType<MenuItem>().Single(i => i.Command == studio.ExecutePasteFileCommand);
+            if (studio.SelectedSpace?.Id != source.Id || studio.SelectedFile?.Id != fileId ||
+                floatingCopy.CommandParameter is not WorkspaceFileItemViewModel copyRow || copyRow.Id != fileId ||
+                floatingCopy.IsEnabled != OperatingSystem.IsWindows() ||
+                floatingPaste.CommandParameter is not SpaceItemViewModel pasteSpace || pasteSpace.Id != source.Id)
+                throw new InvalidOperationException("Space-window actions must use the clicked row and its own space, with platform copy gating.");
+            floatingMenu.Close();
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            window.Activate();
             await main.UpdateStoreAsync(s => s with { Spaces = s.Spaces.Select(x => x.Id == source.Id ? x with { Name = "Updated space" } : x).ToList() });
             Avalonia.Threading.Dispatcher.UIThread.RunJobs();
             if (floating.Space?.Name != "Updated space" || !floating.IsVisible ||
@@ -353,7 +371,9 @@ internal static class ManualClipboardSmoke
                     var copyTarget = studio.AllSpaces.Single(s => s.Name == "Copy " + mode);
                     studio.SelectSpace(studio.AllSpaces.Single(s => s.Id == source.Id));
                     studio.SelectFile(studio.SelectedSpace!.Files.Single(f => f.Id == fileId));
+                    window.Activate();
                     window.UpdateLayout();
+                    Avalonia.Threading.Dispatcher.UIThread.RunJobs();
                     view.FindControl<ListBox>("FilesListBox")!.ContainerFromIndex(0)!.Focus();
                     window.KeyPress(Key.C, commandModifier, PhysicalKey.C, null);
                     window.KeyRelease(Key.C, commandModifier, PhysicalKey.C, null);
@@ -385,6 +405,7 @@ internal static class ManualClipboardSmoke
             window.Close();
             if (floating.IsVisible || floating.DataContext is not null)
                 throw new InvalidOperationException("Closing the workbench must close its space windows.");
+            Console.WriteLine($"[MANUAL-WORKFLOW] {(directory ? "directory" : "file")}: complete");
         }
         finally
         {

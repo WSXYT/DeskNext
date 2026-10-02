@@ -20,6 +20,7 @@ This is the P0 **acceptance inventory**, not a claim of working features. All ce
 
 ## Bounded implementation evidence (updated 2026-10-02)
 
+- F01/F02 space-window actions: floating file rows reuse workbench commands for open/reveal/preview, clipboard, moves, rename and deletion; existing workbench dialogs handle confirmation. Local build and menu-subject UI checks pass. Integration CI [37017430842](https://github.com/WSXYT/desknest-p1-probes/actions/runs/37017430842) covers the earlier restricted-copy/import snapshot, including the Windows installed native clipboard workflow, not this later floating-menu change.
 - F02 restricted Copy/Paste: Windows manual single-item catalog-to-space copying is enabled after the mapped-destination creation fix and independent follow-up review. Managed/existing mapped targets, source preservation, new publication identity, no copy-undo claim, stale subject/revision and collision refusal are covered by focused Core checks plus the production clipboard smoke. Non-Windows and uncataloged external clipboard copying remain unavailable. See the current increment in [P3 report](p3-report.md).
 
 - F02 outgoing entry point: workbench and independent space-window file rows export a single platform file reference through Avalonia drag/drop, offering Copy only and never deleting the source. File/directory payload checks and the existing UI smoke pass; actual external-file-manager drop negotiation remains unverified. This outward-reference path is separate from the restricted in-app Copy/Paste path.

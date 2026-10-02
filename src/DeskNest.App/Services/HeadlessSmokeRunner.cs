@@ -578,7 +578,9 @@ public static class HeadlessSmokeRunner
             foreach (bool directory in new[] { false, true })
             {
                 using var clipboardFixture = new TempTestDir();
-                AwaitOnUIThread(ManualClipboardSmoke.VerifyAsync(clipboardFixture.Path, directory), "managed clipboard workflow");
+                // This is now a multi-operation functional workflow, not a 5-second latency benchmark.
+                AwaitOnUIThread(ManualClipboardSmoke.VerifyAsync(clipboardFixture.Path, directory),
+                    $"managed clipboard workflow ({(directory ? "directory" : "file")})", timeoutSeconds: 20);
             }
             result.ManagedClipboardWorkflowVerified = true;
             string? localModel = args.FirstOrDefault(a => a.StartsWith("--local-model=", StringComparison.Ordinal))?["--local-model=".Length..];
