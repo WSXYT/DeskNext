@@ -244,7 +244,7 @@ public sealed class ManualOrganizationCoordinator
                         new FileIdentity(item.Length, item.LastWriteTimeUtcTicks, item.Sha256)
                         { NativeId = item.NativeId })).ToArray();
                     if (!DesktopOrganizationTransaction.DirectoryManifestMatches(file.Path, expected,
-                        operation.OriginalDirectoryPaths))
+                        operation.OriginalDirectoryPaths, operation.OriginalDirectoryNativeIds))
                         throw new IOException("Undo refused because the moved directory contents changed.");
                 }
                 else
@@ -302,10 +302,19 @@ public sealed class ManualOrganizationCoordinator
         bool metadataCommitted = false;
         try
         {
+            // Keep undo bound to the original receipt across the verification/prepare gap.
+            var expectedFile = undo is not null && !file.IsDirectory
+                ? new FileIdentity(undo.OriginalLength!.Value, undo.OriginalLastWriteUtcTicks!.Value, undo.OriginalSha256!)
+                    { NativeId = undo.OriginalNativeId } : null;
+            var expectedDirectory = undo is not null && file.IsDirectory
+                ? new OrganizationDirectoryMoveReceipt(source, destination,
+                    undo.OriginalDirectoryManifest!.Select(item => new DirectoryFileReceipt(item.RelativePath,
+                        new FileIdentity(item.Length, item.LastWriteTimeUtcTicks, item.Sha256) { NativeId = item.NativeId })).ToArray(), false)
+                    { Directories = undo.OriginalDirectoryPaths, DirectoryNativeIds = undo.OriginalDirectoryNativeIds } : null;
             var result = file.IsDirectory
-                ? await _transaction.ExecuteDirectoriesAsync([new(source, destination)], cancellationToken,
+                ? await _transaction.ExecuteDirectoriesAsync([new(source, destination) { ExpectedReceipt = expectedDirectory }], cancellationToken,
                     retainJournalUntilCommit: true).ConfigureAwait(false)
-                : await _transaction.ExecuteAsync([new(source, destination)], cancellationToken,
+                : await _transaction.ExecuteAsync([new(source, destination) { ExpectedIdentity = expectedFile }], cancellationToken,
                     retainJournalUntilCommit: true).ConfigureAwait(false);
             var directoryReceipt = result.DirectoryReceipts?.SingleOrDefault();
             var fileReceipt = result.Receipts.SingleOrDefault();
@@ -315,6 +324,7 @@ public sealed class ManualOrganizationCoordinator
                     item.Identity.LastWriteTimeUtcTicks, item.Identity.Sha256)
                 { NativeId = item.Identity.NativeId }).ToList();
             var directories = directoryReceipt?.Directories?.ToList();
+            var directoryNativeIds = directoryReceipt?.DirectoryNativeIds?.ToDictionary(pair => pair.Key, pair => pair.Value);
             if (file.IsDirectory && (manifest is null || directories is null))
                 throw new InvalidDataException("The directory transaction returned no recovery manifest.");
 
@@ -339,7 +349,8 @@ public sealed class ManualOrganizationCoordinator
                         OriginalSha256 = undo is null ? committedIdentity?.Sha256 : item.OriginalSha256,
                         OriginalNativeId = undo is null ? committedIdentity?.NativeId : item.OriginalNativeId,
                         OriginalDirectoryManifest = undo is null ? manifest : item.OriginalDirectoryManifest,
-                        OriginalDirectoryPaths = undo is null ? directories : item.OriginalDirectoryPaths
+                        OriginalDirectoryPaths = undo is null ? directories : item.OriginalDirectoryPaths,
+                        OriginalDirectoryNativeIds = undo is null ? directoryNativeIds : item.OriginalDirectoryNativeIds
                     } : item).ToList()
             }, cancellationToken).ConfigureAwait(false);
             metadataCommitted = true;

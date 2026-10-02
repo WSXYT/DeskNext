@@ -221,6 +221,8 @@ public sealed class WorkspaceStore : IAsyncDisposable
             bool invalidManifest = operation.OriginalDirectoryManifest is { } manifest &&
                 (manifest.Count > DesktopOrganizationTransaction.MaximumDirectoryEntries ||
                  manifest.Any(IsInvalidDirectoryManifestEntry));
+            if (operation.OriginalDirectoryNativeIds is not null && operation.OriginalDirectoryPaths is null)
+                throw new InvalidDataException("Native directory identities require topology evidence.");
             if (operation.OriginalDirectoryPaths is { } directories)
             {
                 if (invalidManifest || operation.OriginalDirectoryManifest is null)
@@ -228,7 +230,7 @@ public sealed class WorkspaceStore : IAsyncDisposable
                 DesktopOrganizationTransaction.ValidateDirectoryManifest(
                     operation.OriginalDirectoryManifest.Select(item => new DirectoryFileReceipt(item.RelativePath,
                         new FileIdentity(item.Length, item.LastWriteTimeUtcTicks, item.Sha256)
-                        { NativeId = item.NativeId })).ToArray(), directories);
+                        { NativeId = item.NativeId })).ToArray(), directories, operation.OriginalDirectoryNativeIds);
             }
             if (operation.Id == Guid.Empty || !operations.Add(operation.Id) || !files.Contains(operation.FileId) ||
                 !Enum.IsDefined(operation.Status) ||

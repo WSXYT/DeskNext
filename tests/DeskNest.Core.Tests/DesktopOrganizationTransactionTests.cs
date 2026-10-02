@@ -106,13 +106,9 @@ public sealed class DesktopOrganizationTransactionTests
         Assert.Equal("item", await File.ReadAllTextAsync(Path.Combine(destination, "nested", "item.txt")));
         Assert.False(File.Exists(journal));
 
-        var identity = FileIdentity.Capture(Path.Combine(destination, "nested", "item.txt"));
         var recoveryJournal = new OrganizationRecoveryJournal(
-            Guid.NewGuid(), "RecoveryRequired", [], DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
-            [new OrganizationDirectoryMoveReceipt(
-                source, destination,
-                [new DirectoryFileReceipt(Path.Combine("nested", "item.txt"), identity)], true)
-                { Directories = ["nested"] }]);
+            result.OperationId, "RecoveryRequired", [], DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+            result.DirectoryReceipts);
         await File.WriteAllTextAsync(journal, JsonSerializer.Serialize(recoveryJournal));
         var restored = await new DesktopOrganizationTransaction(journal).RecoverAsync();
 

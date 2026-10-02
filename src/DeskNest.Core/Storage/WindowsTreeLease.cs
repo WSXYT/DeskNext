@@ -17,25 +17,40 @@ internal sealed class WindowsTreeLease : IDisposable
 
     private readonly List<Node> nodes = [];
     private readonly int maximumEntries;
+    private readonly bool forCopy;
     private bool disposed;
     internal IReadOnlyList<Node> Nodes => nodes;
     internal IReadOnlyList<WindowsTreeIdentity> Identities => nodes.Select(n => n.Identity)
         .OrderBy(n => n.RelativePath, StringComparer.Ordinal).ToArray();
 
-    private WindowsTreeLease(int maximumEntries) => this.maximumEntries = maximumEntries;
+    private WindowsTreeLease(int maximumEntries, bool forCopy)
+    {
+        this.maximumEntries = maximumEntries;
+        this.forCopy = forCopy;
+    }
+
+    private void CheckDirectory(SafeFileHandle handle)
+    {
+        if (forCopy) WindowsFileHandles.RequireCopyableContent(handle, directory: true);
+        else WindowsFileHandles.RequireOrdinaryObject(handle, directory: true);
+    }
+
+    private FileIdentity CaptureFile(SafeFileHandle handle, CancellationToken token) => forCopy
+        ? WindowsFileCopyLease.Capture(handle, token)
+        : WindowsFileIdentity.CaptureContent(handle, token);
 
     internal static WindowsTreeLease Capture(SafeFileHandle root, CancellationToken token = default,
         int maximumEntries = DesktopOrganizationTransaction.MaximumDirectoryEntries,
-        int maximumDepth = DesktopOrganizationTransaction.MaximumDirectoryDepth)
+        int maximumDepth = DesktopOrganizationTransaction.MaximumDirectoryDepth, bool forCopy = true)
     {
         if (maximumEntries < 0 || maximumEntries > DesktopOrganizationTransaction.MaximumDirectoryEntries ||
             maximumDepth < 0 || maximumDepth > DesktopOrganizationTransaction.MaximumDirectoryDepth)
             throw new ArgumentOutOfRangeException(nameof(maximumEntries));
         token.ThrowIfCancellationRequested();
-        var tree = new WindowsTreeLease(maximumEntries);
+        var tree = new WindowsTreeLease(maximumEntries, forCopy);
         try
         {
-            WindowsFileHandles.RequireCopyableContent(root, directory: true);
+            tree.CheckDirectory(root);
             string rootId = WindowsFileIdentity.Capture(root).NativeId;
             tree.nodes.Add(new("", root, new("", true, rootId, null),
                 WindowsFileHandles.Enumerate(root, maximumEntries, token)));
@@ -57,12 +72,12 @@ internal sealed class WindowsTreeLease : IDisposable
                     bool owned = false;
                     try
                     {
-                        if (child.IsDirectory) WindowsFileHandles.RequireCopyableContent(handle, directory: true);
+                        if (child.IsDirectory) tree.CheckDirectory(handle);
                         string nativeId = WindowsFileIdentity.Capture(handle).NativeId;
                         if (!nativeId.AsSpan(0, 16).SequenceEqual(rootId.AsSpan(0, 16)))
                             throw new IOException("Directory member is not on the captured NTFS volume.");
                         var identity = new WindowsTreeIdentity(relative, child.IsDirectory, nativeId,
-                            child.IsDirectory ? null : WindowsFileCopyLease.Capture(handle, token));
+                            child.IsDirectory ? null : tree.CaptureFile(handle, token));
                         var node = new Node(relative, handle, identity, child.IsDirectory
                             ? WindowsFileHandles.Enumerate(handle, maximumEntries - tree.nodes.Count, token) : null);
                         tree.nodes.Add(node);
@@ -89,14 +104,31 @@ internal sealed class WindowsTreeLease : IDisposable
                 throw new IOException("Directory member native identity changed.");
             if (node.Identity.IsDirectory)
             {
-                WindowsFileHandles.RequireCopyableContent(node.Handle, directory: true);
+                CheckDirectory(node.Handle);
                 if (!node.Children!.SequenceEqual(WindowsFileHandles.Enumerate(node.Handle, maximumEntries, token)))
                     throw new IOException("Directory topology changed while holding the native copy lease.");
             }
-            else if (node.Identity.File != WindowsFileCopyLease.Capture(node.Handle, token))
+            else if (node.Identity.File != CaptureFile(node.Handle, token))
                 throw new IOException("Directory member content changed while holding the native copy lease.");
         }
     }
+
+    internal OrganizationDirectoryMoveReceipt ToMoveReceipt(string source, string destination)
+    {
+        var identities = Identities;
+        return new(source, destination, identities.Where(n => !n.IsDirectory)
+            .Select(n => new DirectoryFileReceipt(n.RelativePath.Replace('/', Path.DirectorySeparatorChar), n.File!))
+            .OrderBy(n => n.RelativePath, StringComparer.Ordinal).ToArray(), false)
+        {
+            Directories = identities.Where(n => n.IsDirectory && n.RelativePath.Length > 0)
+                .Select(n => n.RelativePath.Replace('/', Path.DirectorySeparatorChar)).Order(StringComparer.Ordinal).ToArray(),
+            DirectoryNativeIds = identities.Where(n => n.IsDirectory)
+                .ToDictionary(n => n.RelativePath, n => n.NativeId, StringComparer.Ordinal)
+        };
+    }
+
+    internal bool MatchesMoveReceipt(OrganizationDirectoryMoveReceipt expected) =>
+        DesktopOrganizationTransaction.DirectoryReceiptsMatch(ToMoveReceipt(expected.SourcePath, expected.DestinationPath), expected);
 
     public void Dispose()
     {

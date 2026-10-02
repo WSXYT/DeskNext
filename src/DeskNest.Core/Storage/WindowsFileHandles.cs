@@ -302,6 +302,34 @@ internal static class WindowsFileHandles
             throw new IOException("The moved object changed before its receipt could be recorded.");
     }
 
+    internal static void MoveDirectory(string sourcePath, string destinationPath,
+        OrganizationDirectoryMoveReceipt expected, CancellationToken token = default)
+    {
+        token.ThrowIfCancellationRequested();
+        if (!Path.IsPathFullyQualified(sourcePath) || !Path.IsPathFullyQualified(destinationPath))
+            throw new ArgumentException("A native move requires absolute local paths.");
+        sourcePath = Path.TrimEndingDirectorySeparator(sourcePath);
+        destinationPath = Path.TrimEndingDirectorySeparator(destinationPath);
+        using var sourceParent = WindowsDirectoryLease.Open(Path.GetDirectoryName(sourcePath)!, forRename: true);
+        using var source = OpenDirectory(sourceParent.Handle, Path.GetFileName(sourcePath), allowDelete: true);
+        using (var tree = WindowsTreeLease.Capture(source, token, forCopy: false))
+        {
+            if (!tree.MatchesMoveReceipt(expected))
+                throw new IOException("The opened directory does not match its prepared native tree receipt.");
+        } // Windows requires descendant handles closed before renaming their parent.
+        using var targetParent = WindowsDirectoryLease.Open(Path.GetDirectoryName(destinationPath)!, create: true,
+            requiredVolumePath: sourceParent.VolumePath, forbiddenAncestorNativeId: expected.DirectoryNativeIds![""], forRename: true);
+        sourceParent.VerifyPathBinding();
+        targetParent.VerifyPathBinding();
+        token.ThrowIfCancellationRequested();
+        RenameToDirectory(source, targetParent.Handle, Path.GetFileName(destinationPath));
+        sourceParent.VerifyPathBinding();
+        targetParent.VerifyPathBinding();
+        using var moved = WindowsTreeLease.Capture(source, forCopy: false);
+        if (!moved.MatchesMoveReceipt(expected))
+            throw new IOException("The moved directory changed before its receipt could be recorded.");
+    }
+
     internal static void DeleteOwnedFile(SafeFileHandle handle)
     {
         IntPtr buffer = Marshal.AllocHGlobal(1);

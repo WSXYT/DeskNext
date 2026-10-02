@@ -43,6 +43,8 @@ public sealed record ProposedOperation(Guid Id, Guid FileId, Guid? TargetSpaceId
     public List<WorkspaceDirectoryFileIdentity>? OriginalDirectoryManifest { get; init; }
     // Absent on legacy operations; undo must not invent empty-directory evidence.
     public List<string>? OriginalDirectoryPaths { get; init; }
+    // Root ("") and relative directory IDs; absent legacy history cannot authorize native directory undo.
+    public Dictionary<string, string>? OriginalDirectoryNativeIds { get; init; }
 }
 
 public sealed record WorkspaceSettings

@@ -7,7 +7,11 @@ using Microsoft.Win32.SafeHandles;
 
 namespace DeskNest.Core.Storage;
 
-public sealed record OrganizationMove(string SourcePath, string DestinationPath);
+public sealed record OrganizationMove(string SourcePath, string DestinationPath)
+{
+    // Undo supplies its recorded identity; preparation may not adopt a replacement.
+    public FileIdentity? ExpectedIdentity { get; init; }
+}
 
 public sealed record FileIdentity(
     long Length,
@@ -150,7 +154,10 @@ public sealed record OrganizationMoveReceipt(
     public bool Restored { get; init; }
 }
 
-public sealed record OrganizationDirectoryMove(string SourcePath, string DestinationPath);
+public sealed record OrganizationDirectoryMove(string SourcePath, string DestinationPath)
+{
+    public OrganizationDirectoryMoveReceipt? ExpectedReceipt { get; init; }
+}
 
 public sealed record DirectoryFileReceipt(string RelativePath, FileIdentity Identity);
 
@@ -162,6 +169,8 @@ public sealed record OrganizationDirectoryMoveReceipt(
 {
     // Null means legacy evidence, not an empty tree. Never infer missing topology.
     public IReadOnlyList<string>? Directories { get; init; }
+    // Includes the root under ""; null is legacy/non-Windows evidence, not native authority.
+    public IReadOnlyDictionary<string, string>? DirectoryNativeIds { get; init; }
     public bool Restored { get; init; }
 }
 
@@ -336,7 +345,7 @@ public sealed class DesktopOrganizationTransaction
                 foreach (var move in prepared)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    MoveDirectoryOne(move);
+                    MoveDirectoryOne(move, cancellationToken);
                     completed.Add(move with { Completed = true });
                     await SaveJournalAsync(journal with
                     {
@@ -425,7 +434,7 @@ public sealed class DesktopOrganizationTransaction
             {
                 if (!Directory.Exists(pending.SourcePath) || File.Exists(pending.DestinationPath) ||
                     Directory.Exists(pending.DestinationPath) ||
-                    !DirectoryManifestMatches(pending.SourcePath, pending.Files, pending.Directories))
+                    !DirectoryManifestMatches(pending.SourcePath, pending.Files, pending.Directories, pending.DirectoryNativeIds))
                     throw new IOException("Unacknowledged directory move requires manual reconciliation; journal retained.");
             }
 
@@ -446,13 +455,18 @@ public sealed class DesktopOrganizationTransaction
                     throw new IOException("Fault injection refused directory restore.");
                 if (!Directory.Exists(move.DestinationPath) || Directory.Exists(move.SourcePath) || File.Exists(move.SourcePath))
                     throw new IOException($"Directory recovery paths are not safe: {move.DestinationPath}");
-                if (!DirectoryManifestMatches(move.DestinationPath, move.Files, move.Directories))
+                if (!DirectoryManifestMatches(move.DestinationPath, move.Files, move.Directories, move.DirectoryNativeIds))
                     throw new IOException($"Directory recovery refused because the destination changed: {move.DestinationPath}");
                 FileSystemVolume.RequireNoReparsePoints(move.DestinationPath);
                 FileSystemVolume.RequireNoReparsePoints(move.SourcePath);
-                Directory.CreateDirectory(Path.GetDirectoryName(move.SourcePath)!);
                 FileSystemVolume.RequireSameVolume(move.DestinationPath, move.SourcePath);
-                Directory.Move(move.DestinationPath, move.SourcePath);
+                if (OperatingSystem.IsWindows())
+                    WindowsFileHandles.MoveDirectory(move.DestinationPath, move.SourcePath, move);
+                else
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(move.SourcePath)!);
+                    Directory.Move(move.DestinationPath, move.SourcePath);
+                }
                 directories[index] = move with { Restored = true };
                 journal = journal with { DirectoryMoves = directories, UpdatedAt = DateTimeOffset.UtcNow };
                 // Once the rename happened, finish recording it even if cancellation
@@ -534,11 +548,24 @@ public sealed class DesktopOrganizationTransaction
             FileSystemVolume.RequireNoReparsePoints(destination);
             FileSystemVolume.RequireSameVolume(source, destination);
 
-            var snapshot = CaptureDirectorySnapshot(source, cancellationToken);
-            result.Add(new OrganizationDirectoryMoveReceipt(source, destination, snapshot.Files, false)
+            if (OperatingSystem.IsWindows())
             {
-                Directories = snapshot.Directories
-            });
+                using var root = WindowsDirectoryLease.Open(source);
+                using var tree = WindowsTreeLease.Capture(root.Handle, cancellationToken, forCopy: false);
+                var receipt = tree.ToMoveReceipt(source, destination);
+                ValidateDirectoryManifest(receipt.Files, receipt.Directories, receipt.DirectoryNativeIds);
+                result.Add(receipt);
+            }
+            else
+            {
+                var snapshot = CaptureDirectorySnapshot(source, cancellationToken);
+                result.Add(new OrganizationDirectoryMoveReceipt(source, destination, snapshot.Files, false)
+                {
+                    Directories = snapshot.Directories
+                });
+            }
+            if (move.ExpectedReceipt is { } expected && !DirectoryReceiptsMatch(result[^1], expected))
+                throw new IOException("Directory changed after selecting the recorded operation; refusing to prepare it.");
         }
         return result;
     }
@@ -596,9 +623,17 @@ public sealed class DesktopOrganizationTransaction
     }
 
     internal static bool DirectoryManifestMatches(string root, IReadOnlyList<DirectoryFileReceipt> files,
-        IReadOnlyList<string>? directories)
+        IReadOnlyList<string>? directories, IReadOnlyDictionary<string, string>? directoryNativeIds = null)
     {
-        ValidateDirectoryManifest(files, directories);
+        ValidateDirectoryManifest(files, directories, directoryNativeIds);
+        if (OperatingSystem.IsWindows())
+        {
+            if (directoryNativeIds is null) return false;
+            using var lease = WindowsDirectoryLease.Open(root);
+            using var tree = WindowsTreeLease.Capture(lease.Handle, forCopy: false);
+            return tree.MatchesMoveReceipt(new(root, root, files, false)
+            { Directories = directories, DirectoryNativeIds = directoryNativeIds });
+        }
         var actual = CaptureDirectorySnapshot(root);
         return actual.Files.Count == files.Count &&
             actual.Files.Zip(files).All(pair => pair.First.RelativePath == pair.Second.RelativePath &&
@@ -610,8 +645,20 @@ public sealed class DesktopOrganizationTransaction
         HasNativeEvidence(expected) && FileIdentity.Capture(path) == expected;
 
     private static bool HasNativeEvidence(FileIdentity expected) =>
-        !OperatingSystem.IsWindows() || expected.NativeId is { Length: 49 } id &&
+        !OperatingSystem.IsWindows() || IsNativeId(expected.NativeId);
+
+    private static bool IsNativeId(string? nativeId) => nativeId is { Length: 49 } id &&
         id[16] == ':' && id.Where((_, index) => index != 16).All(Uri.IsHexDigit);
+
+    internal static bool DirectoryReceiptsMatch(OrganizationDirectoryMoveReceipt actual, OrganizationDirectoryMoveReceipt expected)
+    {
+        if (actual.Directories is null || expected.Directories is null ||
+            !actual.Files.SequenceEqual(expected.Files) || !actual.Directories.SequenceEqual(expected.Directories)) return false;
+        if (expected.DirectoryNativeIds is null)
+            return !OperatingSystem.IsWindows() && actual.DirectoryNativeIds is null;
+        return actual.DirectoryNativeIds is not null && actual.DirectoryNativeIds.Count == expected.DirectoryNativeIds.Count &&
+            actual.DirectoryNativeIds.All(pair => expected.DirectoryNativeIds.TryGetValue(pair.Key, out string? id) && id == pair.Value);
+    }
 
     internal static bool IsValidManifestPath(string? path) =>
         !string.IsNullOrWhiteSpace(path) && path.Length <= 4_096 &&
@@ -620,7 +667,7 @@ public sealed class DesktopOrganizationTransaction
         path.Split(['/', '\\']).Length <= MaximumDirectoryDepth;
 
     internal static void ValidateDirectoryManifest(IReadOnlyList<DirectoryFileReceipt> files,
-        IReadOnlyList<string>? directories)
+        IReadOnlyList<string>? directories, IReadOnlyDictionary<string, string>? directoryNativeIds = null)
     {
         if (directories is null || (long)files.Count + directories.Count > MaximumDirectoryEntries)
             throw new InvalidDataException("Directory topology evidence is missing or exceeds its budget.");
@@ -648,18 +695,29 @@ public sealed class DesktopOrganizationTransaction
             if (separator >= 0 && !folders.Contains(entry[..separator]))
                 throw new InvalidDataException("Directory topology is missing an ancestor.");
         }
+        if (directoryNativeIds is not null &&
+            (!directoryNativeIds.Keys.SequenceEqual(folders.Append("").Order(StringComparer.Ordinal)) ||
+             directoryNativeIds.Values.Any(id => !IsNativeId(id)) ||
+             directoryNativeIds.Values.Any(id => !id.AsSpan(0, 16).SequenceEqual(directoryNativeIds[""].AsSpan(0, 16)))))
+            throw new InvalidDataException("Native directory identities must cover the exact sorted topology on one volume.");
     }
 
-    private void MoveDirectoryOne(OrganizationDirectoryMoveReceipt move)
+    private void MoveDirectoryOne(OrganizationDirectoryMoveReceipt move, CancellationToken token)
     {
         if (_directoryMoveGuard is not null && !_directoryMoveGuard(move))
             throw new IOException($"Fault injection refused directory move: {move.SourcePath}");
         if (Directory.Exists(move.DestinationPath) || File.Exists(move.DestinationPath))
             throw new IOException($"Destination appeared during directory move: {move.DestinationPath}");
-        if (!DirectoryManifestMatches(move.SourcePath, move.Files, move.Directories))
-            throw new IOException($"Directory changed before move: {move.SourcePath}");
         FileSystemVolume.RequireNoReparsePoints(move.SourcePath);
         FileSystemVolume.RequireNoReparsePoints(move.DestinationPath);
+        FileSystemVolume.RequireSameVolume(move.SourcePath, move.DestinationPath);
+        if (OperatingSystem.IsWindows())
+        {
+            WindowsFileHandles.MoveDirectory(move.SourcePath, move.DestinationPath, move, token);
+            return;
+        }
+        if (!DirectoryManifestMatches(move.SourcePath, move.Files, move.Directories))
+            throw new IOException($"Directory changed before move: {move.SourcePath}");
         Directory.CreateDirectory(Path.GetDirectoryName(move.DestinationPath)!);
         FileSystemVolume.RequireSameVolume(move.SourcePath, move.DestinationPath);
         Directory.Move(move.SourcePath, move.DestinationPath);
@@ -707,6 +765,8 @@ public sealed class DesktopOrganizationTransaction
             FileSystemVolume.RequireNoReparsePoints(destination);
             FileSystemVolume.RequireSameVolume(source, destination);
             var identity = FileIdentity.Capture(source, cancellationToken);
+            if (move.ExpectedIdentity is { } expected && identity != expected)
+                throw new IOException("File changed after selecting the recorded operation; refusing to prepare it.");
             result.Add(new OrganizationMoveReceipt(source, destination, identity, false));
         }
 
@@ -814,7 +874,7 @@ public sealed class DesktopOrganizationTransaction
                 move.Files.Any(file => file is null || file.Identity is null || string.IsNullOrWhiteSpace(file.RelativePath)) ||
                 move.Restored && (!move.Completed || journal.Status != "Recovering"))
                 throw new InvalidDataException("Malformed directory recovery receipt.");
-            ValidateDirectoryManifest(move.Files, move.Directories);
+            ValidateDirectoryManifest(move.Files, move.Directories, move.DirectoryNativeIds);
         }
     }
 

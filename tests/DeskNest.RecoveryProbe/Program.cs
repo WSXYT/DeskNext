@@ -230,6 +230,7 @@ if (args[0] != "recover")
                     OriginalSha256 = identity?.Sha256,
                     OriginalNativeId = identity?.NativeId,
                     OriginalDirectoryPaths = treeReceipt?.Directories?.ToList(),
+                    OriginalDirectoryNativeIds = treeReceipt?.DirectoryNativeIds?.ToDictionary(pair => pair.Key, pair => pair.Value),
                     OriginalDirectoryManifest = treeReceipt?.Files.Select(entry =>
                         new WorkspaceDirectoryFileIdentity(entry.RelativePath, entry.Identity.Length,
                             entry.Identity.LastWriteTimeUtcTicks, entry.Identity.Sha256)

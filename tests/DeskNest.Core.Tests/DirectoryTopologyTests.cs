@@ -168,10 +168,11 @@ public sealed class DirectoryTopologyTests : IDisposable
             var operation = Assert.Single(store.Snapshot.Operations);
             operationId = operation.Id;
             Assert.Equal(new[] { "empty", Path.Combine("empty", "nested") }, operation.OriginalDirectoryPaths);
+            if (OperatingSystem.IsWindows()) Assert.Equal(3, operation.OriginalDirectoryNativeIds?.Count);
             if (change == "legacy")
                 await store.UpdateAsync(s => s with
                 {
-                    Operations = [operation with { OriginalDirectoryPaths = null }]
+                    Operations = [operation with { OriginalDirectoryPaths = null, OriginalDirectoryNativeIds = null }]
                 });
         }
         if (change is not ("unchanged" or "legacy")) ChangeTree(Destination, change);
@@ -227,6 +228,7 @@ public sealed class DirectoryTopologyTests : IDisposable
             Operations = [operation with
             {
                 OriginalDirectoryPaths = null,
+                OriginalDirectoryNativeIds = null,
                 OriginalDirectoryManifest = [.. operation.OriginalDirectoryManifest!,
                     new(relative, identity.Length, identity.LastWriteTimeUtcTicks, identity.Sha256)]
             }]
@@ -238,6 +240,7 @@ public sealed class DirectoryTopologyTests : IDisposable
         };
         string json = JsonSerializer.Serialize(legacy, jsonOptions);
         Assert.DoesNotContain("originalDirectoryPaths", json);
+        Assert.DoesNotContain("originalDirectoryNativeIds", json);
         string workspace = Path.Combine(StoreDirectory, "workspace.json");
         await File.WriteAllTextAsync(workspace, json);
         await File.WriteAllTextAsync(ResilientJsonStore.GetBackupPath(workspace), json);
