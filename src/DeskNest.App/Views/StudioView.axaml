@@ -687,6 +687,17 @@
                                 <Button Grid.Column="1" Margin="8,0,0,0" Content="{Binding Localizer[Classification.ClearSession]}"
                                         Command="{Binding ClearJevSessionCommand}"/>
                             </Grid>
+                            <TextBlock Text="{Binding Localizer[Classification.CredentialNotice]}" TextWrapping="Wrap"
+                                       FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <WrapPanel IsVisible="{Binding CanStoreJevCredential}">
+                                <Button Name="SaveJevKeyButton" Content="{Binding Localizer[Classification.SaveKey]}"
+                                        Command="{Binding ManageJevCredentialCommand}" CommandParameter="save" Margin="0,0,6,6"/>
+                                <Button Name="LoadJevKeyButton" Content="{Binding Localizer[Classification.LoadKey]}"
+                                        Command="{Binding ManageJevCredentialCommand}" CommandParameter="load" Margin="0,0,6,6"/>
+                                <Button Name="DeleteJevKeyButton" Content="{Binding Localizer[Classification.DeleteKey]}"
+                                        Command="{Binding ManageJevCredentialCommand}" CommandParameter="delete" Margin="0,0,6,6"/>
+                            </WrapPanel>
+                            <TextBlock Text="{Binding JevCredentialNotice}" TextWrapping="Wrap" FontSize="11"/>
                             <CheckBox Name="JevSendConsent" IsChecked="{Binding JevSendConsent, Mode=TwoWay}">
                                 <TextBlock Text="{Binding Localizer[Classification.JevConsent]}" TextWrapping="Wrap"/>
                             </CheckBox>

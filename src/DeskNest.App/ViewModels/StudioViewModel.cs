@@ -360,10 +360,47 @@ public sealed partial class StudioViewModel : ViewModelBase
 
     public Func<object, System.Threading.CancellationToken, Task>? OnPreviewClassification { get; set; }
 
-    // Session-only credentials and permission: never copied into WorkspaceSettings.
+    // The editable key/permission never enter WorkspaceSettings. OS storage is explicit only.
+    private readonly DeskNest.Platform.JevCredentialStore _jevCredentials = new();
+    public bool CanStoreJevCredential => DeskNest.Platform.JevCredentialStore.IsSupported;
+    [ObservableProperty] private string _jevCredentialNotice = string.Empty;
+
+    [RelayCommand]
+    public void ManageJevCredential(string action)
+    {
+        if (!CanStoreJevCredential || !IsJevPreview) return;
+        JevSendConsent = false;
+        PreviewClassificationCommand.Cancel();
+        try
+        {
+            switch (action)
+            {
+                case "save":
+                    _jevCredentials.Save(JevSessionKey);
+                    JevCredentialNotice = Localizer["Classification.KeySaved"];
+                    break;
+                case "load":
+                    ClearJevSession();
+                    JevSessionKey = _jevCredentials.Load() ?? string.Empty;
+                    JevCredentialNotice = Localizer[JevSessionKey.Length == 0 ? "Classification.KeyMissing" : "Classification.KeyLoaded"];
+                    break;
+                case "delete":
+                    ClearJevSession();
+                    _jevCredentials.Delete();
+                    JevCredentialNotice = Localizer["Classification.KeyDeleted"];
+                    break;
+            }
+        }
+        catch (Exception error) when (error is System.ComponentModel.Win32Exception or ArgumentException or IOException or NotSupportedException)
+        {
+            // Do not echo native credential data or save it elsewhere after an OS-store failure.
+            JevCredentialNotice = Localizer["Classification.KeyStoreFailed"];
+        }
+    }
+
     [ObservableProperty] private string _jevSessionKey = string.Empty;
     [ObservableProperty] private bool _jevSendConsent;
-    partial void OnJevSessionKeyChanged(string value) { JevSendConsent = false; PreviewClassificationCommand.Cancel(); }
+    partial void OnJevSessionKeyChanged(string value) { JevCredentialNotice = string.Empty; JevSendConsent = false; PreviewClassificationCommand.Cancel(); }
     partial void OnJevSendConsentChanged(bool value) { if (!value) PreviewClassificationCommand.Cancel(); }
     [RelayCommand]
     public void ClearJevSession()
@@ -371,6 +408,7 @@ public sealed partial class StudioViewModel : ViewModelBase
         PreviewClassificationCommand.Cancel();
         JevSessionKey = string.Empty;
         JevSendConsent = false;
+        JevCredentialNotice = string.Empty;
     }
 
     [RelayCommand(IncludeCancelCommand = true)]

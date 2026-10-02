@@ -284,6 +284,14 @@ internal static class ManualClipboardSmoke
             await studio.SaveSettingsAsync();
             var keyInput = view.FindControl<TextBox>("JevSessionKeyInput")!;
             var consent = view.FindControl<CheckBox>("JevSendConsent")!;
+            // Never exercise the default OS credential target: it can hold a user's real key.
+            foreach (var action in new[] { ("SaveJevKeyButton", "save"), ("LoadJevKeyButton", "load"), ("DeleteJevKeyButton", "delete") })
+            {
+                var button = view.FindControl<Button>(action.Item1)!;
+                if (button.Command != studio.ManageJevCredentialCommand || !Equals(button.CommandParameter, action.Item2) ||
+                    button.IsEffectivelyVisible != OperatingSystem.IsWindows())
+                    throw new InvalidOperationException("OS credential buttons must expose explicit platform-gated commands.");
+            }
             if (!keyInput.IsEffectivelyVisible || keyInput.PasswordChar == default || studio.JevSendConsent ||
                 store.Snapshot.Settings.Provider != InferenceProvider.Jev)
                 throw new InvalidOperationException("Jev must expose a masked session key and unchecked sending permission.");
