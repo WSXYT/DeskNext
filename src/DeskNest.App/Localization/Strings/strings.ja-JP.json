@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Classification.VerifyBundle": "モデルファイルを検証",
+  "Classification.VerifyingBundle": "モデルファイルを検証中です。キャンセルできます…",
+  "Classification.BundleVerified": "モデルファイルを検証しました。信頼できる提供元のみを使用してください。発行者の本人確認ではありません。",
   "Spaces.EditDetails": "スペース情報を編集",
   "Spaces.EditNotice": "名前と説明だけを変更します。フォルダーやファイルは移動しません。",
   "Action.Save": "保存",

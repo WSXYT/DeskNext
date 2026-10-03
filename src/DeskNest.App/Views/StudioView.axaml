@@ -740,6 +740,16 @@
                                         Content="{Binding Localizer[Action.Browse]}" Click="OnBrowseModelFolderClick"
                                         ToolTip.Tip="{Binding Localizer[Classification.Setup]}"/>
                             </Grid>
+                            <WrapPanel Margin="0,4,0,0">
+                                <Button Name="VerifyLocalModelButton" Classes="ActionButton" Margin="0,0,8,0"
+                                        Content="{Binding Localizer[Classification.VerifyBundle]}" Command="{Binding VerifyLocalModelCommand}"/>
+                                <Button Name="CancelModelVerificationButton" Classes="ActionButton"
+                                        Content="{Binding Localizer[Action.Cancel]}"
+                                        IsVisible="{Binding VerifyLocalModelCommand.IsRunning}"
+                                        Command="{Binding VerifyLocalModelCancelCommand}"/>
+                            </WrapPanel>
+                            <TextBlock Text="{Binding ModelVerificationNotice}" TextWrapping="Wrap" FontSize="11"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
                         </StackPanel>
                     </StackPanel>
 

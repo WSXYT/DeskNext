@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Classification.VerifyBundle": "校验模型文件",
+  "Classification.VerifyingBundle": "正在校验模型文件，可取消…",
+  "Classification.BundleVerified": "模型文件通过校验。请只使用可信来源；此校验不认证发布者身份。",
   "Spaces.EditDetails": "编辑空间信息",
   "Spaces.EditNotice": "仅修改名称和简介，不改变目录或移动文件。",
   "Action.Save": "保存",

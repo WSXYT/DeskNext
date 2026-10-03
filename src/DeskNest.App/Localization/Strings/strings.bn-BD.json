@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Classification.VerifyBundle": "মডেল ফাইল যাচাই করুন",
+  "Classification.VerifyingBundle": "মডেল ফাইল যাচাই করা হচ্ছে; বাতিল করতে পারেন…",
+  "Classification.BundleVerified": "মডেল ফাইল যাচাই হয়েছে। শুধু বিশ্বস্ত উৎস ব্যবহার করুন; এতে প্রকাশকের পরিচয় প্রমাণিত হয় না।",
   "Spaces.EditDetails": "স্পেসের বিবরণ সম্পাদনা",
   "Spaces.EditNotice": "শুধু নাম ও বিবরণ বদলান। ফোল্ডার ও ফাইল একই জায়গায় থাকবে।",
   "Action.Save": "সংরক্ষণ",

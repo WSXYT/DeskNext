@@ -695,10 +695,50 @@ public sealed partial class StudioViewModel : ViewModelBase
 
     public bool IsJevPreview { get => SettingsProvider == InferenceProvider.Jev; set { if (value) SettingsProvider = InferenceProvider.Jev; } }
     public bool IsLayaPreview { get => SettingsProvider == InferenceProvider.Laya; set { if (value) SettingsProvider = InferenceProvider.Laya; } }
-    partial void OnSettingsProviderChanged(InferenceProvider value) { ClearJevSession(); }
+    partial void OnSettingsProviderChanged(InferenceProvider value)
+    {
+        ClearJevSession();
+        VerifyLocalModelCommand.Cancel();
+        ModelVerificationNotice = string.Empty;
+    }
 
     [ObservableProperty]
     private string _settingsModelCache = string.Empty;
+
+    [ObservableProperty]
+    private string _modelVerificationNotice = string.Empty;
+
+    partial void OnSettingsModelCacheChanged(string value)
+    {
+        VerifyLocalModelCommand.Cancel();
+        ModelVerificationNotice = string.Empty;
+    }
+
+    [RelayCommand(IncludeCancelCommand = true)]
+    private async Task VerifyLocalModelAsync(CancellationToken token)
+    {
+        if (!IsLayaPreview) return;
+        string selected = SettingsModelCache;
+        ModelVerificationNotice = Localizer["Classification.VerifyingBundle"];
+        try
+        {
+            string directory = DeskNest.Platform.PlatformFileActions.RequireExistingLocalPath(selected.Trim());
+            await Task.Run(() => DeskNest.Inference.Probe.VerifyModel(directory, token), token);
+            token.ThrowIfCancellationRequested();
+            if (selected == SettingsModelCache && IsLayaPreview)
+                ModelVerificationNotice = Localizer["Classification.BundleVerified"];
+        }
+        catch (OperationCanceledException)
+        {
+            if (selected == SettingsModelCache && IsLayaPreview)
+                ModelVerificationNotice = Localizer["Classification.Cancelled"];
+        }
+        catch (Exception error)
+        {
+            if (selected == SettingsModelCache && IsLayaPreview)
+                ModelVerificationNotice = Localizer.GetString("Files.ActionFailedNotice", error.Message);
+        }
+    }
 
     [ObservableProperty]
     private string _settingsManagedRoot = string.Empty;

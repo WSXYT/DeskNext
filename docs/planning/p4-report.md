@@ -50,6 +50,12 @@ Relevant checks only: the Windows service test passed using a unique `DeskNext/T
 
 This supersedes the earlier **session-only storage** restriction only for an explicit Windows save; cloud-send permission remains session-only.
 
+## Explicit local model verification (2026-10-03)
+
+Settings > Laya now offers **Verify model files** and cancellation before requesting any classification. It checks the selected draft folder using the existing pinned manifest/provenance and file hashes on a background task; cancellation reaches each file's hash read. Changing the folder or provider invalidates the old notice, and workbench disposal cancels the check. No settings are saved, no download or model switch occurs, and a successful checksum check explicitly does **not** authenticate the publisher or prove runtime compatibility.
+
+Relevant checks only: Inference tests **12/12**, App Release build **zero warnings/errors**, twelve-locale parity. The existing checked smoke with the actual pinned ONNX bundle passed (`artifacts/p3-publication-tests/headless-model-verification.log`, terminal Success/LocalClassificationPreviewVerified true, 29471 ms), covering real verification, cancellation, draft invalidation and subsequent classification. The ordinary settings workflow checks that an incomplete manifest reports failure without changing model files or workspace revision. LSP still reports stale missing overload/settings members despite clean compiled checks. No full Core suite, CI or package rerun; this does not close deployment or P4.
+
 ## Still open
 
 Live Jev and installed/cross-platform credential-store acceptance; authenticated deployment/download/activation/repair; offline import UX; production worker negotiation and model identity; broader lifecycle/error handling; unattended classification; independent quality data and full A–D installed-path acceptance; GPU and per-platform runtime evidence. No P4 gate is marked passed by this preview.

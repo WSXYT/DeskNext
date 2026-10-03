@@ -70,6 +70,7 @@ public sealed class ProbeTests
             Request() with { State = new string('x', 1024 * 1024) }));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => LocalPreviewClient.RunAsync(start, Path.GetTempPath(),
             Request(), new CancellationToken(true)));
+        Assert.ThrowsAny<OperationCanceledException>(() => Probe.VerifyModel("missing-model", new CancellationToken(true)));
     }
 
     [Fact]

@@ -270,6 +270,15 @@ internal static class ManualClipboardSmoke
             view.ApplyModelFolderSelection(null);
             if (studio.SettingsModelCache != bundle || store.Snapshot.Revision != modelRevision || store.Snapshot.Settings.ModelCacheDirectory is not null)
                 throw new InvalidOperationException("Picking a model folder must update the draft only.");
+            var verifyModel = view.FindControl<Button>("VerifyLocalModelButton")!;
+            if (!verifyModel.IsEffectivelyVisible || verifyModel.Command != studio.VerifyLocalModelCommand)
+                throw new InvalidOperationException("Model settings must expose their verification action.");
+            await studio.VerifyLocalModelCommand.ExecuteAsync(null);
+            if (string.IsNullOrWhiteSpace(studio.ModelVerificationNotice) ||
+                studio.ModelVerificationNotice == main.Localizer["Classification.BundleVerified"] ||
+                studio.ModelVerificationNotice == main.Localizer["Classification.VerifyingBundle"] ||
+                store.Snapshot.Revision != modelRevision || File.ReadAllText(Path.Combine(bundle, "manifest.json")) != "{}")
+                throw new InvalidOperationException("An invalid bundle must report failure without saving settings or modifying files.");
             await studio.SaveSettingsAsync();
             if (store.Snapshot.Settings.ModelCacheDirectory != bundle)
                 throw new InvalidOperationException("Saving settings did not retain the chosen model folder.");

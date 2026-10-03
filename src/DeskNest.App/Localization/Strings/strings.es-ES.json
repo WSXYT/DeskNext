@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Classification.VerifyBundle": "Verificar archivos del modelo",
+  "Classification.VerifyingBundle": "Verificando los archivos del modelo; puede cancelar…",
+  "Classification.BundleVerified": "Archivos verificados. Use solo fuentes de confianza; esto no autentica al editor.",
   "Spaces.EditDetails": "Editar espacio",
   "Spaces.EditNotice": "Cambia solo el nombre y la descripción. Las carpetas y archivos no se mueven.",
   "Action.Save": "Guardar",

@@ -115,8 +115,9 @@ public static class Probe
             Math.Clamp(1 - ent / Math.Log(k), 0, 1), p.Max(), actExp[0] / actExp.Sum(), temp);
     }
 
-    public static void VerifyModel(string directory)
+    public static void VerifyModel(string directory, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         // Probe manifests are hashes, not signatures; never use this as a production installer trust decision.
         using var manifest = JsonDocument.Parse(File.ReadAllText(AssetPath(directory, "manifest.json")));
         var root = manifest.RootElement;
@@ -126,12 +127,13 @@ public static class Probe
             throw new InvalidDataException("Model provenance mismatch");
         foreach (var entry in root.GetProperty("files").EnumerateObject())
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var name = entry.Name;
             if (name.Contains('/') || name.Contains('\\') || name is "." or "..") throw new InvalidDataException("Unsafe model path");
             var path = AssetPath(directory, name);
             if (File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint)) throw new InvalidDataException("Model symlink rejected");
             using var asset = File.OpenRead(path);
-            var hash = Convert.ToHexString(SHA256.HashData(asset)).ToLowerInvariant();
+            var hash = Convert.ToHexString(SHA256.HashDataAsync(asset, cancellationToken).GetAwaiter().GetResult()).ToLowerInvariant();
             if (hash != entry.Value.GetString()) throw new InvalidDataException("Model hash mismatch: " + name);
         }
         foreach (var required in new[] { "encoder.onnx", "head.onnx", "tokenizer.json", "rl_agent_config.json" })

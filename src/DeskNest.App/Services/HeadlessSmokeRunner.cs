@@ -483,6 +483,19 @@ public static class HeadlessSmokeRunner
         await using var main = new MainWindowViewModel(store);
         var studio = main.Studio!;
         long revision = store.Snapshot.Revision;
+        await studio.VerifyLocalModelCommand.ExecuteAsync(null);
+        if (studio.ModelVerificationNotice != main.Localizer["Classification.BundleVerified"] ||
+            store.Snapshot.Revision != revision)
+            throw new InvalidOperationException("The actual model bundle must verify without changing the workspace.");
+        var verification = studio.VerifyLocalModelCommand.ExecuteAsync(null);
+        studio.VerifyLocalModelCancelCommand.Execute(null);
+        await verification;
+        if (studio.ModelVerificationNotice != main.Localizer["Classification.Cancelled"])
+            throw new InvalidOperationException("Cancelling model verification must discard its success result.");
+        studio.SettingsModelCache = string.Empty;
+        if (!string.IsNullOrEmpty(studio.ModelVerificationNotice))
+            throw new InvalidOperationException("Changing the model draft must invalidate the previous verification notice.");
+        studio.SettingsModelCache = Path.GetFullPath(modelDirectory);
         await studio.PreviewClassificationCommand.ExecuteAsync(studio.SelectedFile);
         if (!studio.IsPreviewDialogOpen || studio.PreviewKind != main.Localizer["Classification.LocalCpu"] ||
             !studio.PreviewContent.Contains(space.Name) || store.Snapshot.Revision != revision ||

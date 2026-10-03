@@ -1088,7 +1088,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             if (_disposed) return;
             _disposed = true;
             await StopFolderObservationAsync();
-            await SetUIStateAsync(() => Studio?.ClearJevSession());
+            await SetUIStateAsync(() =>
+            {
+                Studio?.ClearJevSession();
+                Studio?.VerifyLocalModelCommand.Cancel();
+            });
             Localizer.LanguageChanged -= OnLanguageChanged;
             Localizer.PropertyChanged -= OnLocalizerPropertyChanged;
             ThemeMgr.ThemeChanged -= OnThemeChanged;

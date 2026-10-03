@@ -1,5 +1,8 @@
 {
   "App.Title": "DeskNext",
+  "Classification.VerifyBundle": "التحقق من ملفات النموذج",
+  "Classification.VerifyingBundle": "جارٍ التحقق من ملفات النموذج؛ يمكنك الإلغاء…",
+  "Classification.BundleVerified": "تم التحقق من الملفات. استخدم مصادر موثوقة فقط؛ فهذا لا يثبت هوية الناشر.",
   "Spaces.EditDetails": "تعديل تفاصيل المساحة",
   "Spaces.EditNotice": "تغيير الاسم والوصف فقط. تبقى المجلدات والملفات في مكانها.",
   "Action.Save": "حفظ",
