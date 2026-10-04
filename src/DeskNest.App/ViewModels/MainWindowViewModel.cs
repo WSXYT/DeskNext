@@ -361,7 +361,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             studio.OnSetObservationSourcePaused = SetObservationSourcePausedAsync;
             studio.OnObservationSourceSelected = RefreshObservationStatus;
             RefreshObservationStatus();
-            studio.OnImportPending = OperatingSystem.IsWindows() ? ExecuteImportPendingAsync : null;
+            studio.OnImportPending = ExecuteImportPendingAsync;
         }
     }
 

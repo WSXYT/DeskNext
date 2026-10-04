@@ -180,8 +180,6 @@ public sealed class ManualOrganizationCoordinator
     public async Task<ManualOrganizationResult> ImportPendingAsync(
         Guid pendingId, Guid targetSpaceId, long expectedWorkspaceRevision, CancellationToken cancellationToken = default)
     {
-        if (!OperatingSystem.IsWindows())
-            throw new NotSupportedException("External import currently requires the Windows NTFS move boundary.");
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {

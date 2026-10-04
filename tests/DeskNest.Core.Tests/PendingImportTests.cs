@@ -11,7 +11,7 @@ public sealed class PendingImportTests : IDisposable
     private string Data => Path.Combine(root, "state");
     private string Journal => Path.Combine(Data, "organization-recovery.json");
 
-    [WindowsHandleTheory]
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task ImportAndUndoRestoreExternalPendingWithoutInventingASpace(bool directory)
@@ -57,7 +57,7 @@ public sealed class PendingImportTests : IDisposable
         Assert.Equal(2, final.Snapshot.Operations.Count);
     }
 
-    [WindowsHandleTheory]
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task RefusedImportRecoversThroughTheExistingJournalAndKeepsPending(bool directory)
@@ -84,7 +84,7 @@ public sealed class PendingImportTests : IDisposable
         Assert.Single(reopened.Snapshot.Operations); // Failure evidence outlives a dismissed review item.
     }
 
-    [WindowsHandleFact]
+    [Fact]
     public async Task OccupiedTargetAndStaleSelectionRefuseBeforeMetadataOrMove()
     {
         var (pending, target) = Fixture(false);
