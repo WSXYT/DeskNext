@@ -467,10 +467,8 @@ public sealed class DesktopOrganizationTransaction
                 if (OperatingSystem.IsWindows())
                     WindowsFileHandles.MoveDirectory(move.DestinationPath, move.SourcePath, move);
                 else
-                {
-                    Directory.CreateDirectory(Path.GetDirectoryName(move.SourcePath)!);
-                    Directory.Move(move.DestinationPath, move.SourcePath);
-                }
+                    UnixRename.Move(move.DestinationPath, move.SourcePath, move.DirectoryNativeIds![""], true,
+                        path => DirectoryManifestMatches(path, move.Files, move.Directories, move.DirectoryNativeIds));
                 directories[index] = move with { Restored = true };
                 journal = journal with { DirectoryMoves = directories, UpdatedAt = DateTimeOffset.UtcNow };
                 // Once the rename happened, finish recording it even if cancellation
@@ -506,10 +504,8 @@ public sealed class DesktopOrganizationTransaction
                 if (OperatingSystem.IsWindows())
                     WindowsFileHandles.MoveFile(move.DestinationPath, move.SourcePath, move.Identity);
                 else
-                {
-                    Directory.CreateDirectory(Path.GetDirectoryName(move.SourcePath)!);
-                    File.Move(move.DestinationPath, move.SourcePath);
-                }
+                    UnixRename.Move(move.DestinationPath, move.SourcePath, move.Identity.NativeId!, false,
+                        path => IdentityMatches(path, move.Identity));
                 files[index] = move with { Restored = true };
                 journal = journal with { Moves = files, UpdatedAt = DateTimeOffset.UtcNow };
                 await SaveJournalAsync(journal, CancellationToken.None).ConfigureAwait(false);
@@ -741,11 +737,8 @@ public sealed class DesktopOrganizationTransaction
             WindowsFileHandles.MoveDirectory(move.SourcePath, move.DestinationPath, move, token);
             return;
         }
-        if (!DirectoryManifestMatches(move.SourcePath, move.Files, move.Directories, move.DirectoryNativeIds))
-            throw new IOException($"Directory changed before move: {move.SourcePath}");
-        Directory.CreateDirectory(Path.GetDirectoryName(move.DestinationPath)!);
-        FileSystemVolume.RequireSameVolume(move.SourcePath, move.DestinationPath);
-        Directory.Move(move.SourcePath, move.DestinationPath);
+        UnixRename.Move(move.SourcePath, move.DestinationPath, move.DirectoryNativeIds![""], true,
+            path => DirectoryManifestMatches(path, move.Files, move.Directories, move.DirectoryNativeIds), token);
     }
 
     private static bool IsPathInside(string candidate, string root)
@@ -813,12 +806,8 @@ public sealed class DesktopOrganizationTransaction
             WindowsFileHandles.MoveFile(move.SourcePath, move.DestinationPath, move.Identity, token);
             return;
         }
-        Directory.CreateDirectory(Path.GetDirectoryName(move.DestinationPath)!);
-        if (!IdentityMatches(move.SourcePath, move.Identity))
-            throw new IOException($"Source changed before move: {move.SourcePath}");
-
-        FileSystemVolume.RequireSameVolume(move.SourcePath, move.DestinationPath);
-        File.Move(move.SourcePath, move.DestinationPath);
+        UnixRename.Move(move.SourcePath, move.DestinationPath, move.Identity.NativeId!, false,
+            path => IdentityMatches(path, move.Identity), token);
     }
 
     private async Task SaveJournalAsync(

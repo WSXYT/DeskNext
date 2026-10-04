@@ -2,9 +2,37 @@ name: P1/P2 native and Avalonia probes plus P3 recovery probe
 
 on:
   workflow_dispatch:
+    inputs:
+      storage_only:
+        description: Linux/macOS storage tests only; no UI or packaging
+        type: boolean
+        default: false
 
 jobs:
+  storage:
+    if: ${{ inputs.storage_only }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Use physical macOS temporary paths
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          physical_temp="$(cd "$RUNNER_TEMP" && pwd -P)"
+          printf 'TMPDIR=%s/\n' "$physical_temp" >> "$GITHUB_ENV"
+      - name: Exercise native storage and recovery contracts
+        run: >-
+          dotnet test tests/DeskNest.Core.Tests/DeskNest.Core.Tests.csproj
+          -c Release -m:1 --nodeReuse:false -p:UseSharedCompilation=false
   probe:
+    if: ${{ !inputs.storage_only }}
     strategy:
       fail-fast: false
       matrix:
@@ -34,29 +62,41 @@ jobs:
       - name: Verify probe driver rejects missing or false evidence
         run: node --test tests/app-probe-driver.test.mjs
       - name: Run headless Core and inference unit tests
-        run: dotnet test DeskNest.sln -c Release -m:1 -p:UseSharedCompilation=false
+        run: >-
+          dotnet test DeskNest.sln -c Release -m:1
+          --nodeReuse:false -p:UseSharedCompilation=false
       - name: Refuse self-copy through a native volume-root alias
         if: runner.os == 'Windows'
         shell: pwsh
         timeout-minutes: 3
         run: ./build/windows/Test-VolumeAlias.ps1
-      - name: Exercise isolated force-kill recovery boundaries (Windows P3 probe)
+      - name: Force-kill recovery boundaries (Windows P3)
         if: runner.os == 'Windows'
         shell: pwsh
         timeout-minutes: 3
         run: |
-          dotnet build tests/DeskNest.RecoveryProbe/DeskNest.RecoveryProbe.csproj -c Release -m:1 -p:UseSharedCompilation=false
+          $project =
+            'tests/DeskNest.RecoveryProbe/DeskNest.RecoveryProbe.csproj'
+          dotnet build $project -c Release -m:1 `
+            --nodeReuse:false -p:UseSharedCompilation=false
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tests/recovery-kill.mjs
           exit $LASTEXITCODE
       - name: Build native bridge (Debug, serial)
-        run: cmake -S native/pogget-bridge -B artifacts/native-ci -DCMAKE_BUILD_TYPE=Debug
+        run: >-
+          cmake -S native/pogget-bridge -B artifacts/native-ci
+          -DCMAKE_BUILD_TYPE=Debug
       - name: Compile native bridge and tests
         run: cmake --build artifacts/native-ci --config Debug --parallel 1
       - name: Exercise native ABI and Flow
-        run: ctest --test-dir artifacts/native-ci -C Debug --output-on-failure --repeat until-fail:5
+        run: >-
+          ctest --test-dir artifacts/native-ci -C Debug
+          --output-on-failure --repeat until-fail:5
       - name: Publish self-contained UI
-        run: dotnet publish src/DeskNest.App/DeskNest.App.csproj -c Release -r ${{ matrix.rid }} --self-contained true -m:1 -p:UseSharedCompilation=false -o artifacts/publish-ui
+        run: >-
+          dotnet publish src/DeskNest.App/DeskNest.App.csproj -c Release
+          -r ${{ matrix.rid }} --self-contained true -m:1 --nodeReuse:false
+          -p:UseSharedCompilation=false -o artifacts/publish-ui
       - name: Run UI + native load (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
