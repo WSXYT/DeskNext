@@ -66,16 +66,17 @@ async function drag(from, to) {
   xdo('mousemove', from.X, from.Y);
   await delay(150);
   try {
-    xdo('keydown', 'Control_L'); // Both directions negotiate Copy; only the app's confirmed import moves.
     xdo('mousedown', 1);
     await delay(150);
     xdo('mousemove', from.X + 24, from.Y + 6);
     await delay(200);
+    xdo('keydown', 'Control_L'); // Request Copy after starting the drag, not Ctrl-toggle the selected row.
     for (let i = 1; i <= 16; i++) {
       xdo('mousemove', Math.round(from.X + (to.X - from.X) * i / 16), Math.round(from.Y + (to.Y - from.Y) * i / 16));
       await delay(35);
     }
     await delay(250);
+    capture(`stage-${stages}-drag`);
   } finally {
     xdo('mouseup', 1);
     xdo('keyup', 'Control_L');
@@ -136,6 +137,7 @@ try {
       }
       if (!point) throw Error('AT-SPI did not expose the visible Nautilus fixture row.');
     } else point = { X: r.X + Math.round(r.Width * 0.7), Y: r.Y + Math.round(r.Height * 0.6) };
+    console.log(JSON.stringify({ dragStage: stages, direction: s.Stage, nautilusPoint: point, appPoint: s.Point }));
     capture(`stage-${stages}-before`);
     await drag(s.Stage === 'inbound' ? point : s.Point, s.Stage === 'inbound' ? s.Point : point);
     stages++;

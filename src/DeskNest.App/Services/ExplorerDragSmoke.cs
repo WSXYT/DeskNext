@@ -33,6 +33,11 @@ internal static class ExplorerDragSmoke
             Position = new PixelPoint(area.X + (int)(16 * scale), area.Y + (int)(16 * scale))
         };
         floating.Show();
+        var observedDrop = floating.FindControl<Border>("SpaceWindowDropSurface")!;
+        foreach (var routed in new[] { Avalonia.Input.DragDrop.DragEnterEvent, Avalonia.Input.DragDrop.DropEvent })
+            observedDrop.AddHandler(routed, (_, e) => Console.WriteLine("FILE_MANAGER_DRAG_EVENT:" +
+                JsonSerializer.Serialize(new { Kind = e.RoutedEvent?.Name,
+                    Formats = e.DataTransfer?.Formats.Select(format => format.Identifier).ToArray() })), handledEventsToo: true);
         try
         {
             foreach (bool directory in new[] { false, true })
