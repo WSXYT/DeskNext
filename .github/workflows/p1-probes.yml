@@ -39,7 +39,7 @@ jobs:
       - name: Force-kill Unix move and recovery boundaries
         timeout-minutes: 3
         run: node tests/recovery-kill.mjs
-      - name: Real mounts and full-journal-disk refusal
+      - name: Real mounts and capacity-pressure recovery
         timeout-minutes: 5
         shell: bash
         run: bash build/Test-UnixStorage.sh

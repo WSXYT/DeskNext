@@ -65,4 +65,4 @@ const counts = Object.fromEntries([...counters.matchAll(/(\w+)="(\d+)"/g)].map(m
 if (counts.total !== 2 || counts.executed !== 2 || counts.passed !== 2 || counts.failed !== 0 || counts.notExecuted !== 0)
   throw Error('Missing, skipped or failed native mount tests: ' + counters);
 JS
-printf '{"platform":"%s","nativeMountAndFullDiskChecks":true}\n' "$platform"
+printf '{"platform":"%s","nativeMountAndCapacityPressureChecks":true}\n' "$platform"

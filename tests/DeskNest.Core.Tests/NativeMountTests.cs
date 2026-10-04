@@ -2,11 +2,12 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using DeskNest.Core.Storage;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace DeskNest.Core.Tests;
 
 // The shell fixture owns every mount. Ordinary/local test runs explicitly skip these checks.
-public sealed class NativeMountTests
+public sealed class NativeMountTests(ITestOutputHelper output)
 {
     [HostedUnixMountsFact]
     public async Task RealVolumesAndMountAliasesRefuseBeforeAnyMove()
@@ -30,7 +31,7 @@ public sealed class NativeMountTests
     }
 
     [HostedUnixMountsFact]
-    public async Task AFullJournalVolumeRetainsUnreceiptedFileAndDirectoryRenames()
+    public async Task CapacityPressureKeepsFileAndDirectoryMovesRecoverable()
     {
         string root = Fixture(), volume = Path.Combine(root, "volume");
         // Never fill the host filesystem, including a bind alias of it.
@@ -45,7 +46,9 @@ public sealed class NativeMountTests
             string filler = Path.Combine(volume, name + "-filler");
             byte[]? prepared = null;
             FileStream? filledVolume = null;
-            bool diskFull = false;
+            bool diskFull = false, receipted = false;
+            byte[]? journalAfter = null;
+            IOException? writeFailure = null;
             bool ExhaustJournalVolume()
             {
                 prepared = File.ReadAllBytes(journal);
@@ -57,16 +60,27 @@ public sealed class NativeMountTests
                 moveGuard: _ => ExhaustJournalVolume(), directoryMoveGuard: _ => ExhaustJournalVolume());
             try
             {
-                await Assert.ThrowsAsync<IOException>(() => directory
-                    ? transaction.ExecuteDirectoriesAsync([new(source, destination)], retainJournalUntilCommit: true)
-                    : transaction.ExecuteAsync([new(source, destination)], retainJournalUntilCommit: true));
+                try
+                {
+                    if (directory) await transaction.ExecuteDirectoriesAsync([new(source, destination)], retainJournalUntilCommit: true);
+                    else await transaction.ExecuteAsync([new(source, destination)], retainJournalUntilCommit: true);
+                }
+                catch (IOException error) { writeFailure = error; }
                 Assert.True(diskFull);
                 Assert.NotNull(prepared);
-                Assert.Equal(prepared, File.ReadAllBytes(journal));
-                var retained = JsonSerializer.Deserialize<OrganizationRecoveryJournal>(prepared,
-                    new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
-                Assert.Equal("Prepared", retained.Status);
-                Assert.False(directory ? retained.DirectoryMoves!.Single().Completed : retained.Moves.Single().Completed);
+                journalAfter = File.ReadAllBytes(journal);
+                var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+                var initial = JsonSerializer.Deserialize<OrganizationRecoveryJournal>(prepared, options)!;
+                var retained = JsonSerializer.Deserialize<OrganizationRecoveryJournal>(journalAfter, options)!;
+                receipted = directory ? retained.DirectoryMoves!.Single().Completed : retained.Moves.Single().Completed;
+                Assert.Equal(initial.OperationId, retained.OperationId);
+                Assert.Equal(JsonSerializer.Serialize(initial.Moves.Select(m => m with { Completed = receipted })),
+                    JsonSerializer.Serialize(retained.Moves));
+                Assert.Equal(JsonSerializer.Serialize(initial.DirectoryMoves?.Select(m => m with { Completed = receipted })),
+                    JsonSerializer.Serialize(retained.DirectoryMoves));
+                // APFS can reject bulk allocation while still admitting a small journal.
+                // A successful return must have a real receipt, never inferred completion.
+                if (writeFailure is null) Assert.True(receipted);
                 Assert.False(Exists(source));
                 AssertContent(destination, directory);
             }
@@ -75,11 +89,27 @@ public sealed class NativeMountTests
                 filledVolume?.Dispose();
                 if (File.Exists(filler)) File.Delete(filler);
             }
-            // Removing the real ENOSPC condition is not authorization to infer a missing receipt.
-            await Assert.ThrowsAsync<IOException>(() => new DesktopOrganizationTransaction(journal).RecoverAsync());
-            Assert.True(transaction.HasRecoveryJournal);
-            Assert.Equal(prepared, File.ReadAllBytes(journal));
-            AssertContent(destination, directory);
+            if (receipted)
+            {
+                await new DesktopOrganizationTransaction(journal).RecoverAsync();
+                Assert.False(transaction.HasRecoveryJournal);
+                AssertContent(source, directory);
+                Assert.False(Exists(destination));
+            }
+            else
+            {
+                // Free space is not authorization to infer a missing receipt.
+                await Assert.ThrowsAsync<IOException>(() => new DesktopOrganizationTransaction(journal).RecoverAsync());
+                Assert.True(transaction.HasRecoveryJournal);
+                Assert.Equal(journalAfter, File.ReadAllBytes(journal));
+                AssertContent(destination, directory);
+            }
+            output.WriteLine(JsonSerializer.Serialize(new
+            {
+                directory, dataEnospc = diskFull, journalWriteFailed = writeFailure is not null,
+                receiptPersisted = receipted, automaticRecovery = receipted,
+                manualReconciliationRequired = !receipted
+            }));
         }
     }
 
