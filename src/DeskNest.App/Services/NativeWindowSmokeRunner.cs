@@ -41,8 +41,8 @@ public static class NativeWindowSmokeRunner
 
         try
         {
-            if (_explorerDrag && (!OperatingSystem.IsWindows() || _manualWorkflow || _inspectRecovery || _spaceWindow))
-                throw new ArgumentException("Run the Explorer drag probe separately, on Windows only.");
+            if (_explorerDrag && ((!OperatingSystem.IsWindows() && !OperatingSystem.IsLinux()) || _manualWorkflow || _inspectRecovery || _spaceWindow))
+                throw new ArgumentException("Run the file-manager drag probe separately, on Windows or Linux.");
             if (_manualWorkflow && (_inspectRecovery || _spaceWindow) || _desktopReview && _inspectRecovery)
                 throw new ArgumentException("Run the manual workflow, recovery inspection and desktop review separately.");
             if (_desktopReview && !OperatingSystem.IsWindows())

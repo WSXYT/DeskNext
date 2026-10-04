@@ -11,10 +11,54 @@ on:
         description: Linux/macOS native clipboard and import UI only
         type: boolean
         default: false
+      linux_drag_only:
+        description: Isolated Nautilus two-way file and directory drag probe
+        type: boolean
+        default: false
 
 jobs:
+  linux_drag:
+    if: ${{ inputs.linux_drag_only }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Install isolated X11 file-manager probe dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            nautilus openbox xdotool scrot python3-pyatspi dbus-x11 xdg-utils
+      - name: Publish the file-manager probe
+        run: >-
+          dotnet publish src/DeskNest.App/DeskNest.App.csproj -c Release
+          -r linux-x64 --self-contained true -m:1 --nodeReuse:false
+          -p:UseSharedCompilation=false -o artifacts/native-manual-ui
+      - name: Drag files and directories through Nautilus and DeskNext
+        timeout-minutes: 4
+        shell: bash
+        env:
+          GDK_BACKEND: x11
+          GSK_RENDERER: cairo
+          XDG_CURRENT_DESKTOP: GNOME
+        run: |
+          fixture="$(mktemp -d)"
+          trap 'rm -rf -- "$fixture"' EXIT
+          export XDG_CONFIG_HOME="$fixture/config"
+          export XDG_DATA_HOME="$fixture/data"
+          export XDG_CACHE_HOME="$fixture/cache"
+          mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME"
+          xvfb-run -a -s '-screen 0 1600x900x24' dbus-run-session -- \
+            node tests/nautilus-drag.mjs artifacts/native-manual-ui/DeskNest.App
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nautilus-drag-evidence
+          path: artifacts/nautilus-drag/
+          if-no-files-found: ignore
   native_manual:
-    if: ${{ inputs.native_manual_only }}
+    if: ${{ inputs.native_manual_only && !inputs.linux_drag_only }}
     strategy:
       fail-fast: false
       matrix:
@@ -54,7 +98,9 @@ jobs:
           node tests/run-app-probe.mjs artifacts/native-manual-ui/DeskNest.App
           --native-window-smoke --manual-workflow
   storage:
-    if: ${{ inputs.storage_only && !inputs.native_manual_only }}
+    if: >-
+      ${{ inputs.storage_only && !inputs.native_manual_only &&
+          !inputs.linux_drag_only }}
     strategy:
       fail-fast: false
       matrix:
@@ -94,7 +140,9 @@ jobs:
           path: artifacts/native-mount-results/
           if-no-files-found: ignore
   probe:
-    if: ${{ !inputs.storage_only && !inputs.native_manual_only }}
+    if: >-
+      ${{ !inputs.storage_only && !inputs.native_manual_only &&
+          !inputs.linux_drag_only }}
     strategy:
       fail-fast: false
       matrix:
