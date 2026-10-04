@@ -12,7 +12,8 @@ namespace DeskNest.Core.Storage;
 internal static class UnixRename
 {
     internal static void Move(string source, string destination, string expectedId, bool directory,
-        Func<string, bool> matchesReceipt, CancellationToken token = default, Action? beforeRename = null)
+        Func<string, bool> matchesReceipt, CancellationToken token = default, Action? beforeRename = null,
+        bool createDestinationParents = true)
     {
         if (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())
             throw new PlatformNotSupportedException("Verified Unix rename is unavailable.");
@@ -26,7 +27,7 @@ internal static class UnixRename
         using var item = OpenAt(from.Handle, Path.GetFileName(source), directory);
         if (UnixFileIdentity.Capture(item, directory).NativeId != expectedId || !matchesReceipt(source))
             throw new IOException("Unix source no longer matches its recorded receipt.");
-        using var to = DirectoryHandles.Open(Path.GetDirectoryName(destination)!, create: true,
+        using var to = DirectoryHandles.Open(Path.GetDirectoryName(destination)!, create: createDestinationParents,
             requiredDevice: expectedId[..22], forbiddenId: directory ? expectedId : null);
         from.VerifyBinding();
         to.VerifyBinding();

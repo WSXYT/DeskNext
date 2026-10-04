@@ -463,11 +463,12 @@ public sealed class ManualOrganizationCoordinator
                     undo.OriginalDirectoryManifest!.Select(item => new DirectoryFileReceipt(item.RelativePath,
                         new FileIdentity(item.Length, item.LastWriteTimeUtcTicks, item.Sha256) { NativeId = item.NativeId })).ToArray(), false)
                     { Directories = undo.OriginalDirectoryPaths, DirectoryNativeIds = undo.OriginalDirectoryNativeIds } : null;
+            bool createParents = _store.Snapshot.Spaces.SingleOrDefault(s => s.Id == targetSpaceId)?.Mode == SpaceStorageMode.Managed;
             var result = file.IsDirectory
                 ? await _transaction.ExecuteDirectoriesAsync([new(source, destination) { ExpectedReceipt = expectedDirectory }], cancellationToken,
-                    retainJournalUntilCommit: true).ConfigureAwait(false)
+                    retainJournalUntilCommit: true, createDestinationParents: createParents).ConfigureAwait(false)
                 : await _transaction.ExecuteAsync([new(source, destination) { ExpectedIdentity = expectedFile }], cancellationToken,
-                    retainJournalUntilCommit: true).ConfigureAwait(false);
+                    retainJournalUntilCommit: true, createDestinationParents: createParents).ConfigureAwait(false);
             var directoryReceipt = result.DirectoryReceipts?.SingleOrDefault();
             var fileReceipt = result.Receipts.SingleOrDefault();
             var committedIdentity = fileReceipt?.Identity;

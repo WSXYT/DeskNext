@@ -102,5 +102,25 @@ public sealed class NativeDirectoryMoveTests : IDisposable
         Assert.Equal("original content", File.ReadAllText(directory ? Path.Combine(source, "item.txt") : source));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RecoveryDoesNotRecreateAMissingOriginalParent(bool directory)
+    {
+        string parent = Directory.CreateDirectory(Path.Combine(root, "original-parent")).FullName;
+        string source = Path.Combine(parent, "item"), destination = Path.Combine(root, "moved");
+        if (directory) Directory.CreateDirectory(Path.Combine(source, "empty"));
+        File.WriteAllText(directory ? Path.Combine(source, "item.txt") : source, "preserved");
+        var transaction = new DesktopOrganizationTransaction(Path.Combine(root, "recovery.json"));
+        if (directory) await transaction.ExecuteDirectoriesAsync([new(source, destination)], retainJournalUntilCommit: true);
+        else await transaction.ExecuteAsync([new(source, destination)], retainJournalUntilCommit: true);
+        Directory.Delete(parent);
+        await Assert.ThrowsAsync<IOException>(() => transaction.RecoverAsync());
+        Assert.False(Directory.Exists(parent));
+        Assert.True(transaction.HasRecoveryJournal);
+        Assert.Equal("preserved", File.ReadAllText(directory ? Path.Combine(destination, "item.txt") : destination));
+        if (directory) Assert.True(Directory.Exists(Path.Combine(destination, "empty")));
+    }
+
     public void Dispose() { if (Directory.Exists(root)) Directory.Delete(root, true); }
 }

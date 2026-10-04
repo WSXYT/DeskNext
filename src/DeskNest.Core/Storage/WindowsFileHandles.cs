@@ -279,7 +279,7 @@ internal static class WindowsFileHandles
     }
 
     internal static void MoveFile(string sourcePath, string destinationPath, FileIdentity expected,
-        CancellationToken token = default)
+        CancellationToken token = default, bool createDestinationParents = true)
     {
         token.ThrowIfCancellationRequested();
         if (!Path.IsPathFullyQualified(sourcePath) || !Path.IsPathFullyQualified(destinationPath))
@@ -288,7 +288,7 @@ internal static class WindowsFileHandles
         using var source = OpenFile(sourceParent.Handle, Path.GetFileName(sourcePath), allowDelete: true);
         if (WindowsFileIdentity.CaptureContent(source, token) != expected)
             throw new IOException("The opened source does not match its prepared move receipt.");
-        using var targetParent = WindowsDirectoryLease.Open(Path.GetDirectoryName(destinationPath)!, create: true,
+        using var targetParent = WindowsDirectoryLease.Open(Path.GetDirectoryName(destinationPath)!, create: createDestinationParents,
             requiredVolumePath: sourceParent.VolumePath, forRename: true);
         sourceParent.VerifyPathBinding();
         targetParent.VerifyPathBinding();
@@ -303,7 +303,7 @@ internal static class WindowsFileHandles
     }
 
     internal static void MoveDirectory(string sourcePath, string destinationPath,
-        OrganizationDirectoryMoveReceipt expected, CancellationToken token = default)
+        OrganizationDirectoryMoveReceipt expected, CancellationToken token = default, bool createDestinationParents = true)
     {
         token.ThrowIfCancellationRequested();
         if (!Path.IsPathFullyQualified(sourcePath) || !Path.IsPathFullyQualified(destinationPath))
@@ -317,7 +317,7 @@ internal static class WindowsFileHandles
             if (!tree.MatchesMoveReceipt(expected))
                 throw new IOException("The opened directory does not match its prepared native tree receipt.");
         } // Windows requires descendant handles closed before renaming their parent.
-        using var targetParent = WindowsDirectoryLease.Open(Path.GetDirectoryName(destinationPath)!, create: true,
+        using var targetParent = WindowsDirectoryLease.Open(Path.GetDirectoryName(destinationPath)!, create: createDestinationParents,
             requiredVolumePath: sourceParent.VolumePath, forbiddenAncestorNativeId: expected.DirectoryNativeIds![""], forRename: true);
         sourceParent.VerifyPathBinding();
         targetParent.VerifyPathBinding();

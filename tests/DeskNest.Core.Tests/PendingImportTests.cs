@@ -105,6 +105,36 @@ public sealed class PendingImportTests : IDisposable
         Assert.Equal("import fixture", File.ReadAllText(pending.Path));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ADisappearingMappedImportTargetIsNotRecreated(bool directory)
+    {
+        var (pending, managed) = Fixture(directory);
+        var target = new WorkspaceSpace(managed.Id, "Mapped", "", SpaceStorageMode.Mapped, managed.Folder);
+        Directory.CreateDirectory(target.Folder);
+        File.WriteAllText(Path.Combine(target.Folder, "sentinel.txt"), "existing mapping");
+        string retired = target.Folder + "-retired";
+        await using var store = await OpenAsync(pending, target);
+        bool RetireTarget()
+        {
+            Directory.Move(target.Folder, retired);
+            return true;
+        }
+        var transaction = new DesktopOrganizationTransaction(Journal,
+            moveGuard: _ => RetireTarget(), directoryMoveGuard: _ => RetireTarget());
+        var coordinator = new ManualOrganizationCoordinator(store, transaction);
+        await Assert.ThrowsAsync<IOException>(() => coordinator.ImportPendingAsync(pending.Id, target.Id, store.Snapshot.Revision));
+        Assert.False(Directory.Exists(target.Folder));
+        Assert.Equal("existing mapping", File.ReadAllText(Path.Combine(retired, "sentinel.txt")));
+        Assert.Equal("import fixture", File.ReadAllText(Content(pending.Path, directory)));
+        Assert.Empty(store.Snapshot.Files);
+        Assert.Equal(pending, Assert.Single(store.Snapshot.Pending));
+        await coordinator.RecoverPendingAsync();
+        Assert.False(transaction.HasRecoveryJournal);
+        Assert.False(Directory.Exists(target.Folder));
+    }
+
     [Fact]
     public async Task ExternalSourceHistoryCannotAuthorizeAMissingCompletedFile()
     {

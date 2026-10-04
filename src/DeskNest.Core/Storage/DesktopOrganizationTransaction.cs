@@ -254,7 +254,7 @@ public sealed class DesktopOrganizationTransaction
     public async Task<OrganizationTransactionResult> ExecuteAsync(
         IReadOnlyList<OrganizationMove> requestedMoves,
         CancellationToken cancellationToken = default,
-        bool retainJournalUntilCommit = false)
+        bool retainJournalUntilCommit = false, bool createDestinationParents = true)
     {
         ArgumentNullException.ThrowIfNull(requestedMoves);
         if (requestedMoves.Count == 0)
@@ -288,7 +288,7 @@ public sealed class DesktopOrganizationTransaction
                 foreach (var move in prepared)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    MoveOne(move, cancellationToken);
+                    MoveOne(move, cancellationToken, createDestinationParents);
                     completed.Add(move with { Completed = true });
                     await SaveJournalAsync(journal with
                     {
@@ -325,7 +325,7 @@ public sealed class DesktopOrganizationTransaction
     public async Task<OrganizationTransactionResult> ExecuteDirectoriesAsync(
         IReadOnlyList<OrganizationDirectoryMove> requestedMoves,
         CancellationToken cancellationToken = default,
-        bool retainJournalUntilCommit = false)
+        bool retainJournalUntilCommit = false, bool createDestinationParents = true)
     {
         ArgumentNullException.ThrowIfNull(requestedMoves);
         if (requestedMoves.Count == 0)
@@ -349,7 +349,7 @@ public sealed class DesktopOrganizationTransaction
                 foreach (var move in prepared)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    MoveDirectoryOne(move, cancellationToken);
+                    MoveDirectoryOne(move, cancellationToken, createDestinationParents);
                     completed.Add(move with { Completed = true });
                     await SaveJournalAsync(journal with
                     {
@@ -465,10 +465,11 @@ public sealed class DesktopOrganizationTransaction
                 FileSystemVolume.RequireNoReparsePoints(move.SourcePath);
                 FileSystemVolume.RequireSameVolume(move.DestinationPath, move.SourcePath);
                 if (OperatingSystem.IsWindows())
-                    WindowsFileHandles.MoveDirectory(move.DestinationPath, move.SourcePath, move);
+                    WindowsFileHandles.MoveDirectory(move.DestinationPath, move.SourcePath, move, createDestinationParents: false);
                 else
                     UnixRename.Move(move.DestinationPath, move.SourcePath, move.DirectoryNativeIds![""], true,
-                        path => DirectoryManifestMatches(path, move.Files, move.Directories, move.DirectoryNativeIds));
+                        path => DirectoryManifestMatches(path, move.Files, move.Directories, move.DirectoryNativeIds),
+                        createDestinationParents: false);
                 directories[index] = move with { Restored = true };
                 journal = journal with { DirectoryMoves = directories, UpdatedAt = DateTimeOffset.UtcNow };
                 // Once the rename happened, finish recording it even if cancellation
@@ -502,10 +503,10 @@ public sealed class DesktopOrganizationTransaction
                 FileSystemVolume.RequireNoReparsePoints(move.SourcePath);
                 FileSystemVolume.RequireSameVolume(move.DestinationPath, move.SourcePath);
                 if (OperatingSystem.IsWindows())
-                    WindowsFileHandles.MoveFile(move.DestinationPath, move.SourcePath, move.Identity);
+                    WindowsFileHandles.MoveFile(move.DestinationPath, move.SourcePath, move.Identity, createDestinationParents: false);
                 else
                     UnixRename.Move(move.DestinationPath, move.SourcePath, move.Identity.NativeId!, false,
-                        path => IdentityMatches(path, move.Identity));
+                        path => IdentityMatches(path, move.Identity), createDestinationParents: false);
                 files[index] = move with { Restored = true };
                 journal = journal with { Moves = files, UpdatedAt = DateTimeOffset.UtcNow };
                 await SaveJournalAsync(journal, CancellationToken.None).ConfigureAwait(false);
@@ -723,7 +724,7 @@ public sealed class DesktopOrganizationTransaction
             throw new InvalidDataException("Native directory identities must cover the exact sorted topology on one volume.");
     }
 
-    private void MoveDirectoryOne(OrganizationDirectoryMoveReceipt move, CancellationToken token)
+    private void MoveDirectoryOne(OrganizationDirectoryMoveReceipt move, CancellationToken token, bool createDestinationParents)
     {
         if (_directoryMoveGuard is not null && !_directoryMoveGuard(move))
             throw new IOException($"Fault injection refused directory move: {move.SourcePath}");
@@ -734,11 +735,12 @@ public sealed class DesktopOrganizationTransaction
         FileSystemVolume.RequireSameVolume(move.SourcePath, move.DestinationPath);
         if (OperatingSystem.IsWindows())
         {
-            WindowsFileHandles.MoveDirectory(move.SourcePath, move.DestinationPath, move, token);
+            WindowsFileHandles.MoveDirectory(move.SourcePath, move.DestinationPath, move, token, createDestinationParents);
             return;
         }
         UnixRename.Move(move.SourcePath, move.DestinationPath, move.DirectoryNativeIds![""], true,
-            path => DirectoryManifestMatches(path, move.Files, move.Directories, move.DirectoryNativeIds), token);
+            path => DirectoryManifestMatches(path, move.Files, move.Directories, move.DirectoryNativeIds), token,
+            createDestinationParents: createDestinationParents);
     }
 
     private static bool IsPathInside(string candidate, string root)
@@ -791,7 +793,7 @@ public sealed class DesktopOrganizationTransaction
         return result;
     }
 
-    private void MoveOne(OrganizationMoveReceipt move, CancellationToken token)
+    private void MoveOne(OrganizationMoveReceipt move, CancellationToken token, bool createDestinationParents)
     {
         if (_moveGuard is not null && !_moveGuard(move))
             throw new IOException($"Fault injection refused move: {move.SourcePath}");
@@ -803,11 +805,11 @@ public sealed class DesktopOrganizationTransaction
         FileSystemVolume.RequireSameVolume(move.SourcePath, move.DestinationPath);
         if (OperatingSystem.IsWindows())
         {
-            WindowsFileHandles.MoveFile(move.SourcePath, move.DestinationPath, move.Identity, token);
+            WindowsFileHandles.MoveFile(move.SourcePath, move.DestinationPath, move.Identity, token, createDestinationParents);
             return;
         }
         UnixRename.Move(move.SourcePath, move.DestinationPath, move.Identity.NativeId!, false,
-            path => IdentityMatches(path, move.Identity), token);
+            path => IdentityMatches(path, move.Identity), token, createDestinationParents: createDestinationParents);
     }
 
     private async Task SaveJournalAsync(
