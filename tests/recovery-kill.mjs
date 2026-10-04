@@ -17,6 +17,10 @@ for (const kind of ['file', 'directory', 'committed-file', 'committed-directory'
   'copy-file', 'copy-directory', 'committed-copy-file', 'committed-copy-directory',
   'unreceipted-file', 'unreceipted-directory', 'reverse-unreceipted-file', 'reverse-unreceipted-directory',
   'staged-copy-file', 'staged-copy-directory']) {
+  if (process.platform !== 'win32' && kind.includes('copy-')) {
+    console.log(JSON.stringify({ kind, skipped: true, reason: 'NTFS copy publication is Windows-only' }));
+    continue;
+  }
   const root = mkdtempSync(join(tmpdir(), 'DeskNext.RecoveryProbe-'));
   let completed = false;
   let child;

@@ -31,6 +31,14 @@ jobs:
         run: >-
           dotnet test tests/DeskNest.Core.Tests/DeskNest.Core.Tests.csproj
           -c Release -m:1 --nodeReuse:false -p:UseSharedCompilation=false
+      - name: Build native recovery probe
+        run: >-
+          dotnet build
+          tests/DeskNest.RecoveryProbe/DeskNest.RecoveryProbe.csproj
+          -c Release -m:1 --nodeReuse:false -p:UseSharedCompilation=false
+      - name: Force-kill Unix move and recovery boundaries
+        timeout-minutes: 3
+        run: node tests/recovery-kill.mjs
   probe:
     if: ${{ !inputs.storage_only }}
     strategy:

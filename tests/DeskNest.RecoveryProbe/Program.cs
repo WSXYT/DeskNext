@@ -25,6 +25,7 @@ string ready = Path.Combine(root, "ready");
 string sourceDir = Path.Combine(root, "source");
 string targetDir = Path.Combine(root, "target");
 var transaction = new DesktopOrganizationTransaction(journal);
+if (args[0] == "recover") RestoreJournalPermissions(root, journal);
 
 if (args[0] != "recover")
 {
@@ -69,14 +70,13 @@ if (args[0] != "recover")
 
     if (args[0].StartsWith("prepare-unreceipted-", StringComparison.Ordinal))
     {
-        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("This journal-sharing fault requires Windows.");
-        FileStream? deniedJournal = null;
+        Action? releaseJournal = null;
         byte[]? preparedBytes = null;
         bool DenyJournalReplacement()
         {
             preparedBytes = File.ReadAllBytes(journal);
-            // Intentional I/O fault: unlike the passive observer, deny writes AND atomic replacement.
-            deniedJournal = new FileStream(journal, FileMode.Open, FileAccess.Read, FileShare.Read);
+            // Real I/O fault: deny replacement via Windows sharing or Unix directory permissions.
+            releaseJournal = DenyJournalWrites(root, journal);
             return true;
         }
         var faulted = new DesktopOrganizationTransaction(journal,
@@ -89,10 +89,10 @@ if (args[0] != "recover")
                 if (directory) await faulted.ExecuteDirectoriesAsync([new(source, destination)], retainJournalUntilCommit: true);
                 else await faulted.ExecuteAsync([new(source, destination)], retainJournalUntilCommit: true);
             }
-            catch (IOException) { refusedWrite = true; }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException) { refusedWrite = true; }
             var retained = JsonSerializer.Deserialize<OrganizationRecoveryJournal>(await ReadObservedJournalAsync(journal),
                 new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
-            if (!refusedWrite || deniedJournal is null || preparedBytes is null ||
+            if (!refusedWrite || releaseJournal is null || preparedBytes is null ||
                 !preparedBytes.SequenceEqual(File.ReadAllBytes(journal)) || retained.Status != "Prepared" ||
                 (directory ? retained.DirectoryMoves!.Single().Completed : retained.Moves.Single().Completed) ||
                 File.Exists(source) || Directory.Exists(source) ||
@@ -101,7 +101,7 @@ if (args[0] != "recover")
             WriteReady(ready);
             await Task.Delay(Timeout.InfiniteTimeSpan);
         }
-        finally { deniedJournal?.Dispose(); }
+        finally { releaseJournal?.Invoke(); }
         return;
     }
     if (stagedCopy)
@@ -183,24 +183,23 @@ if (args[0] != "recover")
         : await transaction.ExecuteAsync([new(source, destination)], retainJournalUntilCommit: true);
     if (args[0].StartsWith("prepare-reverse-unreceipted-", StringComparison.Ordinal))
     {
-        if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("This journal-sharing fault requires Windows.");
-        FileStream? deniedJournal = null;
+        Action? releaseJournal = null;
         var interruptedRestore = new DesktopOrganizationTransaction(journal, restoreGuard: _ =>
         {
-            deniedJournal = new FileStream(journal, FileMode.Open, FileAccess.Read, FileShare.Read);
+            releaseJournal = DenyJournalWrites(root, journal);
             return true;
         });
         try
         {
             bool refusedWrite = false;
             try { await interruptedRestore.RecoverAsync(); }
-            catch (IOException) { refusedWrite = true; }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException) { refusedWrite = true; }
             var retained = JsonSerializer.Deserialize<OrganizationRecoveryJournal>(await ReadObservedJournalAsync(journal),
                 new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
             bool uncheckpointed = directory
                 ? retained.DirectoryMoves?.Single() is { Completed: true, Restored: false }
                 : retained.Moves.Single() is { Completed: true, Restored: false };
-            if (!refusedWrite || deniedJournal is null || retained.Status != "Recovering" || !uncheckpointed ||
+            if (!refusedWrite || releaseJournal is null || retained.Status != "Recovering" || !uncheckpointed ||
                 !File.Exists(journal + ".rollback-started") ||
                 File.ReadAllText(journal + ".rollback-started") != retained.OperationId.ToString("N") ||
                 !(directory ? Directory.Exists(source) : File.Exists(source)) ||
@@ -209,7 +208,7 @@ if (args[0] != "recover")
             WriteReady(ready);
             await Task.Delay(Timeout.InfiniteTimeSpan);
         }
-        finally { deniedJournal?.Dispose(); }
+        finally { releaseJournal?.Invoke(); }
         return;
     }
     if (args[0].StartsWith("prepare-committed-", StringComparison.Ordinal))
@@ -409,6 +408,31 @@ await using (var store = await WorkspaceStore.OpenAsync(dataDir))
         PendingMarkedRecoveryRequired = !committed && operation.Status == ProposedOperationStatus.RecoveryRequired,
         EmptyDirectoryRestored = file.IsDirectory ? true : (bool?)null
     }));
+}
+
+// Test-only permission faults are limited to this validated, isolated fixture's workspace.
+// The restart removes the I/O fault before exercising recovery, not the retained journal.
+static Action DenyJournalWrites(string root, string journal)
+{
+    if (OperatingSystem.IsWindows())
+    {
+        var denied = new FileStream(journal, FileMode.Open, FileAccess.Read, FileShare.Read);
+        return denied.Dispose;
+    }
+    string directory = Path.GetDirectoryName(journal)!;
+    var mode = File.GetUnixFileMode(directory);
+    File.WriteAllText(Path.Combine(root, "journal-directory-mode.json"), JsonSerializer.Serialize(mode));
+    File.SetUnixFileMode(directory, mode & ~(UnixFileMode.UserWrite | UnixFileMode.GroupWrite | UnixFileMode.OtherWrite));
+    return () => RestoreJournalPermissions(root, journal);
+}
+
+static void RestoreJournalPermissions(string root, string journal)
+{
+    if (OperatingSystem.IsWindows()) return;
+    string savedMode = Path.Combine(root, "journal-directory-mode.json");
+    if (!File.Exists(savedMode)) return;
+    File.SetUnixFileMode(Path.GetDirectoryName(journal)!, JsonSerializer.Deserialize<UnixFileMode>(File.ReadAllText(savedMode)));
+    File.Delete(savedMode);
 }
 
 // The observer must never acquire a read handle that blocks a transaction's atomic replace.
