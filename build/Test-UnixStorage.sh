@@ -47,8 +47,7 @@ if [[ "$platform" == Linux ]]; then
   sudo -n mount --bind "$root/upper" "$root/stack"
   linux_mounts+=("$root/stack")
 else
-  hdiutil create -size 128m -fs APFS -volname DeskNextProbe \
-    -format UDRW "$root/volume.dmg"
+  hdiutil create -size 128m -fs APFS -volname DeskNextProbe "$root/volume.dmg"
   hdiutil attach -nobrowse -mountpoint "$root/volume" "$root/volume.dmg"
   mac_attached=true
 fi

@@ -44,11 +44,12 @@ public sealed class NativeMountTests
             string journal = Path.Combine(volume, name, "recovery.json");
             string filler = Path.Combine(volume, name + "-filler");
             byte[]? prepared = null;
+            FileStream? filledVolume = null;
             bool diskFull = false;
             bool ExhaustJournalVolume()
             {
                 prepared = File.ReadAllBytes(journal);
-                FillUntilNoSpace(filler);
+                filledVolume = FillUntilNoSpace(filler);
                 diskFull = true;
                 return true;
             }
@@ -69,7 +70,11 @@ public sealed class NativeMountTests
                 Assert.False(Exists(source));
                 AssertContent(destination, directory);
             }
-            finally { if (File.Exists(filler)) File.Delete(filler); }
+            finally
+            {
+                filledVolume?.Dispose();
+                if (File.Exists(filler)) File.Delete(filler);
+            }
             // Removing the real ENOSPC condition is not authorization to infer a missing receipt.
             await Assert.ThrowsAsync<IOException>(() => new DesktopOrganizationTransaction(journal).RecoverAsync());
             Assert.True(transaction.HasRecoveryJournal);
@@ -100,26 +105,24 @@ public sealed class NativeMountTests
         }
     }
 
-    private static void FillUntilNoSpace(string path)
+    private static FileStream FillUntilNoSpace(string path)
     {
-        byte[] block = RandomNumberGenerator.GetBytes(1024 * 1024);
-        using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None,
-            4096, FileOptions.WriteThrough);
+        byte[] block = RandomNumberGenerator.GetBytes(4096);
+        var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+            1, FileOptions.WriteThrough);
         try
         {
-            // Both fixture images are smaller than this hard budget. Never fill an arbitrary disk.
-            for (int count = 0; count < 256; count++)
-            {
+            // Exhaust filesystem blocks, not only large allocation requests. Keep the
+            // descriptor open so closing it cannot release reserved extents before rename.
+            for (int count = 0; count < 256 * 1024 * 1024 / block.Length; count++)
                 stream.Write(block);
-                stream.Flush(flushToDisk: true);
-            }
         }
-        catch (IOException error)
+        catch (IOException error) when ((error.HResult & 0xFFFF) is 28 or 112)
         {
-            // Unix ENOSPC (or the mapped ERROR_DISK_FULL HRESULT), not an arbitrary I/O failure.
-            Assert.True((error.HResult & 0xFFFF) is 28 or 112, error.ToString());
-            return;
+            return stream; // Unix ENOSPC or mapped ERROR_DISK_FULL only.
         }
+        catch { stream.Dispose(); throw; }
+        stream.Dispose();
         throw new IOException("The bounded fixture did not produce ENOSPC; refusing to write more data.");
     }
 
