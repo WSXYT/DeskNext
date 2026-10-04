@@ -2,6 +2,10 @@
 
 Status: implementation in progress. Desktop takeover and watcher-driven automatic moves remain disabled.
 
+## Native Unix clipboard and import UI workflow (2026-10-04)
+
+CI [37218876022](https://github.com/WSXYT/desknest-p1-probes/actions/runs/37218876022) at `5cb0670` published self-contained Linux/macOS probes and passed the real platform clipboard plus production view-model commands: file/directory cut→paste→undo, and external review→confirm import→undo. Both terminal reports have `Success=true`, `ManualWorkflowVerified=true`, `NativeClipboardRoundTripVerified=true`. Linux uses the actual X11 backend under isolated Xvfb; macOS uses its native window/clipboard. The probe requires an initially empty clipboard and only clears its own fixture payloads. Copy publication remains Windows-only. These are native command workflows, not physical keyboard/mouse, Finder/Nautilus drag negotiation, installed-Unix-app or desktop-compositing evidence; `ExplorerDragVerified=false` is explicit. Log: `artifacts/p3-publication-tests/ci-37218876022.log`. Local App Release build and integrated headless UI workflow also passed without packaging (`artifacts/ui-review/headless-portable-storage-integration.log`).
+
 ## Missing mapped/recovery parent policy (2026-10-04)
 
 A deterministic file/directory import regression first reproduced recreation of a mapped target removed after preflight (`mapped-import-before.trx`, two failures). The coordinator now carries the managed-versus-mapped creation policy through transaction execution to both native rename implementations; mapped targets and external import-undo parents must already exist. Recovery also never recreates a missing original parent. Existing managed-target creation remains supported. Local related checks: 33 passed. CI [37217575031](https://github.com/WSXYT/desknest-p1-probes/actions/runs/37217575031) at `8116209` passed Linux/macOS Core 222 / skipped 38, both actual mount/capacity tests, and the portable kill/restart workflow. Evidence: `artifacts/p3-publication-tests/mapped-parent-policy.trx`, `ci-37217575031.log`. This closes the creation-policy defect, not all P3 gates.
