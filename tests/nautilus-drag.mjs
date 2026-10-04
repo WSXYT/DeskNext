@@ -20,7 +20,8 @@ function command(exe, args, timeout = 5000) {
 const xdo = (...args) => command('xdotool', args);
 function capture(name) { command('scrot', [join(evidence, name + '.png')]); }
 
-// Native AT-SPI locates the selected Nautilus row; no guessed theme/sidebar offsets.
+// Native AT-SPI verifies the fixture row is visible. GTK4 on this runner reports
+// widget-local extents even for DESKTOP_COORDS; input uses the captured list-row geometry.
 const locateItem = `
 import sys, json, pyatspi
 from collections import deque
@@ -136,6 +137,10 @@ try {
         catch { await delay(150); }
       }
       if (!point) throw Error('AT-SPI did not expose the visible Nautilus fixture row.');
+      console.log(JSON.stringify({ atspiReportedPoint: point, geometry: 'fixed Nautilus 46 list fixture, 1600x900 Xvfb' }));
+      // Measured in stage-0-before.png: sidebar 230px, label centre 375px,
+      // first-row centre 118px below the frame origin. Not a general GUI locator.
+      point = { X: r.X + 375, Y: r.Y + 118 };
     } else point = { X: r.X + Math.round(r.Width * 0.7), Y: r.Y + Math.round(r.Height * 0.6) };
     console.log(JSON.stringify({ dragStage: stages, direction: s.Stage, nautilusPoint: point, appPoint: s.Point }));
     capture(`stage-${stages}-before`);
