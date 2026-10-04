@@ -7,10 +7,54 @@ on:
         description: Linux/macOS storage tests only; no UI or packaging
         type: boolean
         default: false
+      native_manual_only:
+        description: Linux/macOS native clipboard and import UI only
+        type: boolean
+        default: false
 
 jobs:
+  native_manual:
+    if: ${{ inputs.native_manual_only }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            rid: linux-x64
+          - os: macos-15
+            rid: osx-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Use physical macOS temporary paths
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          physical_temp="$(cd "$RUNNER_TEMP" && pwd -P)"
+          printf 'TMPDIR=%s/\n' "$physical_temp" >> "$GITHUB_ENV"
+      - name: Publish the native UI probe
+        run: >-
+          dotnet publish src/DeskNest.App/DeskNest.App.csproj -c Release
+          -r ${{ matrix.rid }} --self-contained true -m:1 --nodeReuse:false
+          -p:UseSharedCompilation=false -o artifacts/native-manual-ui
+      - name: Exercise real X11 clipboard and production commands
+        if: runner.os == 'Linux'
+        timeout-minutes: 2
+        run: >-
+          xvfb-run -a -s '-screen 0 1600x900x24'
+          node tests/run-app-probe.mjs artifacts/native-manual-ui/DeskNest.App
+          --native-window-smoke --manual-workflow
+      - name: Exercise native macOS clipboard and production commands
+        if: runner.os == 'macOS'
+        timeout-minutes: 2
+        run: >-
+          node tests/run-app-probe.mjs artifacts/native-manual-ui/DeskNest.App
+          --native-window-smoke --manual-workflow
   storage:
-    if: ${{ inputs.storage_only }}
+    if: ${{ inputs.storage_only && !inputs.native_manual_only }}
     strategy:
       fail-fast: false
       matrix:
@@ -50,7 +94,7 @@ jobs:
           path: artifacts/native-mount-results/
           if-no-files-found: ignore
   probe:
-    if: ${{ !inputs.storage_only }}
+    if: ${{ !inputs.storage_only && !inputs.native_manual_only }}
     strategy:
       fail-fast: false
       matrix:
