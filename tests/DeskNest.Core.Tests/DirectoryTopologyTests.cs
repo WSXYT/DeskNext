@@ -168,7 +168,7 @@ public sealed class DirectoryTopologyTests : IDisposable
             var operation = Assert.Single(store.Snapshot.Operations);
             operationId = operation.Id;
             Assert.Equal(new[] { "empty", Path.Combine("empty", "nested") }, operation.OriginalDirectoryPaths);
-            if (OperatingSystem.IsWindows()) Assert.Equal(3, operation.OriginalDirectoryNativeIds?.Count);
+            Assert.Equal(3, operation.OriginalDirectoryNativeIds?.Count);
             if (change == "legacy")
                 await store.UpdateAsync(s => s with
                 {

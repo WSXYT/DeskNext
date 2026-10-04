@@ -10,7 +10,7 @@ internal static class UnixFileIdentity
     internal sealed record Metadata(string NativeId, long Length, long LastWriteTicks,
         long ChangeSeconds, uint ChangeNanoseconds);
 
-    internal static Metadata Capture(SafeFileHandle handle)
+    internal static Metadata Capture(SafeFileHandle handle, bool directory = false)
     {
         if (!BitConverter.IsLittleEndian || RuntimeInformation.ProcessArchitecture is not (Architecture.X64 or Architecture.Arm64))
             throw new PlatformNotSupportedException("Unix file evidence requires a supported 64-bit ABI.");
@@ -27,7 +27,7 @@ internal static class UnixFileIdentity
             const uint required = 0xBC3; // type, mode, inode, size, mtime, ctime and birth time
             if ((data.Mask & required) != required)
                 throw new NotSupportedException("The filesystem cannot supply inode and birth-time evidence.");
-            RequireRegular(data.Mode);
+            RequireKind(data.Mode, directory);
             return Create("linux", ((ulong)data.DeviceMajor << 32) | data.DeviceMinor, data.Inode,
                 checked((long)data.Size), data.Modified, data.Changed, data.Born);
         }
@@ -38,17 +38,31 @@ internal static class UnixFileIdentity
             int result = RuntimeInformation.ProcessArchitecture == Architecture.X64
                 ? fstat_inode64(handle, out data) : fstat(handle, out data);
             if (result != 0) throw NativeError();
-            RequireRegular(data.Mode);
+            RequireKind(data.Mode, directory);
             return Create("macos", data.Device, data.Inode, data.Size,
                 data.Modified, data.Changed, data.Born);
         }
         throw new PlatformNotSupportedException("Native file identity is unavailable on this platform.");
     }
 
-    internal static bool IsNativeId(string? value)
+    internal static Metadata CaptureDirectory(string path)
+    {
+        // Read-only, close-on-exec, and no-follow on the leaf. Ancestor checks remain with the caller.
+        int flags = OperatingSystem.IsLinux() ? 0x10000 | 0x20000 | 0x80000 :
+            OperatingSystem.IsMacOS() ? 0x100000 | 0x100 | 0x1000000 :
+            throw new PlatformNotSupportedException("Native directory identity is unavailable.");
+        int fd = open(path, flags);
+        if (fd < 0) throw NativeError();
+        using var handle = new SafeFileHandle((IntPtr)fd, ownsHandle: true);
+        return Capture(handle, directory: true);
+    }
+
+    internal static bool IsNativeId(string? value, bool requireCurrentPlatform = true)
     {
         string prefix = OperatingSystem.IsLinux() ? "linux:" : "macos:";
-        return value is { Length: 64 } && value.StartsWith(prefix, StringComparison.Ordinal) &&
+        return value is { Length: 64 } &&
+            (requireCurrentPlatform ? value.StartsWith(prefix, StringComparison.Ordinal) :
+                value.StartsWith("linux:", StringComparison.Ordinal) || value.StartsWith("macos:", StringComparison.Ordinal)) &&
             value[22] == ':' && value[39] == ':' &&
             value.AsSpan(6, 16).ToString().All(Uri.IsHexDigit) &&
             value.AsSpan(23, 16).ToString().All(Uri.IsHexDigit) &&
@@ -69,10 +83,10 @@ internal static class UnixFileIdentity
         return new(id, size, ticks, changed.Seconds, changed.Nanoseconds);
     }
 
-    private static void RequireRegular(ushort mode)
+    private static void RequireKind(ushort mode, bool directory)
     {
-        if ((mode & 0xF000) != 0x8000)
-            throw new IOException("Only a native regular file can supply file-move evidence.");
+        if ((mode & 0xF000) != (directory ? 0x4000 : 0x8000))
+            throw new IOException("Native object type does not match its file-move evidence.");
     }
 
     private static IOException NativeError() => new("Cannot read native file evidence.",
@@ -110,6 +124,9 @@ internal static class UnixFileIdentity
         [FieldOffset(80)] public Timestamp Born;
         [FieldOffset(96)] public long Size;
     }
+
+    [DllImport("libc", SetLastError = true)]
+    private static extern int open([MarshalAs(UnmanagedType.LPUTF8Str)] string path, int flags);
 
     [DllImport("libc", SetLastError = true)]
     private static extern int statx(SafeFileHandle fd, [MarshalAs(UnmanagedType.LPUTF8Str)] string path,

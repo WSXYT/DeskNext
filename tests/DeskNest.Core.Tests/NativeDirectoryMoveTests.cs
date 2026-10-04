@@ -9,7 +9,7 @@ public sealed class NativeDirectoryMoveTests : IDisposable
     private readonly string root = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(),
         "DeskNext-directory-move-" + Guid.NewGuid().ToString("N"))).FullName;
 
-    [WindowsHandleTheory]
+    [Theory]
     [InlineData("root")]
     [InlineData("empty")]
     [InlineData("legacy")]
@@ -66,7 +66,7 @@ public sealed class NativeDirectoryMoveTests : IDisposable
             new Dictionary<string, string> { [""] = id, ["extra"] = id }));
     }
 
-    [WindowsHandleTheory]
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task RecordedUndoEvidenceCannotBeReplacedDuringPreparation(bool directory)
@@ -80,10 +80,7 @@ public sealed class NativeDirectoryMoveTests : IDisposable
         {
             Directory.CreateDirectory(source);
             File.WriteAllText(Path.Combine(source, "item.txt"), "original content");
-            OrganizationDirectoryMoveReceipt expected;
-            using (var held = WindowsDirectoryLease.Open(source))
-            using (var tree = WindowsTreeLease.Capture(held.Handle, forCopy: false))
-                expected = tree.ToMoveReceipt(source, destination);
+            var expected = DesktopOrganizationTransaction.CaptureDirectoryReceipt(source, destination);
             Directory.Move(source, retired);
             Directory.CreateDirectory(source);
             File.Move(Path.Combine(retired, "item.txt"), Path.Combine(source, "item.txt"));

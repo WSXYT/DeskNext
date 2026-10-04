@@ -173,7 +173,7 @@ public sealed record OrganizationDirectoryMoveReceipt(
 {
     // Null means legacy evidence, not an empty tree. Never infer missing topology.
     public IReadOnlyList<string>? Directories { get; init; }
-    // Includes the root under ""; null is legacy/non-Windows evidence, not native authority.
+    // Includes the root under ""; null is legacy evidence, not native authority on any platform.
     public IReadOnlyDictionary<string, string>? DirectoryNativeIds { get; init; }
     public bool Restored { get; init; }
 }
@@ -552,26 +552,29 @@ public sealed class DesktopOrganizationTransaction
             FileSystemVolume.RequireNoReparsePoints(destination);
             FileSystemVolume.RequireSameVolume(source, destination);
 
-            if (OperatingSystem.IsWindows())
-            {
-                using var root = WindowsDirectoryLease.Open(source);
-                using var tree = WindowsTreeLease.Capture(root.Handle, cancellationToken, forCopy: false);
-                var receipt = tree.ToMoveReceipt(source, destination);
-                ValidateDirectoryManifest(receipt.Files, receipt.Directories, receipt.DirectoryNativeIds);
-                result.Add(receipt);
-            }
-            else
-            {
-                var snapshot = CaptureDirectorySnapshot(source, cancellationToken);
-                result.Add(new OrganizationDirectoryMoveReceipt(source, destination, snapshot.Files, false)
-                {
-                    Directories = snapshot.Directories
-                });
-            }
+            result.Add(CaptureDirectoryReceipt(source, destination, cancellationToken));
             if (move.ExpectedReceipt is { } expected && !DirectoryReceiptsMatch(result[^1], expected))
                 throw new IOException("Directory changed after selecting the recorded operation; refusing to prepare it.");
         }
         return result;
+    }
+
+    internal static OrganizationDirectoryMoveReceipt CaptureDirectoryReceipt(string source, string destination,
+        CancellationToken token = default)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            using var root = WindowsDirectoryLease.Open(source);
+            using var tree = WindowsTreeLease.Capture(root.Handle, token, forCopy: false);
+            var receipt = tree.ToMoveReceipt(source, destination);
+            ValidateDirectoryManifest(receipt.Files, receipt.Directories, receipt.DirectoryNativeIds);
+            return receipt;
+        }
+        var ids = new SortedDictionary<string, string>(StringComparer.Ordinal);
+        var snapshot = CaptureDirectorySnapshot(source, token, ids);
+        ValidateDirectoryManifest(snapshot.Files, snapshot.Directories, ids);
+        return new(source, destination, snapshot.Files, false)
+        { Directories = snapshot.Directories, DirectoryNativeIds = ids };
     }
 
     // File-only compatibility helper; physical operations require the full snapshot.
@@ -582,7 +585,11 @@ public sealed class DesktopOrganizationTransaction
     internal const int MaximumDirectoryDepth = 128;
 
     public static (IReadOnlyList<DirectoryFileReceipt> Files, IReadOnlyList<string> Directories)
-        CaptureDirectorySnapshot(string root, CancellationToken cancellationToken = default)
+        CaptureDirectorySnapshot(string root, CancellationToken cancellationToken = default) =>
+        CaptureDirectorySnapshot(root, cancellationToken, null);
+
+    private static (IReadOnlyList<DirectoryFileReceipt> Files, IReadOnlyList<string> Directories)
+        CaptureDirectorySnapshot(string root, CancellationToken cancellationToken, IDictionary<string, string>? nativeIds)
     {
         cancellationToken.ThrowIfCancellationRequested();
         root = Normalize(root);
@@ -597,6 +604,9 @@ public sealed class DesktopOrganizationTransaction
             if ((attributes & FileAttributes.ReparsePoint) != 0 ||
                 (attributes & FileAttributes.Directory) == 0)
                 throw new IOException($"Directory is not eligible for a safe snapshot: {current.Path}");
+            var native = nativeIds is null ? null : UnixFileIdentity.CaptureDirectory(current.Path);
+            if (native is not null)
+                nativeIds!.Add(current.Depth == 0 ? "" : Path.GetRelativePath(root, current.Path), native.NativeId);
             // Enumerate one level only. Inspect links before traversing, including empty directories.
             foreach (string path in Directory.EnumerateFileSystemEntries(current.Path))
             {
@@ -620,6 +630,15 @@ public sealed class DesktopOrganizationTransaction
                 }
             }
         }
+        // Native node receipts include the root and empty directories, not just file-bearing paths.
+        // Re-open after the walk to detect replacements during traversal; this is not a snapshot lock.
+        if (nativeIds is not null)
+            foreach (var pair in nativeIds)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (UnixFileIdentity.CaptureDirectory(Path.Combine(root, pair.Key)).NativeId != pair.Value)
+                    throw new IOException("Directory identity changed during capture.");
+            }
         var sortedFiles = files.OrderBy(item => item.RelativePath, StringComparer.Ordinal).ToArray();
         var sortedDirectories = directories.Order(StringComparer.Ordinal).ToArray();
         ValidateDirectoryManifest(sortedFiles, sortedDirectories);
@@ -638,11 +657,12 @@ public sealed class DesktopOrganizationTransaction
             return tree.MatchesMoveReceipt(new(root, root, files, false)
             { Directories = directories, DirectoryNativeIds = directoryNativeIds });
         }
-        var actual = CaptureDirectorySnapshot(root);
-        return actual.Files.Count == files.Count &&
-            actual.Files.Zip(files).All(pair => pair.First.RelativePath == pair.Second.RelativePath &&
-                pair.First.Identity == pair.Second.Identity && HasNativeEvidence(pair.Second.Identity)) &&
-            actual.Directories.SequenceEqual(directories!);
+        if (directoryNativeIds is null || directoryNativeIds.Values.Any(id => !UnixFileIdentity.IsNativeId(id)))
+            return false;
+        var actual = CaptureDirectoryReceipt(root, root);
+        return actual.Files.All(file => HasNativeEvidence(file.Identity)) &&
+            DirectoryReceiptsMatch(actual, new(root, root, files, false)
+            { Directories = directories, DirectoryNativeIds = directoryNativeIds });
     }
 
     internal static bool IdentityMatches(string path, FileIdentity expected) =>
@@ -659,8 +679,7 @@ public sealed class DesktopOrganizationTransaction
     {
         if (actual.Directories is null || expected.Directories is null ||
             !actual.Files.SequenceEqual(expected.Files) || !actual.Directories.SequenceEqual(expected.Directories)) return false;
-        if (expected.DirectoryNativeIds is null)
-            return !OperatingSystem.IsWindows() && actual.DirectoryNativeIds is null;
+        if (expected.DirectoryNativeIds is null) return false;
         return actual.DirectoryNativeIds is not null && actual.DirectoryNativeIds.Count == expected.DirectoryNativeIds.Count &&
             actual.DirectoryNativeIds.All(pair => expected.DirectoryNativeIds.TryGetValue(pair.Key, out string? id) && id == pair.Value);
     }
@@ -702,8 +721,9 @@ public sealed class DesktopOrganizationTransaction
         }
         if (directoryNativeIds is not null &&
             (!directoryNativeIds.Keys.SequenceEqual(folders.Append("").Order(StringComparer.Ordinal)) ||
-             directoryNativeIds.Values.Any(id => !IsNativeId(id)) ||
-             directoryNativeIds.Values.Any(id => !id.AsSpan(0, 16).SequenceEqual(directoryNativeIds[""].AsSpan(0, 16)))))
+             directoryNativeIds.Values.Any(id => !IsNativeId(id) && !UnixFileIdentity.IsNativeId(id, requireCurrentPlatform: false)) ||
+             directoryNativeIds.Values.Any(id => !id.StartsWith(
+                 directoryNativeIds[""][..(directoryNativeIds[""].Length == 49 ? 16 : 22)], StringComparison.Ordinal))))
             throw new InvalidDataException("Native directory identities must cover the exact sorted topology on one volume.");
     }
 
@@ -721,7 +741,7 @@ public sealed class DesktopOrganizationTransaction
             WindowsFileHandles.MoveDirectory(move.SourcePath, move.DestinationPath, move, token);
             return;
         }
-        if (!DirectoryManifestMatches(move.SourcePath, move.Files, move.Directories))
+        if (!DirectoryManifestMatches(move.SourcePath, move.Files, move.Directories, move.DirectoryNativeIds))
             throw new IOException($"Directory changed before move: {move.SourcePath}");
         Directory.CreateDirectory(Path.GetDirectoryName(move.DestinationPath)!);
         FileSystemVolume.RequireSameVolume(move.SourcePath, move.DestinationPath);
