@@ -18,7 +18,7 @@ public sealed record FileIdentity(
     long LastWriteTimeUtcTicks,
     string Sha256)
 {
-    // Null is legacy evidence on Windows; it cannot authorize recovery or undo.
+    // Null is legacy evidence; it cannot authorize recovery or undo on supported platforms.
     public string? NativeId { get; init; }
 
     public static FileIdentity Capture(string path, CancellationToken cancellationToken = default)
@@ -42,6 +42,7 @@ public sealed record FileIdentity(
             FileShare.Read,
             64 * 1024,
             FileOptions.SequentialScan);
+        var unix = OperatingSystem.IsWindows() ? null : UnixFileIdentity.Capture(stream.SafeFileHandle);
         using var hashAlgorithm = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         byte[] buffer = new byte[64 * 1024];
         int bytesRead;
@@ -59,7 +60,10 @@ public sealed record FileIdentity(
             var (nativeId, lastWriteTicks) = WindowsFileIdentity.Capture(stream.SafeFileHandle);
             return new FileIdentity(stream.Length, lastWriteTicks, hash) { NativeId = nativeId };
         }
-        return new FileIdentity(stream.Length, info.LastWriteTimeUtc.Ticks, hash);
+        var after = UnixFileIdentity.Capture(stream.SafeFileHandle);
+        if (unix != after || stream.Length != after.Length)
+            throw new IOException("The file changed while native identity and content were being captured.");
+        return new FileIdentity(after.Length, after.LastWriteTicks, hash) { NativeId = after.NativeId };
     }
 }
 
@@ -645,7 +649,8 @@ public sealed class DesktopOrganizationTransaction
         HasNativeEvidence(expected) && FileIdentity.Capture(path) == expected;
 
     private static bool HasNativeEvidence(FileIdentity expected) =>
-        !OperatingSystem.IsWindows() || IsNativeId(expected.NativeId);
+        OperatingSystem.IsWindows() ? IsNativeId(expected.NativeId) :
+        (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS()) && UnixFileIdentity.IsNativeId(expected.NativeId);
 
     private static bool IsNativeId(string? nativeId) => nativeId is { Length: 49 } id &&
         id[16] == ':' && id.Where((_, index) => index != 16).All(Uri.IsHexDigit);

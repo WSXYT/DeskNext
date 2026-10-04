@@ -10,7 +10,6 @@ public sealed class NativeIdentityTests
     [Fact]
     public async Task SameContentReplacementCannotAuthorizeFileRecovery()
     {
-        if (!OperatingSystem.IsWindows()) return;
         using var root = new TestDirectory();
         string source = Path.Combine(root.Path, "source.txt");
         string destination = Path.Combine(root.Path, "destination.txt");
@@ -38,7 +37,6 @@ public sealed class NativeIdentityTests
     [Fact]
     public async Task SameContentReplacementCannotAuthorizeDirectoryRecovery()
     {
-        if (!OperatingSystem.IsWindows()) return;
         using var root = new TestDirectory();
         string source = Path.Combine(root.Path, "source");
         string destination = Path.Combine(root.Path, "destination");
@@ -63,7 +61,6 @@ public sealed class NativeIdentityTests
     [Fact]
     public async Task ReopenedWorkspaceRefusesReplacedFileUndo()
     {
-        if (!OperatingSystem.IsWindows()) return;
         using var root = new TestDirectory();
         string sourceFolder = Path.Combine(root.Path, "source");
         string targetFolder = Path.Combine(root.Path, "target");
@@ -101,9 +98,8 @@ public sealed class NativeIdentityTests
     }
 
     [Fact]
-    public async Task LegacyHashOnlyReceiptDoesNotAuthorizeWindowsRecovery()
+    public async Task LegacyHashOnlyReceiptDoesNotAuthorizeRecovery()
     {
-        if (!OperatingSystem.IsWindows()) return;
         using var root = new TestDirectory();
         string source = Path.Combine(root.Path, "source.txt");
         string destination = Path.Combine(root.Path, "destination.txt");
