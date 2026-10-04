@@ -39,6 +39,16 @@ jobs:
       - name: Force-kill Unix move and recovery boundaries
         timeout-minutes: 3
         run: node tests/recovery-kill.mjs
+      - name: Real mounts and full-journal-disk refusal
+        timeout-minutes: 5
+        shell: bash
+        run: bash build/Test-UnixStorage.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-mount-results-${{ matrix.os }}
+          path: artifacts/native-mount-results/
+          if-no-files-found: ignore
   probe:
     if: ${{ !inputs.storage_only }}
     strategy:
