@@ -100,17 +100,11 @@ public sealed class OrganizationRollbackCheckpointTests : IDisposable
     {
         if (directory) Directory.CreateDirectory(Source(1));
         await File.WriteAllTextAsync(Content(Source(1), directory), "restored before exit");
-        using var nativeRoot = directory && OperatingSystem.IsWindows() ? WindowsDirectoryLease.Open(Source(1)) : null;
         var journal = new OrganizationRecoveryJournal(Guid.NewGuid(), "Recovering",
             directory ? [] : [new OrganizationMoveReceipt(Source(1), Destination(1), FileIdentity.Capture(Source(1)), true)
                 { Restored = checkpointed }], DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
-            directory ? [new OrganizationDirectoryMoveReceipt(Source(1), Destination(1),
-                DesktopOrganizationTransaction.CaptureDirectoryManifest(Source(1)), true)
-                {
-                    Restored = checkpointed, Directories = [],
-                    DirectoryNativeIds = nativeRoot is null ? null : new Dictionary<string, string>
-                    { [""] = WindowsFileIdentity.Capture(nativeRoot.Handle).NativeId }
-                }] : null);
+            directory ? [DesktopOrganizationTransaction.CaptureDirectoryReceipt(Source(1), Destination(1)) with
+                { Completed = true, Restored = checkpointed }] : null);
         await File.WriteAllTextAsync(Journal, JsonSerializer.Serialize(journal));
         var transaction = new DesktopOrganizationTransaction(Journal);
         if (checkpointed)
