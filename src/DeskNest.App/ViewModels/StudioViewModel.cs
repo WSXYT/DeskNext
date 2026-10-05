@@ -1027,13 +1027,19 @@ public sealed partial class StudioViewModel : ViewModelBase
             }
         }
 
+        // Hint text is a session draft, carried only across refreshes of the same pending subject.
+        var hintDrafts = PendingItems.Where(p => !string.IsNullOrEmpty(p.ClassificationHint))
+            .ToDictionary(p => p.Id, p => (p.Path, p.ClassificationHint));
         // Load Pending Triage
         PendingItems.Clear();
         foreach (var p in state.Pending)
         {
             string? suggestedName = p.SuggestedSpaceId != null && spacesDict.TryGetValue(p.SuggestedSpaceId.Value, out var target)
                 ? target.Name : null;
-            PendingItems.Add(new PendingItemViewModel(p, suggestedName));
+            var pending = new PendingItemViewModel(p, suggestedName);
+            if (hintDrafts.TryGetValue(p.Id, out var draft) && draft.Path == p.Path)
+                pending.ClassificationHint = draft.ClassificationHint;
+            PendingItems.Add(pending);
         }
 
         SelectedPendingItem = prevPendingId.HasValue

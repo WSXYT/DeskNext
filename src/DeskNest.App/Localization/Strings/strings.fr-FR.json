@@ -79,14 +79,14 @@
   "Classification.SessionKey": "Clé API (sans sauvegarde automatique)",
   "Classification.ClearSession": "Vider cette session",
   "Classification.JevSetup": "Choisissez Jev et enregistrez les paramètres. Entrez votre clé TypeSafe, autorisez l’envoi ci-dessous, puis demandez un aperçu. Par défaut, la clé reste en session. Une limitation explicite peut entraîner deux nouvelles tentatives au maximum en 45 secondes ; une attente plus longue nécessite une nouvelle action.",
-  "Classification.JevConsent": "J’autorise l’envoi des noms de fichiers, types d’éléments et noms/descriptions de tous les espaces à TypeSafe AI pour les aperçus de cette session. Aucun contenu ni chemin complet n’est envoyé. L’API peut être payante.",
-  "Classification.JevResultNotice": "Suggestion Jev cloud uniquement. Les noms et descriptions des espaces ont été envoyés à TypeSafe AI ; aucun contenu lu et aucun fichier ou enregistrement de l’espace de travail modifié.",
+  "Classification.JevConsent": "Autoriser l’envoi des noms, types, noms/descriptions des catégories et de mes notes facultatives à TypeSafe AI cette session. L’API peut être facturée. Aucun envoi automatique du contenu ou des chemins absolus.",
+  "Classification.JevResultNotice": "TypeSafe AI reçoit les noms, types, descriptions des catégories et votre note facultative. Aucun envoi automatique de contenu ou chemin, ni modification des fichiers ou de l’espace.",
   "Classification.JevRunning": "Demande d’aperçu Jev cloud… Annulation dans le menu contextuel.",
   "Classification.Setup": "Téléchargez ou installez un paquet Laya fiable, puis enregistrez les paramètres, ou choisissez un dossier existant contenant manifest.json.",
   "Classification.Running": "Suggestions en cours sur le CPU local… Annulation dans le menu contextuel.",
   "Classification.Cancelled": "Aperçu du classement annulé. Les fichiers sont inchangés.",
   "Classification.Stale": "Les espaces ou réglages ont changé. Ancienne suggestion ignorée ; relancez l’aperçu.",
-  "Classification.ReadOnly": "Les suggestions locales utilisent seulement les noms et descriptions des espaces. Aucun contenu n’est lu, aucun fichier n’est déplacé. Les sommes de contrôle n’authentifient pas l’éditeur du modèle.",
+  "Classification.ReadOnly": "Suggestion en lecture seule à partir des noms, types, descriptions des catégories et de votre note facultative. Aucun contenu lu ni fichier déplacé. Les sommes de contrôle n’authentifient pas l’éditeur.",
   "Classification.LocalCpu": "Laya · CPU local",
   "Classification.Choice": "Premier choix du modèle : {0}",
   "Classification.Score": "{0} — {1}",
@@ -396,5 +396,7 @@
   "Classification.RepairPackage": "Réparer le modèle",
   "Classification.RepairPackageNotice": "Installe le modèle multilingue vérifié dans un nouveau dossier sans modifier l’ancien. Enregistrez les paramètres pour basculer.",
   "Classification.InstallLocation": "Emplacement des nouveaux modèles",
-  "Classification.InstallLocationNotice": "Les nouvelles copies sont installées ici ; les anciens dossiers sont conservés. L’observation des dossiers est mise en pause ; reprenez-la manuellement ensuite."
+  "Classification.InstallLocationNotice": "Les nouvelles copies sont installées ici ; les anciens dossiers sont conservés. L’observation des dossiers est mise en pause ; reprenez-la manuellement ensuite.",
+  "Classification.Hint": "Note de classement facultative",
+  "Classification.HintNotice": "256 caractères maximum. Envoyée avec l’aperçu au fournisseur choisi, jamais enregistrée dans les métadonnées de l’espace."
 }

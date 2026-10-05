@@ -511,6 +511,16 @@ public static class HeadlessSmokeRunner
         {
             Dispatcher.UIThread.RunJobs();
             var pendingView = studio.PendingItems.Single();
+            var hintBox = view.GetVisualDescendants().OfType<TextBox>().Single(b => b.Name == "PendingClassificationHint");
+            pendingView.ClassificationTarget = studio.AllSpaces.Single();
+            hintBox.Text = "Quarterly accounting report, not a design asset.";
+            if (hintBox.MaxLength != 256 || pendingView.HasClassificationTarget || pendingView.ClassificationHint != hintBox.Text)
+                throw new InvalidOperationException("Editing the bounded hint must invalidate its prior model suggestion.");
+            studio.RefreshFromState(store.Snapshot);
+            Dispatcher.UIThread.RunJobs();
+            pendingView = studio.PendingItems.Single();
+            if (pendingView.ClassificationHint != "Quarterly accounting report, not a design asset.")
+                throw new InvalidOperationException("A settings refresh lost the pending hint draft.");
             var button = view.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PendingClassificationButton");
             if (!button.IsEffectivelyVisible || button.Command != studio.PreviewClassificationCommand || button.CommandParameter != pendingView)
                 throw new InvalidOperationException("Pending preview must target the actual review row.");
@@ -523,7 +533,14 @@ public static class HeadlessSmokeRunner
             studio.UseClassificationTargetCommand.Execute(pendingView);
             if (pendingView.TargetSpace?.Id != space.Id || pendingView.HasClassificationTarget || store.Snapshot.Revision != revision)
                 throw new InvalidOperationException("Using a model suggestion must only set the target draft.");
-            Console.WriteLine("PENDING_CLASSIFICATION_PREVIEW: verified; suggestion selection is draft-only, no move.");
+            var oldHint = pendingView.ClassificationHint;
+            var stale = studio.PreviewClassificationCommand.ExecuteAsync(pendingView);
+            pendingView.ClassificationHint = "Changed while the request was running.";
+            await stale;
+            if (studio.IsPreviewDialogOpen || pendingView.HasClassificationTarget || studio.FileActionNotice != main.Localizer["Classification.Stale"] ||
+                JsonSerializer.Serialize(store.Snapshot).Contains(oldHint) || store.Snapshot.Revision != revision)
+                throw new InvalidOperationException("A changed hint accepted a stale result or persisted private draft text.");
+            Console.WriteLine("PENDING_CLASSIFICATION_PREVIEW: verified; hint draft retained, stale result refused, no move or hint persistence.");
         }
         finally { window.Close(); }
         var cancelled = studio.PreviewClassificationCommand.ExecuteAsync(studio.SelectedFile);

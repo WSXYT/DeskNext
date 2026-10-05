@@ -79,14 +79,14 @@
   "Classification.SessionKey": "API 金鑰（不會自動儲存）",
   "Classification.ClearSession": "清空本次工作階段",
   "Classification.JevSetup": "選擇 Jev 並儲存設定。輸入 TypeSafe 金鑰並在下方允許傳送，再要求預覽。預設僅用於本次工作階段。 遇到明確限流時，可在45秒內最多重試兩次；伺服器要求更長等待時需稍後手動重試。",
-  "Classification.JevConsent": "我允許本次工作階段的預覽將檔名、項目類型及所有空間名稱/描述傳送至 TypeSafe AI。不傳送內容或完整路徑，API 使用可能產生費用。",
-  "Classification.JevResultNotice": "僅為 Jev 雲端建議。已向 TypeSafe AI 傳送名稱及空間描述；未讀取檔案內容，未變更檔案或工作區紀錄。",
+  "Classification.JevConsent": "允許本次工作階段向 TypeSafe AI 傳送檔名、類型、分類名稱/說明及我填寫的補充說明。API 可能收費；不自動上傳正文或絕對路徑。",
+  "Classification.JevResultNotice": "TypeSafe AI 會收到名稱、類型、分類說明及你填寫的補充說明。不自動上傳正文或路徑，不修改檔案或工作區。",
   "Classification.JevRunning": "正在請求 Jev 雲端預覽…可在右鍵選單中取消。",
   "Classification.Setup": "下載或安裝可信的 Laya 模型套件後儲存設定，也可選擇含 manifest.json 的現有模型目錄。",
   "Classification.Running": "正在本機 CPU 上產生建議…可從右鍵選單取消。",
   "Classification.Cancelled": "已取消分類預覽，檔案未變更。",
   "Classification.Stale": "空間或設定已變更，已捨棄舊建議；請重新預覽。",
-  "Classification.ReadOnly": "僅根據名稱與空間說明提供本機建議，不讀取內文，也不移動檔案。模型校驗和不代表發行者認證。",
+  "Classification.ReadOnly": "唯讀建議使用名稱、類型、分類說明及你填寫的補充說明。不讀取檔案正文、不移動檔案；校驗和不等於模型發布者認證。",
   "Classification.LocalCpu": "Laya · 本機 CPU",
   "Classification.Choice": "模型首選：{0}",
   "Classification.Score": "{0} — {1}",
@@ -396,5 +396,7 @@
   "Classification.RepairPackage": "修復模型",
   "Classification.RepairPackageNotice": "將已驗證的多語言模型安裝到新目錄，保留舊目錄不動；儲存設定後才切換。",
   "Classification.InstallLocation": "新模型安裝位置",
-  "Classification.InstallLocationNotice": "新副本安裝到此處，舊目錄保留。開始安裝會暫停資料夾觀察，請在完成後手動恢復。"
+  "Classification.InstallLocationNotice": "新副本安裝到此處，舊目錄保留。開始安裝會暫停資料夾觀察，請在完成後手動恢復。",
+  "Classification.Hint": "補充分類說明（選填）",
+  "Classification.HintNotice": "最多256個字元，會隨預覽請求傳送給所選引擎，不儲存到工作區中繼資料。"
 }

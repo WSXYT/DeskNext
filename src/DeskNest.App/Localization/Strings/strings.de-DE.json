@@ -79,14 +79,14 @@
   "Classification.SessionKey": "API-Schlüssel (keine automatische Speicherung)",
   "Classification.ClearSession": "Sitzung leeren",
   "Classification.JevSetup": "Jev auswählen und Einstellungen speichern. TypeSafe-Schlüssel eingeben, das Senden unten erlauben und eine Vorschau anfordern. Standardmäßig gilt der Schlüssel nur für diese Sitzung. Bei ausdrücklicher Ratenbegrenzung erfolgen höchstens zwei Wiederholungen innerhalb von 45 Sekunden; längere Wartezeiten erfordern einen neuen Aufruf.",
-  "Classification.JevConsent": "Ich erlaube für Vorschauen dieser Sitzung die Übertragung von Dateinamen, Objekttypen sowie allen Bereichsnamen und -beschreibungen an TypeSafe AI. Keine Inhalte oder vollständigen Pfade. API-Nutzung kann kostenpflichtig sein.",
-  "Classification.JevResultNotice": "Nur ein Jev-Cloud-Vorschlag. Namen und Bereichsbeschreibungen wurden an TypeSafe AI gesendet; keine Dateiinhalte gelesen und keine Dateien oder Arbeitsbereichsdaten geändert.",
+  "Classification.JevConsent": "In dieser Sitzung Dateinamen, Typen, Kategoriennamen/-beschreibungen und meine optionalen Notizen an TypeSafe AI senden. API-Nutzung kann kostenpflichtig sein. Kein automatischer Upload von Dateiinhalten oder absoluten Pfaden.",
+  "Classification.JevResultNotice": "TypeSafe AI erhält Namen, Typen, Kategorienbeschreibungen und Ihre optionale Notiz. Kein automatischer Inhalts-/Pfad-Upload; keine Datei- oder Arbeitsbereichsänderung.",
   "Classification.JevRunning": "Jev-Cloud-Vorschau wird angefordert… Abbruch im Kontextmenü.",
   "Classification.Setup": "Ein vertrauenswürdiges Laya-Modellpaket herunterladen oder installieren und die Einstellungen speichern; alternativ einen vorhandenen Ordner mit manifest.json wählen.",
   "Classification.Running": "Vorschläge werden auf der lokalen CPU erstellt… Abbrechen im Kontextmenü.",
   "Classification.Cancelled": "Klassifikationsvorschau abgebrochen. Dateien bleiben unverändert.",
   "Classification.Stale": "Bereiche oder Einstellungen wurden geändert. Alter Vorschlag verworfen; Vorschau erneut starten.",
-  "Classification.ReadOnly": "Lokale Vorschläge nutzen nur Namen und Bereichsbeschreibungen. Dateiinhalte werden nicht gelesen und Dateien nicht verschoben. Modellprüfsummen bestätigen nicht den Herausgeber.",
+  "Classification.ReadOnly": "Nur lesender Vorschlag aus Namen, Typen, Kategorienbeschreibungen und Ihrer optionalen Notiz. Keine Dateiinhalte gelesen oder Dateien verschoben. Prüfsummen authentifizieren den Herausgeber nicht.",
   "Classification.LocalCpu": "Laya · Lokale CPU",
   "Classification.Choice": "Erste Wahl des Modells: {0}",
   "Classification.Score": "{0} — {1}",
@@ -396,5 +396,7 @@
   "Classification.RepairPackage": "Modell reparieren",
   "Classification.RepairPackageNotice": "Installiert das geprüfte mehrsprachige Modell in einem neuen Ordner. Der alte bleibt unverändert. Zum Wechseln Einstellungen speichern.",
   "Classification.InstallLocation": "Speicherort neuer Modelle",
-  "Classification.InstallLocationNotice": "Neue Kopien werden hier installiert; alte Ordner bleiben erhalten. Die Ordnerbeobachtung wird pausiert und muss danach manuell fortgesetzt werden."
+  "Classification.InstallLocationNotice": "Neue Kopien werden hier installiert; alte Ordner bleiben erhalten. Die Ordnerbeobachtung wird pausiert und muss danach manuell fortgesetzt werden.",
+  "Classification.Hint": "Optionale Klassifizierungsnotiz",
+  "Classification.HintNotice": "Bis zu 256 Zeichen. Wird mit der Vorschau an den gewählten Anbieter gesendet, nicht in Arbeitsbereich-Metadaten gespeichert."
 }

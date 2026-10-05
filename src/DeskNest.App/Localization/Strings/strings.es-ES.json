@@ -79,14 +79,14 @@
   "Classification.SessionKey": "Clave API (sin guardado automático)",
   "Classification.ClearSession": "Vaciar esta sesión",
   "Classification.JevSetup": "Selecciona Jev y guarda los ajustes. Introduce la clave de TypeSafe, autoriza el envío abajo y solicita una vista previa. Por defecto, la clave solo dura esta sesión. Ante límites explícitos se reintenta hasta dos veces en 45 segundos; las esperas más largas requieren una nueva acción.",
-  "Classification.JevConsent": "Permito enviar nombres de archivo, tipos de elemento y nombres/descripciones de todos los espacios a TypeSafe AI para las vistas previas de esta sesión. No se envían contenidos ni rutas completas. La API puede tener coste.",
-  "Classification.JevResultNotice": "Solo una sugerencia de Jev en la nube. Se enviaron nombres y descripciones a TypeSafe AI; no se leyeron contenidos ni se modificaron archivos o registros del espacio de trabajo.",
+  "Classification.JevConsent": "Permitir enviar nombres, tipos, nombres/descripciones de categorías y mis notas opcionales a TypeSafe AI esta sesión. La API puede tener coste. No se suben automáticamente contenidos ni rutas absolutas.",
+  "Classification.JevResultNotice": "TypeSafe AI recibe nombres, tipos, descripciones de categorías y tu nota opcional. Sin subida automática de contenido o rutas ni cambios en archivos o espacio.",
   "Classification.JevRunning": "Solicitando vista previa de Jev… Cancele desde el menú contextual.",
   "Classification.Setup": "Descarga o instala un paquete Laya de confianza y guarda los ajustes, o elige una carpeta existente con manifest.json.",
   "Classification.Running": "Generando sugerencias en la CPU local… Cancela desde el menú contextual.",
   "Classification.Cancelled": "Vista previa cancelada. Los archivos no han cambiado.",
   "Classification.Stale": "Los espacios o ajustes han cambiado. Se descartó la sugerencia anterior; repite la vista previa.",
-  "Classification.ReadOnly": "Las sugerencias locales solo usan nombres y descripciones de espacios. No se lee el contenido ni se mueven archivos. Las sumas de comprobación no autentican al editor del modelo.",
+  "Classification.ReadOnly": "Sugerencia de solo lectura basada en nombres, tipos, descripciones de categorías y tu nota opcional. No lee contenidos ni mueve archivos. Las sumas de control no autentican al editor.",
   "Classification.LocalCpu": "Laya · CPU local",
   "Classification.Choice": "Primera opción del modelo: {0}",
   "Classification.Score": "{0} — {1}",
@@ -396,5 +396,7 @@
   "Classification.RepairPackage": "Reparar modelo",
   "Classification.RepairPackageNotice": "Instala el modelo multilingüe verificado en una carpeta nueva sin modificar la anterior. Guarda los ajustes para cambiar.",
   "Classification.InstallLocation": "Ubicación de modelos nuevos",
-  "Classification.InstallLocationNotice": "Las copias nuevas se instalan aquí y las carpetas anteriores se conservan. La observación de carpetas se pausa; reanúdala manualmente al terminar."
+  "Classification.InstallLocationNotice": "Las copias nuevas se instalan aquí y las carpetas anteriores se conservan. La observación de carpetas se pausa; reanúdala manualmente al terminar.",
+  "Classification.Hint": "Nota opcional de clasificación",
+  "Classification.HintNotice": "Hasta 256 caracteres. Se envía con la vista previa al proveedor elegido; no se guarda en los metadatos del espacio."
 }

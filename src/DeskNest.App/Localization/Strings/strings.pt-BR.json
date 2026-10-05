@@ -79,14 +79,14 @@
   "Classification.SessionKey": "Chave API (sem salvamento automático)",
   "Classification.ClearSession": "Limpar esta sessão",
   "Classification.JevSetup": "Selecione Jev e salve as configurações. Insira a chave TypeSafe, permita o envio abaixo e solicite uma prévia. Por padrão, a chave vale só nesta sessão. Limites explícitos permitem até duas novas tentativas em 45 segundos; esperas maiores exigem uma nova ação.",
-  "Classification.JevConsent": "Autorizo o envio de nomes de arquivos, tipos de itens e nomes/descrições de todos os espaços ao TypeSafe AI para prévias nesta sessão. Nenhum conteúdo ou caminho completo é enviado. O uso da API pode ser cobrado.",
-  "Classification.JevResultNotice": "Apenas uma sugestão do Jev na nuvem. Nomes e descrições foram enviados ao TypeSafe AI; nenhum conteúdo foi lido e nenhum arquivo ou registro do espaço de trabalho foi alterado.",
+  "Classification.JevConsent": "Permitir enviar nomes, tipos, nomes/descrições de categorias e minhas notas opcionais ao TypeSafe AI nesta sessão. A API pode cobrar pelo uso. Sem envio automático de conteúdo ou caminhos absolutos.",
+  "Classification.JevResultNotice": "TypeSafe AI recebe nomes, tipos, descrições de categorias e sua nota opcional. Sem envio automático de conteúdo/caminhos ou alterações em arquivos ou espaço.",
   "Classification.JevRunning": "Solicitando prévia do Jev… Cancele pelo menu de contexto.",
   "Classification.Setup": "Baixe ou instale um pacote Laya confiável e salve as configurações, ou escolha uma pasta existente com manifest.json.",
   "Classification.Running": "Gerando sugestões na CPU local… Cancele pelo menu de contexto.",
   "Classification.Cancelled": "Prévia cancelada. Os arquivos não foram alterados.",
   "Classification.Stale": "Os espaços ou ajustes mudaram. A sugestão anterior foi descartada; abra a prévia novamente.",
-  "Classification.ReadOnly": "As sugestões locais usam apenas nomes e descrições dos espaços. Nenhum conteúdo é lido e nenhum arquivo é movido. As somas de verificação não autenticam o editor do modelo.",
+  "Classification.ReadOnly": "Sugestão somente leitura baseada em nomes, tipos, descrições de categorias e sua nota opcional. Não lê conteúdos nem move arquivos. Checksums não autenticam o publicador.",
   "Classification.LocalCpu": "Laya · CPU local",
   "Classification.Choice": "Primeira escolha do modelo: {0}",
   "Classification.Score": "{0} — {1}",
@@ -396,5 +396,7 @@
   "Classification.RepairPackage": "Reparar modelo",
   "Classification.RepairPackageNotice": "Instala o modelo multilíngue verificado em uma nova pasta, preservando a anterior. Salve as configurações para trocar.",
   "Classification.InstallLocation": "Local dos novos modelos",
-  "Classification.InstallLocationNotice": "Novas cópias são instaladas aqui; as pastas antigas são mantidas. A observação de pastas é pausada; retome-a manualmente depois."
+  "Classification.InstallLocationNotice": "Novas cópias são instaladas aqui; as pastas antigas são mantidas. A observação de pastas é pausada; retome-a manualmente depois.",
+  "Classification.Hint": "Nota opcional de classificação",
+  "Classification.HintNotice": "Até 256 caracteres. Enviada na prévia ao provedor escolhido; não é salva nos metadados do espaço."
 }

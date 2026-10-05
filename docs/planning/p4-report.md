@@ -2,6 +2,14 @@
 
 P3's user-approved safe manual workflow is accepted; **P4 is not complete**. These previews are read-only: they do not authorize any file move or copy. Manual file operations have their separate P3 evidence.
 
+## Optional clarification for ambiguous names (2026-10-05)
+
+Pending items now accept an optional 256-character classification note. It is session-only, survives refreshes of the same pending ID/path, and is not saved to workspace metadata. Editing it clears the old model suggestion; a response whose captured note no longer matches the draft is discarded. Empty notes retain the previous request format. Non-empty notes are serialized as data, with explicit instructions not to treat them as commands. No file rename or content read is involved.
+
+The twelve-language input notice, local/cloud result explanation and Jev sending consent now name this additional user-entered field. A cloud preview still requires the selected Jev provider, session key and explicit consent; no live cloud call was made. Suggestions remain draft targets and imports retain their separate confirmation.
+
+The existing real-Laya workflow passed (`artifacts/p4-installer-tests/classification-hint.log`, Success/LocalClassificationPreviewVerified true): visible input, note draft retention, prior-suggestion invalidation, actual inference, draft-only target choice, stale-note result refusal and no hint persistence/file movement. The initial build warned about Avalonia's obsolete Watermark alias; it was replaced with PlaceholderText. This is behavior evidence, not a classifier-quality benchmark.
+
 ## Model installation location (2026-10-05)
 
 Settings now offers a native folder picker for **New model location**, separate from the active model-folder setting. Choosing/cancelling updates only the deployment draft. Online installation keeps its verified download cache in application data and unpacks into a fresh directory under the chosen destination; offline installation uses the same destination. This enables copy-and-switch relocation without deleting the previous model. After activation, a reopened workspace derives the installation location from the application's generated model-directory name. A destination draft without an activated model is not separately persisted.

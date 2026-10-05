@@ -79,14 +79,14 @@
   "Classification.SessionKey": "API キー（自動保存しません）",
   "Classification.ClearSession": "このセッションをクリア",
   "Classification.JevSetup": "Jev を選択して設定を保存し、TypeSafe キーを入力して下で送信を許可してからプレビューを要求します。既定ではセッション内のみです。 明示的なレート制限時のみ45秒以内に最大2回再試行します。長い待機が必要な場合は後で手動で再試行してください。",
-  "Classification.JevConsent": "このセッションのプレビューで、ファイル名、項目の種類、全スペースの名前と説明を TypeSafe AI に送信することを許可します。内容や完全なパスは送信しません。API 利用料が発生する場合があります。",
-  "Classification.JevResultNotice": "Jev クラウドの提案です。名前とスペースの説明を TypeSafe AI に送信しました。ファイル内容の読み取りや、ファイル・ワークスペース記録の変更は行っていません。",
+  "Classification.JevConsent": "このセッションでファイル名、種類、分類名・説明と自分の補足を TypeSafe AI に送ることを許可します。API料金が発生する場合があります。本文や絶対パスは自動送信しません。",
+  "Classification.JevResultNotice": "名前、種類、分類説明と任意の補足を TypeSafe AI に送ります。本文やパスの自動送信、ファイルやワークスペースの変更は行いません。",
   "Classification.JevRunning": "Jev クラウドにプレビューを要求中…右クリックメニューでキャンセルできます。",
   "Classification.Setup": "信頼できる Laya モデルをダウンロードまたはインストールして設定を保存するか、manifest.json を含む既存のフォルダーを選んでください。",
   "Classification.Running": "ローカル CPU で候補を生成中…右クリックメニューからキャンセルできます。",
   "Classification.Cancelled": "分類プレビューをキャンセルしました。ファイルは変更されていません。",
   "Classification.Stale": "スペースまたは設定が変わったため、古い候補を破棄しました。再度プレビューしてください。",
-  "Classification.ReadOnly": "名前とスペースの説明のみを使うローカル候補です。本文を読まず、ファイルも移動しません。モデルのチェックサムは発行元の認証ではありません。",
+  "Classification.ReadOnly": "名前、種類、分類説明と任意の補足による読み取り専用の提案です。内容の読み取りやファイル移動は行いません。チェックサムは発行者認証ではありません。",
   "Classification.LocalCpu": "Laya · ローカル CPU",
   "Classification.Choice": "モデルの第一候補：{0}",
   "Classification.Score": "{0} — {1}",
@@ -396,5 +396,7 @@
   "Classification.RepairPackage": "モデルを修復",
   "Classification.RepairPackageNotice": "検証済みの多言語モデルを新しいフォルダーにインストールし、元のフォルダーは保持します。設定保存で切り替えます。",
   "Classification.InstallLocation": "新しいモデルの保存先",
-  "Classification.InstallLocationNotice": "新しいコピーをここにインストールし、元のフォルダーは保持します。フォルダー監視は一時停止するため、完了後に手動で再開してください。"
+  "Classification.InstallLocationNotice": "新しいコピーをここにインストールし、元のフォルダーは保持します。フォルダー監視は一時停止するため、完了後に手動で再開してください。",
+  "Classification.Hint": "分類の補足（任意）",
+  "Classification.HintNotice": "最大256文字。選択したプロバイダーへのプレビューに含まれ、ワークスペースのメタデータには保存されません。"
 }

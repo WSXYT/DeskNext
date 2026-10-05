@@ -38,6 +38,9 @@ public sealed partial class PendingItemViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(HasClassificationTarget))]
     private SpaceItemViewModel? _classificationTarget;
 
+    [ObservableProperty] private string _classificationHint = string.Empty;
+    partial void OnClassificationHintChanged(string value) => ClassificationTarget = null;
+
     public bool HasClassificationTarget => ClassificationTarget is not null;
 
     public string ReasonKey => Reason switch

@@ -79,14 +79,14 @@
   "Classification.SessionKey": "API key (not saved automatically)",
   "Classification.ClearSession": "Clear this session",
   "Classification.JevSetup": "Select Jev and save settings. Enter your TypeSafe key and allow sending below, then request a preview. The default is session-only. Explicit rate-limit refusals may retry twice within 45 seconds; longer server waits require a new action.",
-  "Classification.JevConsent": "I allow sending filenames, item types, and all space names/descriptions to TypeSafe AI for previews this session. No contents or full paths are sent. API usage may be charged.",
-  "Classification.JevResultNotice": "Jev cloud suggestion only. Names and space descriptions were sent to TypeSafe AI; no contents were read, and no files or workspace records were changed.",
+  "Classification.JevConsent": "Allow sending filenames, types, category names/descriptions and my optional notes to TypeSafe AI this session. API usage may be charged. No automatic file-content or absolute-path upload.",
+  "Classification.JevResultNotice": "TypeSafe AI receives names, types, category descriptions and your optional note. No automatic file-content or path upload; no file or workspace changes.",
   "Classification.JevRunning": "Requesting a Jev cloud preview… Cancel from the context menu.",
   "Classification.Setup": "Download or install a trusted Laya model package, then save settings. You can also choose an existing bundle containing manifest.json.",
   "Classification.Running": "Generating suggestions on the local CPU… Cancel from the context menu.",
   "Classification.Cancelled": "Classification preview cancelled. Files are unchanged.",
   "Classification.Stale": "Spaces or settings changed. The old suggestion was discarded; preview again.",
-  "Classification.ReadOnly": "Local suggestions use names and space descriptions only. No file contents are read and no files are moved. Model checksums do not authenticate the publisher.",
+  "Classification.ReadOnly": "Read-only suggestion from names, types, category descriptions and your optional note. No file contents are read or files moved. Checksums do not authenticate the model publisher.",
   "Classification.LocalCpu": "Laya · Local CPU",
   "Classification.Choice": "Model's top choice: {0}",
   "Classification.Score": "{0} — {1}",
@@ -396,5 +396,7 @@
   "Classification.RepairPackage": "Repair model",
   "Classification.RepairPackageNotice": "Installs a verified multilingual model into a new folder, keeping the old folder untouched. Save settings to switch.",
   "Classification.InstallLocation": "New model location",
-  "Classification.InstallLocationNotice": "New copies are installed here; old folders are kept. Installation pauses folder observation—resume it manually afterwards."
+  "Classification.InstallLocationNotice": "New copies are installed here; old folders are kept. Installation pauses folder observation—resume it manually afterwards.",
+  "Classification.Hint": "Optional classification note",
+  "Classification.HintNotice": "Up to 256 characters. Sent with your preview to the selected provider; never saved in workspace metadata."
 }

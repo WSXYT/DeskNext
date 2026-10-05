@@ -480,10 +480,14 @@
                                         </Grid>
 
                                         <!-- Resolution Feedback if any -->
-                                        <TextBlock Grid.Row="2"
-                                                   Text="{Binding ResolutionNotice}"
-                                                   Foreground="{DynamicResource AccentTextBrush}"
-                                                   FontSize="11" Margin="0,5,0,0"/>
+                                        <StackPanel Grid.Row="2" Spacing="4" Margin="0,6,0,0">
+                                            <TextBox Name="PendingClassificationHint" Text="{Binding ClassificationHint}" MaxLength="256"
+                                                     PlaceholderText="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).Localizer[Classification.Hint]}"
+                                                     AutomationProperties.Name="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).Localizer[Classification.Hint]}"/>
+                                            <TextBlock Text="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).Localizer[Classification.HintNotice]}"
+                                                       FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                            <TextBlock Text="{Binding ResolutionNotice}" Foreground="{DynamicResource AccentTextBrush}" FontSize="11"/>
+                                        </StackPanel>
 
                                         <!-- Action Buttons Bar with Space Selector -->
                                         <WrapPanel Grid.Row="3" Margin="0,8,0,0">
