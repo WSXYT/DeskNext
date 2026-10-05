@@ -2,6 +2,14 @@
 
 Status: implementation in progress. Desktop takeover and watcher-driven automatic moves remain disabled.
 
+## Windows mounted and unavailable volume checks (2026-10-05)
+
+CI [37263319696](https://github.com/WSXYT/desknest-p1-probes/actions/runs/37263319696) at `4749fc4` passed three fresh test-process phases against a 64 MiB NTFS VHDX on a disposable hosted Windows runner. `build/windows/Test-MountedVolume.ps1` checks the exact image association, file-backed/non-system disk and unused drive letter before provisioning; no local user disk is mounted. Actual mounted-folder source/target batches refuse before entering their forward phase, moving the first item, creating destination parents or writing a journal. Direct drive-letter moves persist real file/directory receipts before a clean detach.
+
+While the volume is absent, recovery refuses and new batches cause no side effects. The recovery fence and normal `Recovering`/`UpdatedAt` header transition are allowed; operation ID, native identities, topology and every completion/restoration receipt flag must remain identical. After the same image and volume return at the verified drive letter, original receipts authorize restoration, including empty directories, and journals are cleaned up. Each phase TRX reports total/executed/passed = 1 and notExecuted/failed = 0. Only after owned mount-path removal and verified detach/cleanup does the driver emit `windowsMountedVolumeVerified=true`, `offlineJournalPreserved=true`, `reattachedRecoveryVerified=true`, **`powerLossVerified=false`**.
+
+Evidence: `artifacts/p3-publication-tests/windows-volume-37263319696/` (three TRX files and `result.json`) and `windows-volume-37263319696.log`. Earlier runs retain their failures: `37261886179` exposed a Storage-module bus-type string assumption; `37262300456` exposed an overstrict byte-identical-journal assertion; `37262922382` exposed use of a selector parameter instead of `AccessPath` for drive-letter assignment. Corrections align the fixture with the actual API and existing recovery contract; production storage logic was not relaxed. Local checks were C# build/LSP and PowerShell parsing only. This is not abrupt removal, power loss, installed-GUI, network-share or all-P3 acceptance.
+
 ## macOS firmlink alias refusal (2026-10-05)
 
 CI [37259402861](https://github.com/WSXYT/desknest-p1-probes/actions/runs/37259402861) at `47057d9` verified the owned temporary fixture through `/Users/...` and `/System/Volumes/Data/Users/...`: the native root identities match, but volume lookup reports `macos-mount:/` versus `macos-mount:/System/Volumes/Data`. The recorded mode is **`refuse-before-mutation`**. Both file and directory batches reject the alias crossing before moving their first item, creating destination parents or writing a journal. No system-directory destination is created and no production policy is relaxed. The alternate canonicalized-move/rollback branch is not claimed executed on this host.
