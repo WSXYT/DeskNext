@@ -20,6 +20,8 @@ This is the P0 **acceptance inventory**, not a claim of working features. All ce
 
 ## Bounded implementation evidence (updated 2026-10-05)
 
+User-approved phase allocation (2026-10-05): P3 closes around safe manual local-file/directory behavior after final integration. Full F02 URL/virtual-file materialization remains required in P6; F05 long-duration automatic monitoring in P5; hardware/durability/formal distribution in P7. Partial cells remain partial, and unverified automation remains disabled.
+
 - F02 network-path refusal: CI [37279558624](https://github.com/WSXYT/desknest-p1-probes/actions/runs/37279558624) proves readable Windows loopback UNC and mapped SMB paths refuse file/directory source/target batches before the first move, parent creation or journal. Eight combinations, one executed/passed TRX test, verified share/mapping cleanup; no production policy change. Not remote-server faults or Unix network mounts. See [P3 report](p3-report.md).
 
 - F01/F02 storage boundary: Windows hosted VHDX CI [37263319696](https://github.com/WSXYT/desknest-p1-probes/actions/runs/37263319696) passes actual mounted-folder refusal, unavailable-volume receipt retention/new-batch refusal, and same-volume reattachment recovery (file and directory). All three phases execute/pass with no skips; original identity/topology/receipt flags survive the offline attempt. This is Core storage evidence, not proof of the offline mapped-index UI, network shares, sudden removal or power loss. macOS firmlink refusal is separately recorded in `37259402861`; see [P3 report](p3-report.md).

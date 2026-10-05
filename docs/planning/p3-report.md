@@ -1,6 +1,10 @@
 # P3 manual organization closure
 
-Status: implementation in progress. Desktop takeover and watcher-driven automatic moves remain disabled.
+Status: final integration pending for the user-approved safe manual file/directory scope (2026-10-05). Desktop takeover and watcher-driven automatic moves remain disabled.
+
+## User-approved closure boundary (2026-10-05)
+
+The user explicitly selected closure around the safe manual local-file/directory workflow, followed by one final integration run. Known file-safety defects must still be fixed. Full URL/virtual-file materialization belongs to P6; long-running automatic monitoring and its continuous-write/overflow acceptance belong to P5; hardware, physical-fault durability and formal distribution belong to P7. Those requirements are retained, not declared passed or removed. Historical sections below keep their evidence limits; their broad remaining-work lists no longer silently expand the P3 phase gate.
 
 ## Drop URI identity correction (2026-10-05)
 
@@ -406,7 +410,7 @@ The entries above are historical snapshots; they do not include the changes belo
 - Local build is clean (0 warnings/errors), probe-driver checks 7/7, default native-window smoke passes, and the active one-file LSP check is clean. The manual native mode refused the host's nonempty clipboard (`native-manual-workflow.log`); this is **not** a passing manual workflow. `Test-Package.ps1 -ManualWorkflow` opts in and checks both `ManualWorkflowVerified` and `NativeClipboardRoundTripVerified`; hosted Windows CI requests it on the next snapshot. That local refusal remains distinct from installed runtime success.
 - Follow-up CI [36979850045](https://github.com/WSXYT/desknest-p1-probes/actions/runs/36979850045), at `7da4ee2`, subsequently passed all three jobs. The Windows installed native manual log reports both `ManualWorkflowVerified=true` and `NativeClipboardRoundTripVerified=true`, establishing the file/directory command→native clipboard→journaled move→undo loop on its isolated hosted desktop. This does not establish physical keyboard/mouse, Explorer negotiation, or the complete P3/P7 workflow. The model-folder picker added afterwards is not covered by this snapshot.
 
-## Remaining P3 gates
+## Retained limitations and follow-up work (phase allocation approved above)
 
 - Restricted Windows manual Copy/Paste is enabled within the scope above, with supported-content refusal and consented recovery archiving. Wider copy support (non-Windows, uncataloged clipboard imports, additional NTFS metadata, cross-volume directories and automation) is not enabled. Path binding is checked at defined boundaries, not claimed immutable forever. Long-scan limits and physical fault coverage remain explicit limitations; the Windows move conversion is separate from the copy receipt protocol.
 - Native clipboard/import/undo and file/directory two-way Explorer, Finder and Nautilus interoperability have the bounded passing evidence above. Do not repeat them as unimplemented work. URLs/virtual/remote payloads and broader F02 open/preview behavior still need their own acceptance; injected hosted gestures do not establish physical input, mixed DPI or desktop-layer residence.
