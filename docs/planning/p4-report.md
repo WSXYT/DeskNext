@@ -2,6 +2,16 @@
 
 P3's user-approved safe manual workflow is accepted; **P4 is not complete**. These previews are read-only: they do not authorize any file move or copy. Manual file operations have their separate P3 evidence.
 
+## Installed CPU parity and confirmed file workflow (2026-10-05)
+
+The existing parity driver now accepts explicit bundle, installed worker, diagnostic worker and output paths. Fresh A (official Torch), B (Python split ORT) and C (.NET diagnostic) ran serially; D used the **actually installed DeskNest.App.exe** from unsigned build `0.4.0-p4-parity-20261005`. Three fixed cases cover mixed-language input, literal mask with reordered candidates, and a longer multilingual state. Input tensors match exactly; C/D results match exactly. Maximum D-vs-Torch logit delta was **1.5717e-5**, D-vs-Python-ORT **2.3072e-7**, probability delta **1.5443e-6**. Choices and pending/proposed routing matched.
+
+A separate installed-app workflow then ran real model suggestions, explicit target selection/confirmation, journaled import and undo against isolated files. It preserves the source until confirmation and restores it on undo. The raw A–D cases and the UI file fixture are distinct: this is not a 500-sample quality evaluation or unattended-move acceptance.
+
+Evidence: `artifacts/p4-parity-installed-final/`, including `installed/result.json`, `parity-D.log` and `model-workflow.log`. Terminal flags installedStageD/installedModelConfirmedImportUndo/uninstallPreservedUnknownFiles are true. The application hash is recorded, and the ZIP SHA-256 is `2ed4a34b729fd9a619da178211fd47d105f5ec8651efd7a1aa52971749a14b01`. Uninstall retained the unknown-file sentinel. Python is only used by the developer-side oracle script, never by the installed application.
+
+The first wrapper falsely counted a PowerShell 5 JSON array as one pipeline object; direct assignment fixes it. Its D comparison had already passed. Prior A/B/C evidence was retained and reused for the corrected installed run, not regenerated to change expected results. The new runner is `build/windows/Test-InstalledInference.ps1`. Native `RunOptions` are now disposed and reused across the sequential encoder/head calls rather than leaked.
+
 ## Optional clarification for ambiguous names (2026-10-05)
 
 Pending items now accept an optional 256-character classification note. It is session-only, survives refreshes of the same pending ID/path, and is not saved to workspace metadata. Editing it clears the old model suggestion; a response whose captured note no longer matches the draft is discarded. Empty notes retain the previous request format. Non-empty notes are serialized as data, with explicit instructions not to treat them as commands. No file rename or content read is involved.

@@ -28,7 +28,7 @@ $installer = Join-Path $Bundle 'Install.ps1'
 $app = Join-Path $installRoot ('versions/' + $manifest.version + '/DeskNest.App.exe')
 & $Python (Join-Path $repository 'tests/Inference.Tests/parity_probe.py') D --worker $app --bundle $ModelDirectory --output $ReferenceDirectory *> (Join-Path $evidence 'parity-D.log')
 if ($LASTEXITCODE -ne 0) { throw 'Installed stage D failed; installation and logs are retained.' }
-$parity = @(Get-Content -LiteralPath (Join-Path $ReferenceDirectory 'p1-parity-D.json') -Raw | ConvertFrom-Json)
+$parity = Get-Content -LiteralPath (Join-Path $ReferenceDirectory 'p1-parity-D.json') -Raw | ConvertFrom-Json
 if ($parity.Count -ne 3 -or (Get-Content -LiteralPath (Join-Path $evidence 'parity-D.log') -Raw) -notmatch 'A-D: all raw inputs, tokens, logits, probabilities and actions matched') {
     throw 'Installed D did not produce complete comparison evidence.'
 }

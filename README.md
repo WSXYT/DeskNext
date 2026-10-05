@@ -71,7 +71,7 @@ Windows x64, Linux x64 and macOS ARM64 have native verification evidence. Additi
 
 **Local Laya:** obtain the separate [multilingual FP32 model package](https://github.com/WSXYT/DeskNext/releases/tag/model-laya-multilingual-fp32-v1) (about 813 MB / 775 MiB). In Settings, choose Laya and use **Download model**, or install the ZIP offline, then save the verified model-folder setting. Downloads can resume after interruption when supported by the server. You can also select an already-extracted compatible bundle. Runtime inference needs neither Python nor a cloud API key.
 
-**Jev:** choose Jev in Settings, enter your TypeSafe key, and explicitly permit sending before requesting a preview. Requests contain filenames, item types and category descriptions—not file contents or absolute paths. API usage may be charged. Sending consent is session-only; Windows offers optional, explicit Credential Manager storage for the key.
+**Jev:** choose Jev in Settings, enter your TypeSafe key, and explicitly permit sending before requesting a preview. Requests use filenames, item types, category descriptions and optional notes you enter; the app does not automatically read or upload file contents or absolute paths. API usage may be charged. Sending consent is session-only; Windows offers optional, explicit Credential Manager storage for the key.
 
 ### Windows development package
 
