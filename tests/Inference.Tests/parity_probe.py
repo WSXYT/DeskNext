@@ -169,6 +169,17 @@ def stage_dotnet(stage):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("stage", choices=["A", "B", "C", "D"])
+    parser.add_argument("--bundle", type=Path, default=bundle)
+    parser.add_argument("--worker", type=Path, default=published_worker,
+                        help="Actual installed application or inference worker for stage D")
+    parser.add_argument("--diagnostic-worker", type=Path, default=worker)
+    parser.add_argument("--output", type=Path, default=output,
+                        help="Use a fresh directory to preserve previous stage evidence")
     args = parser.parse_args()
+    bundle = args.bundle.resolve()
+    published_worker = args.worker.resolve()
+    worker = args.diagnostic_worker.resolve()
+    output = args.output.resolve()
+    output.mkdir(parents=True, exist_ok=True)
     {"A": stage_a, "B": stage_b, "C": lambda: stage_dotnet("C"),
      "D": lambda: stage_dotnet("D")}[args.stage]()

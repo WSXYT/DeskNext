@@ -162,14 +162,15 @@ public static class Probe
         using var head = new InferenceSession(AssetPath(directory, "head.onnx"));
         using var ids = OrtValue.CreateTensorValueFromMemory(tensors.InputIds[0], [1, l]);
         using var attention = OrtValue.CreateTensorValueFromMemory(tensors.AttentionMask[0], [1, l]);
-        using var encoded = encoder.Run(new RunOptions(), new Dictionary<string, OrtValue> { ["input_ids"] = ids, ["attention_mask"] = attention }, ["last_hidden_state"]);
+        using var runOptions = new RunOptions();
+        using var encoded = encoder.Run(runOptions, new Dictionary<string, OrtValue> { ["input_ids"] = ids, ["attention_mask"] = attention }, ["last_hidden_state"]);
         var hidden = encoded.First().GetTensorDataAsSpan<float>().ToArray();
         long dimension = hidden.Length / l;
         using var h = OrtValue.CreateTensorValueFromMemory(hidden, [1, l, dimension]);
         using var positions = OrtValue.CreateTensorValueFromMemory(tensors.MarkerPos[0], [1, k]);
         using var masks = OrtValue.CreateTensorValueFromMemory(tensors.MarkerMask[0], [1, k]);
         using var qtype = OrtValue.CreateTensorValueFromMemory(tensors.Qtype, [1, 1]);
-        using var outputs = head.Run(new RunOptions(), new Dictionary<string, OrtValue> {
+        using var outputs = head.Run(runOptions, new Dictionary<string, OrtValue> {
             ["hidden_states"] = h, ["marker_pos"] = positions, ["marker_mask"] = masks,
             ["qtype"] = qtype, ["attention_mask"] = attention }, ["logits", "act_logits"]);
         return Decide(request, tensors, outputs.First().GetTensorDataAsSpan<float>().ToArray(),

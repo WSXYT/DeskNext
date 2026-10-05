@@ -473,7 +473,7 @@ public static class HeadlessSmokeRunner
         File.WriteAllText(path, "Fixture content must remain untouched.");
         var space = new WorkspaceSpace(Guid.NewGuid(), "Documents", "Reports and office documents", SpaceStorageMode.Managed, folder);
         var file = new WorkspaceFile(Guid.NewGuid(), space.Id, Path.GetFileName(path), path, false);
-        string pendingPath = Path.Combine(root, "Quarterly financial report.txt");
+        string pendingPath = Path.Combine(root, "Pending quarterly financial report.txt");
         File.WriteAllText(pendingPath, "Pending fixture must stay outside the space.");
         var pending = new PendingFile(Guid.NewGuid(), Path.GetFileName(pendingPath), pendingPath,
             TriageReason.FilenameAmbiguous, null, DateTimeOffset.UtcNow);
@@ -557,6 +557,24 @@ public static class HeadlessSmokeRunner
             store.Snapshot.Pending.Single().SuggestedSpaceId != studio.PendingItems.Single().TargetSpace?.Id ||
             store.Snapshot.Operations.Count != 0 || File.ReadAllText(pendingPath) != "Pending fixture must stay outside the space.")
             throw new InvalidOperationException("Creating a review category must select the clicked pending item without importing it.");
+        var importItem = studio.PendingItems.Single();
+        await studio.PreviewClassificationCommand.ExecuteAsync(importItem);
+        if (importItem.ClassificationTarget is null) throw new InvalidOperationException("No actual model suggestion for the import workflow.");
+        studio.ClosePreviewDialog();
+        studio.UseClassificationTargetCommand.Execute(importItem);
+        var targetId = importItem.TargetSpace!.Id;
+        studio.OpenImportConfirmation(importItem);
+        if (!studio.IsImportConfirmationOpen || !File.Exists(pendingPath))
+            throw new InvalidOperationException("Model suggestion moved the source before confirmation.");
+        await studio.ConfirmImportAsync();
+        var operation = store.Snapshot.Operations.Single(op => op.ImportSource?.Id == pending.Id);
+        if (operation.Status != ProposedOperationStatus.Completed || operation.TargetSpaceId != targetId || File.Exists(pendingPath))
+            throw new InvalidOperationException("Confirmed model target did not reach the journaled import.");
+        await studio.ExecuteUndoManualMoveAsync(operation.Id);
+        if (File.ReadAllText(pendingPath) != "Pending fixture must stay outside the space." ||
+            store.Snapshot.Operations.Single(op => op.Id == operation.Id).Status != ProposedOperationStatus.Undone)
+            throw new InvalidOperationException("Model-assisted import undo did not restore the original source.");
+        Console.WriteLine("MODEL_SUGGESTION_MANUAL_IMPORT_UNDO_VERIFIED: true");
     }
 
     public static async Task<int> RunSmokeAsync(string[] args)
