@@ -51,7 +51,7 @@ function Get-OwnedDisk {
     }
     $disks = @($images[0] | Get-Disk)
     if ($disks.Count -ne 1 -or $disks[0].IsBoot -or $disks[0].IsSystem -or
-        [int]$disks[0].BusType -ne 15 -or $disks[0].Size -gt 64MB -or $disks[0].Size -lt 60MB) {
+        [string]$disks[0].BusType -ne 'File Backed Virtual' -or $disks[0].Size -gt 64MB -or $disks[0].Size -lt 60MB) {
         throw 'Image association did not resolve to one bounded file-backed non-system disk.'
     }
     return $disks[0]
