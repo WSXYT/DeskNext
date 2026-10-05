@@ -2,6 +2,12 @@
 
 Status: implementation in progress. Desktop takeover and watcher-driven automatic moves remain disabled.
 
+## macOS firmlink alias refusal (2026-10-05)
+
+CI [37259402861](https://github.com/WSXYT/desknest-p1-probes/actions/runs/37259402861) at `47057d9` verified the owned temporary fixture through `/Users/...` and `/System/Volumes/Data/Users/...`: the native root identities match, but volume lookup reports `macos-mount:/` versus `macos-mount:/System/Volumes/Data`. The recorded mode is **`refuse-before-mutation`**. Both file and directory batches reject the alias crossing before moving their first item, creating destination parents or writing a journal. No system-directory destination is created and no production policy is relaxed. The alternate canonicalized-move/rollback branch is not claimed executed on this host.
+
+Both Unix jobs passed Core 222 / skipped 38 and the actual mount/capacity pair 2 / skipped 0. The raw macOS TRX still distinguishes data ENOSPC from successful small-journal writes and receipt-backed recovery. Evidence: `artifacts/p3-publication-tests/mounts-37259402861-macos/` and `ci-37259402861.log`. The earlier `37259013098` failed the new fixture assertion because the firmlink table's source column is absolute (`/Users`, not `Users`); the test was corrected to the observed format. Failed evidence remains retained. This closes this alias-refusal case, not every firmlink/concurrency, unavailable-volume or power-loss boundary.
+
 ## Native Finder two-way drag (2026-10-05)
 
 CI [37257429847](https://github.com/WSXYT/desknest-p1-probes/actions/runs/37257429847) at `a98f4df` passed four native macOS gestures for files and directories. `tests/finder-input.swift` checks existing Accessibility, Quartz posting, screen-capture and Finder automation permissions without prompting or editing TCC; AX locates the visible source label and Quartz posts a Copy-modified drag. The shared App probe uses a 1000-point minimum width on macOS (the hosted screen is 1024 points), without changing display settings. Confirmation and undo use production commands; input is injected, not human physical interaction.

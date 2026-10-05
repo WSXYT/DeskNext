@@ -4,7 +4,7 @@ This is the P0 **acceptance inventory**, not a claim of working features. All ce
 
 | ID | User entrypoint | Required behavior | First acceptance evidence | W / M / L |
 | --- | --- | --- | --- | --- |
-| F01 | Space window, file context menu, map-folder dialog | Managed/mapped files, open/reveal, sort/list/grid/inline folders; offline mapped directory retains index | Import, restart, external rename, offline drive and 10k viewport tests | 部分：空间/映射/虚拟列表/筛选排序/浮窗列表网格详细排列 / 未验证 / 未验证 |
+| F01 | Space window, file context menu, map-folder dialog | Managed/mapped files, open/reveal, sort/list/grid/inline folders; offline mapped directory retains index | Import, restart, external rename, offline drive and 10k viewport tests | 部分：空间/映射/虚拟列表/筛选排序/浮窗列表网格详细排列 / 部分：托管空间创建/独立窗口/导入定位；其余未验收 / 部分：托管空间创建/独立窗口/导入定位；其余未验收 |
 | F02 | Drop surface, clipboard, file context menu | Copy/cut/paste, two-way external drag, URLs/virtual files, rename, trash, previews; never double-delete on negotiated Move | Explorer/Finder/Nautilus and browser/chat-file fixture on actual systems | 部分：NTFS复制、Explorer文件/目录双向拖放；其他载荷未验收 / 部分：原生剪切粘贴/确认导入/撤销、Finder文件/目录双向拖放（托管原生会话） / 部分：原生剪切粘贴/确认导入/撤销、Nautilus文件/目录双向拖放（X11/Xvfb） |
 | F03 | Stack/group/pagination controls | Manual grouping, expand inline/popout, merge tabs, paging/continuous layout with stable item IDs | Pogget layout golden fixtures, drag/resize/empty-group screenshots | 未实现 / 未验证 / 未验证 |
 | F04 | Desktop capsule, tray, global summon | Drop target/shelf/expand, pin/privacy/fade, desktop attachment or documented fallback | Cross-display, sleep, full-screen, keyboard and DnD tests | 部分：独立胶囊/托盘入口；全局唤起未完成 / 未验证 / 未验证 |
