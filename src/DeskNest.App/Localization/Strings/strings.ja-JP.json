@@ -394,5 +394,7 @@
   "Classification.DownloadingPackage": "モデルをダウンロード・検証・インストール中…",
   "Classification.DownloadPackageNotice": "GitHub から約813 MBをダウンロードします。対応時は再試行で再開します。設定保存まで現在のモデルは変わりません。",
   "Classification.RepairPackage": "モデルを修復",
-  "Classification.RepairPackageNotice": "検証済みの多言語モデルを新しいフォルダーにインストールし、元のフォルダーは保持します。設定保存で切り替えます。"
+  "Classification.RepairPackageNotice": "検証済みの多言語モデルを新しいフォルダーにインストールし、元のフォルダーは保持します。設定保存で切り替えます。",
+  "Classification.InstallLocation": "新しいモデルの保存先",
+  "Classification.InstallLocationNotice": "新しいコピーをここにインストールし、元のフォルダーは保持します。フォルダー監視は一時停止するため、完了後に手動で再開してください。"
 }

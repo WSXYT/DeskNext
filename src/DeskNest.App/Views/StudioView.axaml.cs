@@ -207,6 +207,33 @@ public partial class StudioView : UserControl
         vm.SettingsSavedFeedback = null;
     }
 
+    internal void ApplyModelInstallLocation(string? path)
+    {
+        if (path is null || DataContext is not StudioViewModel vm || !vm.IsSettingsTab || !vm.IsLayaPreview) return;
+        path = DeskNest.Platform.PlatformFileActions.RequireExistingLocalPath(path);
+        if (!Directory.Exists(path)) throw new InvalidDataException(vm.Localizer["Validation.ValidAbsolutePathRequired"]);
+        vm.ModelInstallRoot = path; // Deployment destination only; no active-model setting changes here.
+    }
+
+    private async void OnBrowseModelInstallLocation(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not StudioViewModel vm || sender is not Button button || vm.InstallLocalModelPackageCommand.IsRunning) return;
+        var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
+        if (storage?.CanPickFolder != true) { vm.ModelInstallNotice = vm.Localizer["Spaces.FolderPickerUnavailable"]; return; }
+        button.IsEnabled = false;
+        try
+        {
+            var folders = await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions
+                { Title = vm.Localizer["Classification.InstallLocation"], AllowMultiple = false });
+            using var folder = folders.FirstOrDefault();
+            if (folder is null || DataContext != vm) return;
+            ApplyModelInstallLocation(folder.TryGetLocalPath()
+                ?? throw new InvalidDataException(vm.Localizer["Validation.ValidAbsolutePathRequired"]));
+        }
+        catch (Exception error) { vm.ModelInstallNotice = vm.Localizer.GetString("Files.ActionFailedNotice", error.Message); }
+        finally { button.IsEnabled = true; }
+    }
+
     private async void OnImportModelPackageClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (DataContext is not StudioViewModel vm || sender is not Button button || vm.InstallLocalModelPackageCommand.IsRunning) return;

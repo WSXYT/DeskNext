@@ -394,5 +394,7 @@
   "Classification.DownloadingPackage": "جارٍ تنزيل النموذج والتحقق منه وتثبيته…",
   "Classification.DownloadPackageNotice": "حوالي 813 ميغابايت من GitHub. تُستأنف المحاولة عند دعم ذلك. يبقى النموذج الحالي فعالًا حتى حفظ الإعدادات.",
   "Classification.RepairPackage": "إصلاح النموذج",
-  "Classification.RepairPackageNotice": "يثبّت النموذج متعدد اللغات بعد التحقق في مجلد جديد دون تغيير القديم. احفظ الإعدادات للتبديل."
+  "Classification.RepairPackageNotice": "يثبّت النموذج متعدد اللغات بعد التحقق في مجلد جديد دون تغيير القديم. احفظ الإعدادات للتبديل.",
+  "Classification.InstallLocation": "موقع النماذج الجديدة",
+  "Classification.InstallLocationNotice": "تُثبّت النسخ الجديدة هنا مع الاحتفاظ بالمجلدات القديمة. تُوقف مراقبة المجلدات مؤقتًا؛ استأنفها يدويًا بعد التثبيت."
 }

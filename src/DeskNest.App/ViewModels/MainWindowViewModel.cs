@@ -341,15 +341,28 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
 
     private void AttachStudioExecutors(StudioViewModel studio)
     {
-        studio.OnInstallLocalModelPackage = (package, progress, token) =>
+        if (string.IsNullOrEmpty(studio.ModelInstallRoot) && _store is not null)
+        {
+            string? active = _store.Snapshot.Settings.ModelCacheDirectory;
+            const string prefix = "laya-multilingual-fp32-";
+            string leaf = Path.GetFileName(Path.TrimEndingDirectorySeparator(active ?? string.Empty));
+            studio.ModelInstallRoot = leaf.StartsWith(prefix, StringComparison.Ordinal) && Guid.TryParseExact(leaf[prefix.Length..], "N", out _)
+                ? Path.GetDirectoryName(active!)! : Path.Combine(_store.DataDirectory, "models");
+        }
+        studio.OnInstallLocalModelPackage = async (package, progress, token) =>
         {
             if (_disposed || _store is null) throw new ObjectDisposedException(nameof(MainWindowViewModel));
             string cache = Path.Combine(_store.DataDirectory, "models");
-            return Task.Run(async () =>
+            string destination = studio.ModelInstallRoot;
+            if (!Path.IsPathFullyQualified(destination)) throw new ArgumentException(Localizer["Validation.ValidAbsolutePathRequired"]);
+            token.ThrowIfCancellationRequested();
+            // Do not observe a custom destination's staging files as new user documents.
+            await StopFolderObservationAsync();
+            return await Task.Run(async () =>
             {
                 string installed = package is null
-                    ? await DeskNest.Inference.ModelPackageDownload.InstallAsync(cache, progress, token)
-                    : await DeskNest.Inference.LocalModelInstaller.InstallArchiveAsync(package, cache, progress, token);
+                    ? await DeskNest.Inference.ModelPackageDownload.InstallAsync(cache, progress, token, destinationRoot: destination)
+                    : await DeskNest.Inference.LocalModelInstaller.InstallArchiveAsync(package, destination, progress, token);
                 await DeskNest.Inference.LocalPreviewClient.CheckModelAsync(CreateLocalWorkerStart(), installed, token);
                 return installed;
             }, token);

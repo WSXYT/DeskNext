@@ -2,6 +2,14 @@
 
 P3's user-approved safe manual workflow is accepted; **P4 is not complete**. These previews are read-only: they do not authorize any file move or copy. Manual file operations have their separate P3 evidence.
 
+## Model installation location (2026-10-05)
+
+Settings now offers a native folder picker for **New model location**, separate from the active model-folder setting. Choosing/cancelling updates only the deployment draft. Online installation keeps its verified download cache in application data and unpacks into a fresh directory under the chosen destination; offline installation uses the same destination. This enables copy-and-switch relocation without deleting the previous model. After activation, a reopened workspace derives the installation location from the application's generated model-directory name. A destination draft without an activated model is not separately persisted.
+
+Deployment pauses folder observation before staging starts, with a visible localized notice to resume it manually afterwards. Changing the destination cancels an in-flight installation. The existing path checks, runtime loading check and explicit settings-save activation remain in place. Archive-cache relocation, permanent model removal and cleanup of old/staged copies remain separate unfinished work; no path-based recursive cleanup was added.
+
+App Release build passed with zero warnings/errors. The existing real-package workflow installed under an alternate destination, preserved the old invalid manifest and active setting until save, then reopened a borrowed workspace view model and verified the selected location (`artifacts/p4-installer-tests/model-location.log`, MODEL_PACKAGE_UI_ACTIVATION_VERIFIED/Success true). It also checks picker entry visibility and draft-only cancellation; this is not physical picker interaction. No repeat network download or cross-platform CI for this increment.
+
 ## Bounded Jev rate-limit retries (2026-10-05)
 
 Jev now retries only an explicit HTTP 429 refusal, at most twice (three attempts total) within the existing 45-second deadline. It honors Retry-After seconds or dates; a server wait longer than ten seconds is returned to the user instead of shortened. Missing headers use one/two-second backoff. Each attempt has a fresh request message with the same question payload. Cancellation stops the wait before another send. HTTP 401/503, network failures and invalid response bodies do not automatically repeat a potentially billable POST.

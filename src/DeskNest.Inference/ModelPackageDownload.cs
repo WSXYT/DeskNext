@@ -12,10 +12,16 @@ public static class ModelPackageDownload
         { Timeout = TimeSpan.FromSeconds(60) };
 
     /// <summary>Downloads then uses the same offline installer. Activation remains an explicit settings save.</summary>
-    public static async Task<string> InstallAsync(string cacheRoot, IProgress<int>? progress = null, CancellationToken cancellationToken = default)
+    public static async Task<string> InstallAsync(string cacheRoot, IProgress<int>? progress = null, CancellationToken cancellationToken = default,
+        string? destinationRoot = null)
     {
+        if (destinationRoot is not null)
+        {
+            if (!Path.IsPathFullyQualified(destinationRoot)) throw new ArgumentException("Model installation requires an absolute destination.");
+            LocalModelInstaller.RequirePlainAncestors(destinationRoot);
+        }
         string archive = await DownloadAsync(cacheRoot, new ScaledProgress(progress, 0, 70), cancellationToken).ConfigureAwait(false);
-        return await LocalModelInstaller.InstallArchiveAsync(archive, cacheRoot, new ScaledProgress(progress, 70, 30), cancellationToken).ConfigureAwait(false);
+        return await LocalModelInstaller.InstallArchiveAsync(archive, destinationRoot ?? cacheRoot, new ScaledProgress(progress, 70, 30), cancellationToken).ConfigureAwait(false);
     }
 
     private sealed class ScaledProgress(IProgress<int>? target, int start, int range) : IProgress<int>

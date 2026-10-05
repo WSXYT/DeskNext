@@ -312,6 +312,15 @@ internal static class ManualClipboardSmoke
                     throw new InvalidOperationException("Cancelled download changed model selection.");
             }
             finally { studio.OnInstallLocalModelPackage = install; }
+            string deploymentRoot = Directory.CreateDirectory(Path.Combine(root, "Model installation target")).FullName;
+            long beforeLocation = store.Snapshot.Revision;
+            if (view.FindControl<Button>("BrowseModelInstallLocationButton")?.IsEffectivelyVisible != true ||
+                view.FindControl<TextBox>("ModelInstallLocationInput")?.IsReadOnly != true)
+                throw new InvalidOperationException("Model installation must expose a folder picker and read-only destination.");
+            view.ApplyModelInstallLocation(deploymentRoot);
+            view.ApplyModelInstallLocation(null);
+            if (studio.ModelInstallRoot != deploymentRoot || studio.SettingsModelCache != bundle || store.Snapshot.Revision != beforeLocation)
+                throw new InvalidOperationException("Choosing an installation destination must not activate or save a model.");
             string invalidPackage = Path.Combine(root, "invalid-model.zip");
             await File.WriteAllTextAsync(invalidPackage, "invalid model package");
             long beforeInstall = store.Snapshot.Revision;
@@ -323,13 +332,16 @@ internal static class ManualClipboardSmoke
             {
                 await studio.InstallLocalModelPackageCommand.ExecuteAsync(package);
                 string installed = studio.SettingsModelCache;
-                if (installed == bundle || !File.Exists(Path.Combine(installed, "manifest.json")) ||
+                if (installed == bundle || Path.GetDirectoryName(installed) != deploymentRoot || !File.Exists(Path.Combine(installed, "manifest.json")) ||
                     store.Snapshot.Revision != beforeInstall || store.Snapshot.Settings.ModelCacheDirectory != bundle ||
                     File.ReadAllText(Path.Combine(bundle, "manifest.json")) != "{}")
                     throw new InvalidOperationException("Installing the real model must prepare a verified draft without activating it: " + studio.ModelInstallNotice);
                 await studio.SaveSettingsAsync();
                 if (store.Snapshot.Settings.ModelCacheDirectory != installed)
                     throw new InvalidOperationException("Explicit settings save did not activate the installed model.");
+                await using (var reopenedViewModel = new MainWindowViewModel(store, ownsStore: false))
+                    if (reopenedViewModel.Studio?.ModelInstallRoot != deploymentRoot)
+                        throw new InvalidOperationException("The activated model must retain its installation location on workspace reload.");
                 studio.SettingsModelCache = bundle;
                 await studio.SaveSettingsAsync();
                 Console.WriteLine("MODEL_PACKAGE_UI_ACTIVATION_VERIFIED: true");

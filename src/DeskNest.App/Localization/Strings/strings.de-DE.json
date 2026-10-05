@@ -394,5 +394,7 @@
   "Classification.DownloadingPackage": "Modell wird heruntergeladen, geprüft und installiert…",
   "Classification.DownloadPackageNotice": "Etwa 813 MB von GitHub. Erneuter Versuch setzt den Download fort, sofern unterstützt. Das aktuelle Modell bleibt bis zum Speichern aktiv.",
   "Classification.RepairPackage": "Modell reparieren",
-  "Classification.RepairPackageNotice": "Installiert das geprüfte mehrsprachige Modell in einem neuen Ordner. Der alte bleibt unverändert. Zum Wechseln Einstellungen speichern."
+  "Classification.RepairPackageNotice": "Installiert das geprüfte mehrsprachige Modell in einem neuen Ordner. Der alte bleibt unverändert. Zum Wechseln Einstellungen speichern.",
+  "Classification.InstallLocation": "Speicherort neuer Modelle",
+  "Classification.InstallLocationNotice": "Neue Kopien werden hier installiert; alte Ordner bleiben erhalten. Die Ordnerbeobachtung wird pausiert und muss danach manuell fortgesetzt werden."
 }

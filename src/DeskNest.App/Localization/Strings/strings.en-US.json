@@ -394,5 +394,7 @@
   "Classification.DownloadingPackage": "Downloading, verifying and installing the model…",
   "Classification.DownloadPackageNotice": "Downloads about 813 MB from GitHub. Retry resumes when supported; the current model stays active until you save settings.",
   "Classification.RepairPackage": "Repair model",
-  "Classification.RepairPackageNotice": "Installs a verified multilingual model into a new folder, keeping the old folder untouched. Save settings to switch."
+  "Classification.RepairPackageNotice": "Installs a verified multilingual model into a new folder, keeping the old folder untouched. Save settings to switch.",
+  "Classification.InstallLocation": "New model location",
+  "Classification.InstallLocationNotice": "New copies are installed here; old folders are kept. Installation pauses folder observation—resume it manually afterwards."
 }

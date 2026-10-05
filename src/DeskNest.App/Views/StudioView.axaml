@@ -789,6 +789,14 @@
                             </WrapPanel>
                             <TextBlock Text="{Binding ModelVerificationNotice}" TextWrapping="Wrap" FontSize="13"
                                        Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <TextBlock Text="{Binding Localizer[Classification.InstallLocation]}" FontSize="13"/>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBox Name="ModelInstallLocationInput" Text="{Binding ModelInstallRoot}" IsReadOnly="True" FlowDirection="LeftToRight"/>
+                                <Button Name="BrowseModelInstallLocationButton" Grid.Column="1" Margin="8,0,0,0"
+                                        Content="{Binding Localizer[Action.Browse]}" Click="OnBrowseModelInstallLocation"/>
+                            </Grid>
+                            <TextBlock Text="{Binding Localizer[Classification.InstallLocationNotice]}" TextWrapping="Wrap" FontSize="12"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
                             <WrapPanel>
                                 <Button Name="DownloadModelPackageButton" Classes="PrimaryAction" Margin="0,0,8,0"
                                         Content="{Binding Localizer[Classification.DownloadPackage]}"

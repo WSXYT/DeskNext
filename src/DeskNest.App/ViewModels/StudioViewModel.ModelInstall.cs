@@ -10,6 +10,13 @@ public partial class StudioViewModel
 {
     // Download and repair both prepare a fresh verified directory. Non-null input selects an offline ZIP.
     public Func<string?, IProgress<int>, CancellationToken, Task<string>>? OnInstallLocalModelPackage { get; set; }
+    [ObservableProperty] private string _modelInstallRoot = string.Empty;
+    partial void OnModelInstallRootChanged(string value)
+    {
+        InstallLocalModelPackageCommand.Cancel();
+        ModelInstallNotice = string.Empty;
+    }
+
     [ObservableProperty] private int _modelInstallProgress;
     [ObservableProperty] private string _modelInstallNotice = string.Empty;
 

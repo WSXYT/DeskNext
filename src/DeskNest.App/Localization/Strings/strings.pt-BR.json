@@ -394,5 +394,7 @@
   "Classification.DownloadingPackage": "Baixando, verificando e instalando o modelo…",
   "Classification.DownloadPackageNotice": "Cerca de 813 MB do GitHub. Tentar novamente retoma o download quando possível. O modelo atual permanece ativo até salvar as configurações.",
   "Classification.RepairPackage": "Reparar modelo",
-  "Classification.RepairPackageNotice": "Instala o modelo multilíngue verificado em uma nova pasta, preservando a anterior. Salve as configurações para trocar."
+  "Classification.RepairPackageNotice": "Instala o modelo multilíngue verificado em uma nova pasta, preservando a anterior. Salve as configurações para trocar.",
+  "Classification.InstallLocation": "Local dos novos modelos",
+  "Classification.InstallLocationNotice": "Novas cópias são instaladas aqui; as pastas antigas são mantidas. A observação de pastas é pausada; retome-a manualmente depois."
 }
