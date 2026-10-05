@@ -41,8 +41,8 @@ public static class NativeWindowSmokeRunner
 
         try
         {
-            if (_explorerDrag && ((!OperatingSystem.IsWindows() && !OperatingSystem.IsLinux()) || _manualWorkflow || _inspectRecovery || _spaceWindow))
-                throw new ArgumentException("Run the file-manager drag probe separately, on Windows or Linux.");
+            if (_explorerDrag && ((!OperatingSystem.IsWindows() && !OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS()) || _manualWorkflow || _inspectRecovery || _spaceWindow))
+                throw new ArgumentException("Run the file-manager drag probe separately, on Windows, Linux or macOS.");
             if (_manualWorkflow && (_inspectRecovery || _spaceWindow) || _desktopReview && _inspectRecovery)
                 throw new ArgumentException("Run the manual workflow, recovery inspection and desktop review separately.");
             if (_desktopReview && !OperatingSystem.IsWindows())
@@ -385,7 +385,7 @@ public static class NativeWindowSmokeRunner
                         DesktopReviewShown = _desktopReview,
                         ExplorerDragVerified = _explorerDrag,
                         InputMethod = _explorerDrag
-                            ? "OS mouse injection with real Explorer; production commands for confirmation and undo. Not human physical-input acceptance."
+                            ? "OS mouse injection with the real platform file manager; production commands for confirmation and undo. Not human physical-input acceptance."
                             : "Production view-model commands in a native window; not physical keyboard/mouse injection",
                         HostOS = RuntimeInformation.OSDescription,
                         HostRID = RuntimeInformation.RuntimeIdentifier,

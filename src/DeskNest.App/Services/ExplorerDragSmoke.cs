@@ -24,8 +24,9 @@ internal static class ExplorerDragSmoke
             throw new InvalidOperationException("Creating a managed space must not preempt its guarded import.");
         var area = mainWindow.Screens.ScreenFromWindow(mainWindow)!.WorkingArea;
         double scale = mainWindow.RenderScaling;
-        if (area.Width / scale < 1100 || area.Height / scale < 600)
-            throw new InvalidOperationException("Explorer drag probe needs 1100×600 logical pixels; no display settings will be changed.");
+        int minimumWidth = OperatingSystem.IsMacOS() ? 1000 : 1100;
+        if (area.Width / scale < minimumWidth || area.Height / scale < 600)
+            throw new InvalidOperationException($"File-manager drag probe needs {minimumWidth}×600 logical pixels; no display settings will be changed.");
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(100));
         var floating = new SpaceWindow(studio, space.Id, mainWindow)
         {
@@ -56,7 +57,7 @@ internal static class ExplorerDragSmoke
                 var dropPoint = floating.PointToScreen(drop.TranslatePoint(new Point(drop.Bounds.Width / 2, drop.Bounds.Height / 2), floating)!.Value);
                 var explorerRect = new { X = area.X + (int)(440 * scale), Y = area.Y + (int)(16 * scale), Width = area.Width - (int)(456 * scale), Height = (int)(540 * scale) };
                 Announce(new { Stage = "inbound", Directory = directory, Folder = inbox, Item = name,
-                    Point = dropPoint, ExplorerRect = explorerRect, Window = floating.TryGetPlatformHandle()!.Handle.ToInt64() });
+                    Point = dropPoint, Scale = scale, ExplorerRect = explorerRect, Window = floating.TryGetPlatformHandle()!.Handle.ToInt64() });
                 await UntilAsync(() => studio.IsImportConfirmationOpen, deadline.Token, "Explorer drop did not reach import confirmation: " + studio.SpaceDropNotice);
                 if (studio.ImportSourcePath != source || !File.Exists(Content(source)) || store.Snapshot.Files.Count != 0)
                     throw new InvalidOperationException("Explorer drop must request confirmation before moving or cataloging its external source.");
@@ -78,7 +79,7 @@ internal static class ExplorerDragSmoke
                 var rowPoint = floating.PointToScreen(row.TranslatePoint(new Point(70, row.Bounds.Height / 2), floating)!.Value);
                 long revision = store.Snapshot.Revision;
                 Announce(new { Stage = "outbound", Directory = directory, Folder = receiver, Item = name,
-                    Point = rowPoint, ExplorerRect = explorerRect, LocatedFolder = space.Folder,
+                    Point = rowPoint, Scale = scale, ExplorerRect = explorerRect, LocatedFolder = space.Folder,
                     Window = floating.TryGetPlatformHandle()!.Handle.ToInt64() });
                 string received = Path.Combine(receiver, name);
                 await UntilAsync(() => File.Exists(Content(received)), deadline.Token, "Explorer did not receive the outgoing file reference: " + studio.FileActionNotice);
