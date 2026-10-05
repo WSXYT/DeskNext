@@ -21,9 +21,36 @@ on:
         type: boolean
         default: false
 
+      windows_storage_only:
+        description: Bounded Windows VHDX mount and offline-recovery tests
+        type: boolean
+        default: false
+
 jobs:
+  windows_storage:
+    if: ${{ inputs.windows_storage_only }}
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Build targeted native storage tests
+        run: >-
+          dotnet build tests/DeskNest.Core.Tests/DeskNest.Core.Tests.csproj
+          -c Release -m:1 --nodeReuse:false -p:UseSharedCompilation=false
+      - name: Exercise owned mounted and unavailable volume boundaries
+        timeout-minutes: 8
+        shell: pwsh
+        run: ./build/windows/Test-MountedVolume.ps1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-mounted-volume-evidence
+          path: artifacts/windows-volume-results/
+          if-no-files-found: ignore
   macos_drag:
-    if: ${{ inputs.macos_drag_only }}
+    if: ${{ inputs.macos_drag_only && !inputs.windows_storage_only }}
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
@@ -58,7 +85,9 @@ jobs:
           path: artifacts/finder-drag/
           if-no-files-found: ignore
   linux_drag:
-    if: ${{ inputs.linux_drag_only && !inputs.macos_drag_only }}
+    if: >-
+      ${{ inputs.linux_drag_only && !inputs.macos_drag_only &&
+          !inputs.windows_storage_only }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -100,7 +129,7 @@ jobs:
   native_manual:
     if: >-
       ${{ inputs.native_manual_only && !inputs.linux_drag_only &&
-          !inputs.macos_drag_only }}
+          !inputs.macos_drag_only && !inputs.windows_storage_only }}
     strategy:
       fail-fast: false
       matrix:
@@ -142,7 +171,8 @@ jobs:
   storage:
     if: >-
       ${{ inputs.storage_only && !inputs.native_manual_only &&
-          !inputs.linux_drag_only && !inputs.macos_drag_only }}
+          !inputs.linux_drag_only && !inputs.macos_drag_only &&
+          !inputs.windows_storage_only }}
     strategy:
       fail-fast: false
       matrix:
@@ -184,7 +214,8 @@ jobs:
   probe:
     if: >-
       ${{ !inputs.storage_only && !inputs.native_manual_only &&
-          !inputs.linux_drag_only && !inputs.macos_drag_only }}
+          !inputs.linux_drag_only && !inputs.macos_drag_only &&
+          !inputs.windows_storage_only }}
     strategy:
       fail-fast: false
       matrix:
