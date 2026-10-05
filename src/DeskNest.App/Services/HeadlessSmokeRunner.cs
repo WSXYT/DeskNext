@@ -1518,19 +1518,12 @@ public static class HeadlessSmokeRunner
                 // External paths must not be mislabeled as stored in a managed space.
                 var beforeRejectedDrop = activeStore.Snapshot;
                 AwaitOnUIThread(mainVm.Studio.DropPathsOnSpaceAsync([testDropFile]), "external space drop review");
-                if (OperatingSystem.IsWindows())
-                {
-                    if (!mainVm.Studio.IsImportConfirmationOpen || activeStore.Snapshot.Files.Count != beforeRejectedDrop.Files.Count ||
-                        activeStore.Snapshot.Operations.Count != beforeRejectedDrop.Operations.Count ||
-                        File.ReadAllText(testDropFile) != "sample drop content")
-                        throw new InvalidOperationException("External drop must offer review without cataloging or moving the source.");
-                    mainVm.Studio.CloseImportConfirmation();
-                    mainVm.Studio.SelectedTabIndex = 0;
-                }
-                else if (activeStore.Snapshot.Revision != beforeRejectedDrop.Revision ||
-                    mainVm.Studio.SpaceDropNotice != localizer["Drop.OutsideSpaceNotice"] ||
+                if (!mainVm.Studio.IsImportConfirmationOpen || activeStore.Snapshot.Files.Count != beforeRejectedDrop.Files.Count ||
+                    activeStore.Snapshot.Operations.Count != beforeRejectedDrop.Operations.Count ||
                     File.ReadAllText(testDropFile) != "sample drop content")
-                    throw new InvalidOperationException("Unsupported external drop changed metadata/source or hid the refusal.");
+                    throw new InvalidOperationException("External drop must offer review without cataloging or moving the source.");
+                mainVm.Studio.CloseImportConfirmation();
+                mainVm.Studio.SelectedTabIndex = 0;
 
                 // Only catalog a file already inside this isolated fixture's space.
                 var dropFolder = mainVm.Studio.SelectedSpace!.Folder;

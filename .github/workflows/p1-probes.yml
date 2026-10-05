@@ -169,6 +169,11 @@ jobs:
           dotnet publish src/DeskNest.App/DeskNest.App.csproj -c Release
           -r ${{ matrix.rid }} --self-contained true -m:1 --nodeReuse:false
           -p:UseSharedCompilation=false -o artifacts/native-manual-ui
+      - name: Exercise headless manual UI assertions
+        timeout-minutes: 2
+        run: >-
+          node tests/run-app-probe.mjs artifacts/native-manual-ui/DeskNest.App
+          --headless-smoke
       - name: Exercise real X11 clipboard and production commands
         if: runner.os == 'Linux'
         timeout-minutes: 2

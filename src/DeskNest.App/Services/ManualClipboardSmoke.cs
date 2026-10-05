@@ -426,21 +426,17 @@ internal static class ManualClipboardSmoke
             if (directory) Directory.CreateDirectory(Path.Combine(external, "empty"));
             string externalContent = directory ? Path.Combine(external, "item.txt") : external;
             File.WriteAllText(externalContent, "external fixture");
-            if (OperatingSystem.IsWindows())
-            {
-                studio.SelectSpace(studio.AllSpaces.Single(s => s.Id == source.Id));
-                long beforeDrop = store.Snapshot.Revision;
-                await studio.DropPathsOnSpaceAsync([external]);
-                if (!studio.IsImportConfirmationOpen || studio.ImportSourcePath != external || !Exists(external) ||
-                    store.Snapshot.Revision != beforeDrop + 1)
-                    throw new InvalidOperationException("External space drop must create review metadata and request confirmation, never move immediately.");
-                studio.CloseImportConfirmation();
-                await studio.DropPathsOnSpaceAsync([external]); // Reuse the pending item rather than accumulating duplicates.
-                if (store.Snapshot.Revision != beforeDrop + 1 || studio.PendingItems.Count(p => p.Path == external) != 1)
-                    throw new InvalidOperationException("Repeated external drop must reuse its pending review.");
-                studio.CloseImportConfirmation();
-            }
-            else await studio.RegisterPathToTriageAsync(external);
+            studio.SelectSpace(studio.AllSpaces.Single(s => s.Id == source.Id));
+            long beforeDrop = store.Snapshot.Revision;
+            await studio.DropPathsOnSpaceAsync([external]);
+            if (!studio.IsImportConfirmationOpen || studio.ImportSourcePath != external || !Exists(external) ||
+                store.Snapshot.Revision != beforeDrop + 1)
+                throw new InvalidOperationException("External space drop must create review metadata and request confirmation, never move immediately.");
+            studio.CloseImportConfirmation();
+            await studio.DropPathsOnSpaceAsync([external]); // Reuse the pending item rather than accumulating duplicates.
+            if (store.Snapshot.Revision != beforeDrop + 1 || studio.PendingItems.Count(p => p.Path == external) != 1)
+                throw new InvalidOperationException("Repeated external drop must reuse its pending review.");
+            studio.CloseImportConfirmation();
             studio.SelectedTabIndex = 1;
             var pending = studio.PendingItems.Single(p => p.Path == external);
             pending.TargetSpace = studio.AllSpaces.Single(s => s.Id == source.Id);
@@ -461,28 +457,23 @@ internal static class ManualClipboardSmoke
                 throw new InvalidOperationException("Pending preview must be local, read-only and leave import unconfirmed.");
             studio.ClosePreviewDialog();
             importButton.Command!.Execute(importButton.CommandParameter);
-            if (OperatingSystem.IsWindows())
-            {
-                window.UpdateLayout();
-                if (view.FindControl<Border>("ImportConfirmationOverlay")?.IsEffectivelyVisible != true || !Exists(external))
-                    throw new InvalidOperationException("Import must show confirmation before moving anything.");
-                studio.CloseImportConfirmation();
-                if (store.Snapshot.Revision != importRevision || !Exists(external))
-                    throw new InvalidOperationException("Cancelling import must leave files and metadata unchanged.");
-                studio.OpenImportConfirmation(pending);
-                await studio.ConfirmImportAsync();
-                if (studio.IsImportConfirmationOpen || Exists(external))
-                    throw new InvalidOperationException("Confirmed import failed: " + studio.ImportError);
-                var importedOperation = store.Snapshot.Operations.Single(o => o.ImportSource?.Id == pending.Id);
-                await studio.ExecuteUndoManualMoveAsync(importedOperation.Id);
-                if (File.ReadAllText(externalContent) != "external fixture" ||
-                    !store.Snapshot.Pending.Any(p => p.Id == pending.Id) ||
-                    store.Snapshot.Operations.Single(o => o.Id == importedOperation.Id).Status != ProposedOperationStatus.Undone ||
-                    directory && !Directory.Exists(Path.Combine(external, "empty")))
-                    throw new InvalidOperationException("Undo import must restore the external item and its pending record.");
-            }
-            else if (pending.ResolutionNotice != main.Localizer["Triage.ImportUnavailable"] || !Exists(external))
-                throw new InvalidOperationException("Unsupported native import must remain visibly unavailable.");
+            window.UpdateLayout();
+            if (view.FindControl<Border>("ImportConfirmationOverlay")?.IsEffectivelyVisible != true || !Exists(external))
+                throw new InvalidOperationException("Import must show confirmation before moving anything.");
+            studio.CloseImportConfirmation();
+            if (store.Snapshot.Revision != importRevision || !Exists(external))
+                throw new InvalidOperationException("Cancelling import must leave files and metadata unchanged.");
+            studio.OpenImportConfirmation(pending);
+            await studio.ConfirmImportAsync();
+            if (studio.IsImportConfirmationOpen || Exists(external))
+                throw new InvalidOperationException("Confirmed import failed: " + studio.ImportError);
+            var importedOperation = store.Snapshot.Operations.Single(o => o.ImportSource?.Id == pending.Id);
+            await studio.ExecuteUndoManualMoveAsync(importedOperation.Id);
+            if (File.ReadAllText(externalContent) != "external fixture" ||
+                !store.Snapshot.Pending.Any(p => p.Id == pending.Id) ||
+                store.Snapshot.Operations.Single(o => o.Id == importedOperation.Id).Status != ProposedOperationStatus.Undone ||
+                directory && !Directory.Exists(Path.Combine(external, "empty")))
+                throw new InvalidOperationException("Undo import must restore the external item and its pending record.");
 
             if (OperatingSystem.IsWindows())
             {
