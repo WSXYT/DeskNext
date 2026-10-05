@@ -2,6 +2,12 @@
 
 Status: implementation in progress. Desktop takeover and watcher-driven automatic moves remain disabled.
 
+## Drop URI identity correction (2026-10-05)
+
+The shared space/capsule drop decoder no longer treats arbitrary absolute URI paths or accompanying plain text as filesystem paths. Non-file/relative items reject the entire batch instead of silently importing its local subset. File URI decoding preserves the path without application-level whitespace trimming; existing volume, identity and confirmation guards still apply. Virtual-file materialization is not claimed implemented by this refusal fix.
+
+The existing UI smoke checks HTTP/content/relative URI mixtures, encoded trailing whitespace, plain-text rejection and real storage-item event routing. App Release build: zero warnings/errors; active C# diagnostics clean; `artifacts/p3-publication-tests/drop-path-after.log` reports `DROP_PAYLOAD_PATH_IDENTITY_VERIFIED=true`, terminal Success, dictionary parity and managed clipboard workflow. The first test adapter hit Avalonia 12's non-client-implementable `IStorageItem` contract and was removed in favor of the decoder check; the raw-URI whitespace fixture failure is retained separately. This is a local smoke in the appearance-WIP working tree, not new native file-manager or package evidence. Only the decoder and its new smoke assertions are published; unrelated appearance changes remain unstaged.
+
 ## Windows UNC and mapped SMB refusal (2026-10-05)
 
 CI [37279558624](https://github.com/WSXYT/desknest-p1-probes/actions/runs/37279558624) at `ead1d20` passed an actual temporary loopback SMB share, with UNC access and a nonpersistent mapped drive whose runtime type is `Network`. The existing batch-refusal helper covers source/target × file/directory × UNC/mapped (eight batches): the first local item stays untouched, destination parents and journals are absent, and no forward-move guard is entered. Both aliases remain readable, so absent-share behavior cannot stand in for network-volume refusal. Production storage code is unchanged.

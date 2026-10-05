@@ -1484,6 +1484,25 @@ public static class HeadlessSmokeRunner
                     return Task.CompletedTask;
                 };
 
+                // Avalonia 12 does not allow client implementations of IStorageItem. Exercise the
+                // shared URI decoder directly; the existing real storage item still tests event routing.
+                foreach (var uri in new[] { new Uri("https://example.invalid/remote.txt"),
+                    new Uri("content://provider/remote.txt"), new Uri("relative.txt", UriKind.Relative) })
+                {
+                    if (StudioView.ExtractFilePaths(new[] { storageItem.Path, uri }).Count != 0)
+                        throw new InvalidOperationException("A non-local URI was decoded as a local or partial file drop.");
+                }
+                var exactPath = Path.GetFullPath(testDropFile + " ");
+                // Encode the trailing space: Uri's string constructor itself trims raw whitespace.
+                if (!StudioView.ExtractFilePaths(new[] { new Uri(storageItem.Path.AbsoluteUri + "%20") }).SequenceEqual(new[] { exactPath }))
+                    throw new InvalidOperationException("A local dropped filename was rewritten by trimming whitespace.");
+                var textPathData = new DataTransfer();
+                textPathData.Add(DataTransferItem.CreateText(testDropFile));
+                if (StudioView.ExtractPaths(new DragEventArgs(DragDrop.DropEvent, textPathData,
+                    spaceSurface, new Point(10, 10), KeyModifiers.None)).Count != 0)
+                    throw new InvalidOperationException("Plain text was reinterpreted as a storage-item drop.");
+                Console.WriteLine("DROP_PAYLOAD_PATH_IDENTITY_VERIFIED: true");
+
                 var dropCallbackArgs = new DragEventArgs(DragDrop.DropEvent, fileData, spaceSurface, new Point(10, 10), KeyModifiers.None);
                 spaceSurface.RaiseEvent(dropCallbackArgs);
                 Dispatcher.UIThread.RunJobs();

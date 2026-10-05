@@ -169,52 +169,30 @@ public partial class StudioView : UserControl
         return false;
     }
 
-    public static List<string> ExtractPaths(DragEventArgs e)
+    public static List<string> ExtractPaths(DragEventArgs e) =>
+        ExtractFilePaths(e.DataTransfer?.TryGetFiles()?.Select(item => item.Path));
+
+    internal static List<string> ExtractFilePaths(IEnumerable<Uri?>? itemUris)
     {
         var paths = new List<string>();
-        if (e.DataTransfer == null)
-            return paths;
-
-        var storageItems = e.DataTransfer.TryGetFiles();
-        if (storageItems != null)
+        if (itemUris is null) return paths;
+        foreach (var uri in itemUris)
         {
-            foreach (var item in storageItems)
+            // Virtual/remote items need explicit materialization, not URI.LocalPath reinterpretation.
+            // Reject a mixed payload as a whole rather than silently importing only its local subset.
+            if (uri is not { IsAbsoluteUri: true, IsFile: true }) return [];
+            var localPath = uri.LocalPath;
+            if (!Path.IsPathFullyQualified(localPath)) return [];
+            try
             {
-                string? localPath = item.TryGetLocalPath();
-                if (string.IsNullOrWhiteSpace(localPath) && item.Path != null)
-                {
-                    if (item.Path.IsFile || item.Path.IsAbsoluteUri)
-                        localPath = item.Path.LocalPath;
-                }
-
-                if (!string.IsNullOrWhiteSpace(localPath))
-                {
-                    var full = Path.GetFullPath(localPath.Trim());
-                    if (!paths.Contains(full))
-                        paths.Add(full);
-                }
+                var full = Path.GetFullPath(localPath);
+                if (!paths.Contains(full)) paths.Add(full);
+            }
+            catch (Exception error) when (error is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                return [];
             }
         }
-
-        if (paths.Count == 0)
-        {
-            var text = e.DataTransfer.TryGetText();
-            if (!string.IsNullOrWhiteSpace(text))
-            {
-                var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-                foreach (var line in lines)
-                {
-                    var trimmed = line.Trim();
-                    if (Path.IsPathFullyQualified(trimmed) && (File.Exists(trimmed) || Directory.Exists(trimmed)))
-                    {
-                        var full = Path.GetFullPath(trimmed);
-                        if (!paths.Contains(full))
-                            paths.Add(full);
-                    }
-                }
-            }
-        }
-
         return paths;
     }
 
