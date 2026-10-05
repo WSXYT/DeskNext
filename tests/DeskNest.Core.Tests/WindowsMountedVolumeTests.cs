@@ -5,7 +5,7 @@ using Xunit.Abstractions;
 
 namespace DeskNest.Core.Tests;
 
-// The hosted PowerShell fixture owns the VHDX and advances these three fresh-process phases.
+// Hosted PowerShell fixtures own the VHDX or temporary SMB share and select a fresh-process phase.
 public sealed class WindowsMountedVolumeTests(ITestOutputHelper output)
 {
     private const string Marker = "DeskNext Windows volume fixture";
@@ -87,6 +87,31 @@ public sealed class WindowsMountedVolumeTests(ITestOutputHelper output)
             Assert.False(Exists(destination));
         }
         output.WriteLine(JsonSerializer.Serialize(new { phase = "reattached", sameVolume = true, receiptBackedRecovery = true }));
+    }
+
+    [HostedWindowsVolumeFact("network")]
+    public async Task NetworkAliasesRefuseBatchesBeforeMutation()
+    {
+        var (root, _, mapped) = Fixture(online: true);
+        string unc = Environment.GetEnvironmentVariable("DESKNEXT_WINDOWS_VOLUME_UNC")!;
+        Assert.StartsWith(@"\\127.0.0.1\DeskNextProbe-", unc);
+        Assert.Equal(Path.GetFileName(root), Path.GetFileName(unc));
+        Assert.Equal(Marker, File.ReadAllText(Path.Combine(unc, "owner")));
+        Assert.Equal(DriveType.Network, new DriveInfo(Path.GetPathRoot(mapped)!).DriveType);
+        int batches = 0;
+        foreach (var (alias, label) in new[] { (unc, "unc"), (mapped, "mapped") })
+        {
+            // Both paths are accessible; refusal must be the local-volume policy, not an absent share.
+            Assert.Throws<IOException>(() => FileSystemVolume.Identify(Path.Combine(alias, "owner")));
+            foreach (bool directory in new[] { false, true })
+            foreach (bool source in new[] { false, true })
+            {
+                await RefuseBatch(root, alias, source, directory, label + (source ? "-source" : "-target"));
+                batches++;
+            }
+        }
+        output.WriteLine(JsonSerializer.Serialize(new { phase = "network", uncAccessible = true,
+            mappedDriveType = "Network", batchesRefusedBeforeMutation = batches }));
     }
 
     private static async Task RefuseBatch(string root, string other, bool sourceThroughMount, bool directory, string label)

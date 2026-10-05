@@ -22,9 +22,17 @@ on:
         default: false
 
       windows_storage_only:
-        description: Bounded Windows VHDX mount and offline-recovery tests
+        description: Targeted Windows mount or network-share tests
         type: boolean
         default: false
+
+      windows_storage_case:
+        description: Choose one Windows storage fixture (no UI tests)
+        type: choice
+        options:
+          - mounted
+          - network
+        default: mounted
 
 jobs:
   windows_storage:
@@ -40,9 +48,15 @@ jobs:
           dotnet build tests/DeskNest.Core.Tests/DeskNest.Core.Tests.csproj
           -c Release -m:1 --nodeReuse:false -p:UseSharedCompilation=false
       - name: Exercise owned mounted and unavailable volume boundaries
+        if: ${{ inputs.windows_storage_case != 'network' }}
         timeout-minutes: 8
         shell: pwsh
         run: ./build/windows/Test-MountedVolume.ps1
+      - name: Refuse owned UNC and mapped SMB paths before mutation
+        if: ${{ inputs.windows_storage_case == 'network' }}
+        timeout-minutes: 4
+        shell: pwsh
+        run: ./build/windows/Test-NetworkVolume.ps1
       - uses: actions/upload-artifact@v4
         if: always()
         with:
