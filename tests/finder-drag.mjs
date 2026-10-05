@@ -1,6 +1,6 @@
 // Native hosted macOS interoperability, not physical-input or installed-app acceptance.
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -46,15 +46,18 @@ const prepare = `on run argv
   end tell
 end run`;
 const visible = `on run argv
-  set wanted to POSIX file (item 1 of argv) as alias
+  set paths to {}
   tell application "Finder"
     repeat with w in Finder windows
       try
-        if (target of w as alias) is wanted then return true
+        set end of paths to POSIX path of (target of w as alias)
+      on error messageText number errorNumber
+        set end of paths to "ERROR " & errorNumber & ": " & messageText
       end try
     end repeat
   end tell
-  return false
+  set AppleScript's text item delimiters to linefeed
+  return paths as text
 end run`;
 const closeOwned = `on run argv
   tell application "Finder"
@@ -89,9 +92,18 @@ try {
     if (!Number.isFinite(s.Scale) || s.Scale <= 0) throw Error('Missing native pixel-to-point scale.');
     if (s.Stage === 'outbound') {
       requireFixture(s.LocatedFolder);
+      const wanted = statSync(s.LocatedFolder, { bigint: true });
       let revealed = false;
       for (let attempt = 0; attempt < 10 && !revealed; attempt++) {
-        revealed = command('/usr/bin/osascript', ['-e', visible, s.LocatedFolder]) === 'true';
+        const targets = command('/usr/bin/osascript', ['-e', visible]).split('\n');
+        console.log(JSON.stringify({ finderWindowTargets: targets, expectedFolder: s.LocatedFolder }));
+        // Finder aliases can spell the same physical directory differently. Read-only observation,
+        // not transaction authorization: match the actual window target's device/inode.
+        revealed = targets.some(path => {
+          if (!path.startsWith('/')) return false;
+          try { const actual = statSync(path, { bigint: true }); return actual.dev === wanted.dev && actual.ino === wanted.ino; }
+          catch { return false; }
+        });
         if (!revealed) await delay(150);
       }
       if (!revealed) throw Error('Production Reveal did not open the containing folder in Finder.');
