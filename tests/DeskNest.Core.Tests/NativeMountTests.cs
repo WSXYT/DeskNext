@@ -36,7 +36,7 @@ public sealed class NativeMountTests(ITestOutputHelper output)
         // Both spellings stay inside the owned fixture; do not create a system-directory target.
         Assert.StartsWith("/Users/", root);
         Assert.Contains(File.ReadLines("/usr/share/firmlinks"), line =>
-            line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).SequenceEqual(["Users", "Users"]));
+            line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).SequenceEqual(["/Users", "Users"]));
         string alias = "/System/Volumes/Data" + root;
         Assert.Equal(UnixFileIdentity.CaptureDirectory(root).NativeId,
             UnixFileIdentity.CaptureDirectory(alias).NativeId);
