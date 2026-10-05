@@ -2,6 +2,14 @@
 
 Status: implementation in progress. Desktop takeover and watcher-driven automatic moves remain disabled.
 
+## Native Nautilus two-way drag (2026-10-04)
+
+CI [37221792730](https://github.com/WSXYT/desknest-p1-probes/actions/runs/37221792730) at `8e7ed29` passed four real X11/Xvfb gestures through Nautilus 46 and DeskNext: inbound and outbound, each for a file and a directory. Both `EXPLORER_DRAG_CASE` records require space creation, explicit production import confirmation, outward Copy preserving source/content/metadata, and undo to the external origin, including empty directories. The driver independently observes Reveal's Nautilus window. Terminal `Success=true`, `ExplorerDragVerified=true`, and `nautilusDragVerified=true`; the legacy Explorer field names identify the shared probe, not a Windows execution.
+
+Actual DragEnter/Drop events offered `File` plus portal formats. The earlier runs `37220258903` and `37221236465` failed because GTK4 AT-SPI returned widget-local coordinates: `(430,22)` fell outside the Nautilus window starting at `x=440`. AT-SPI now verifies the visible fixture label while input uses the captured first-row offset for the fixed 1600×900/Nautilus-list fixture. Ctrl is applied after gesture initiation. This is a bounded driver, not a general accessibility locator; no production data-format workaround was needed. Evidence: `artifacts/p3-publication-tests/nautilus-37221792730/` (before/during screenshots and app logs) and `nautilus-37221792730.log`; failed evidence is retained alongside it.
+
+This closes the hosted Nautilus file/directory interoperability subset. It does not prove physical input, compositor appearance, Wayland, other layouts/DPI, virtual payloads, Finder, installed Unix GUI, or all of F02/P3. Unix in-app copy remains unavailable; outward Copy is a file-reference export handled by Nautilus.
+
 ## Native Unix clipboard and import UI workflow (2026-10-04)
 
 CI [37218876022](https://github.com/WSXYT/desknest-p1-probes/actions/runs/37218876022) at `5cb0670` published self-contained Linux/macOS probes and passed the real platform clipboard plus production view-model commands: file/directory cut→paste→undo, and external review→confirm import→undo. Both terminal reports have `Success=true`, `ManualWorkflowVerified=true`, `NativeClipboardRoundTripVerified=true`. Linux uses the actual X11 backend under isolated Xvfb; macOS uses its native window/clipboard. The probe requires an initially empty clipboard and only clears its own fixture payloads. Copy publication remains Windows-only. These are native command workflows, not physical keyboard/mouse, Finder/Nautilus drag negotiation, installed-Unix-app or desktop-compositing evidence; `ExplorerDragVerified=false` is explicit. Log: `artifacts/p3-publication-tests/ci-37218876022.log`. Local App Release build and integrated headless UI workflow also passed without packaging (`artifacts/ui-review/headless-portable-storage-integration.log`).

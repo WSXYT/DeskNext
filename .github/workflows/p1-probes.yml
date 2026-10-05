@@ -16,9 +16,33 @@ on:
         type: boolean
         default: false
 
+      macos_drag_only:
+        description: Finder input prerequisites only
+        type: boolean
+        default: false
+
 jobs:
+  macos_drag:
+    if: ${{ inputs.macos_drag_only }}
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect Finder automation and native input permissions
+        shell: bash
+        run: |
+          mkdir -p artifacts/finder-drag
+          swiftc tests/finder-input-preflight.swift \
+            -o artifacts/finder-input-preflight
+          artifacts/finder-input-preflight 2>&1 | \
+            tee artifacts/finder-drag/preflight.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: finder-drag-evidence
+          path: artifacts/finder-drag/
+          if-no-files-found: ignore
   linux_drag:
-    if: ${{ inputs.linux_drag_only }}
+    if: ${{ inputs.linux_drag_only && !inputs.macos_drag_only }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -58,7 +82,9 @@ jobs:
           path: artifacts/nautilus-drag/
           if-no-files-found: ignore
   native_manual:
-    if: ${{ inputs.native_manual_only && !inputs.linux_drag_only }}
+    if: >-
+      ${{ inputs.native_manual_only && !inputs.linux_drag_only &&
+          !inputs.macos_drag_only }}
     strategy:
       fail-fast: false
       matrix:
@@ -100,7 +126,7 @@ jobs:
   storage:
     if: >-
       ${{ inputs.storage_only && !inputs.native_manual_only &&
-          !inputs.linux_drag_only }}
+          !inputs.linux_drag_only && !inputs.macos_drag_only }}
     strategy:
       fail-fast: false
       matrix:
@@ -142,7 +168,7 @@ jobs:
   probe:
     if: >-
       ${{ !inputs.storage_only && !inputs.native_manual_only &&
-          !inputs.linux_drag_only }}
+          !inputs.linux_drag_only && !inputs.macos_drag_only }}
     strategy:
       fail-fast: false
       matrix:

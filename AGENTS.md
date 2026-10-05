@@ -10,6 +10,6 @@
 - Copy: cataloged Windows NTFS, managed/existing mapped targets, no copy-undo. Unsupported streams fail closed. Retain intents; never adopt/delete unconfirmed copies. Validate ancestry before creation.
 - Drops catalog in-root; confirmed imports preserve undo origins. Outgoing drags: Copy references, never delete sources. Clipboard: UI thread. Never create missing mapped roots. Recovery never creates missing parents.
 - Release singleton subscriptions; space windows borrow workbench. Observation: session→Pending only. Pause/dispose releases watchers; nested sources own subtrees. Resume baselines; explicitly scan missed items. No takeover before S01–S08.
-- CI: storage_only/native_manual_only/linux_drag_only; physical macOS temps; hosted-only mounts/aliases; terminal JSON/TRX. Skips aren't evidence.
+- CI: storage_only/native_manual_only/linux_drag_only/macos_drag_only; physical macOS temps; hosted-only mounts/aliases; terminal JSON/TRX. Skips aren't evidence.
 - Preserve provenance, twelve-locale parity, F01–F13/inference evidence. Suggestions never move files. Jev consent session-only; saved keys use OS storage, never JSON. Python/models: ignored `artifacts/`. Synthetic images don't prove desktop compositing.
 <!-- pi-agents-md:end -->
