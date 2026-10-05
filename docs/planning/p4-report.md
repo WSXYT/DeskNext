@@ -2,6 +2,14 @@
 
 P3's user-approved safe manual workflow is accepted; **P4 is not complete**. These previews are read-only: they do not authorize any file move or copy. Manual file operations have their separate P3 evidence.
 
+## Post-install CPU readiness and public CI follow-up (2026-10-05)
+
+Online and offline installation now finish by launching the existing App-hosted CPU worker and processing one fixed, non-user sample through `LocalPreviewClient.CheckModelAsync`. Any protocol-valid distribution passes this availability check; no expected category/confidence is asserted and no classification quality is implied. The same worker-start helper is reused by normal previews. The model-folder draft is only replaced after loading succeeds; failure/cancellation preserves the current setting and keeps the installed files for diagnosis. Progress reaches 100 only after the loading check. Explicit settings save still controls activation.
+
+App Release build passed with zero warnings/errors. The existing real-package UI workflow passed with `MODEL_PACKAGE_UI_ACTIVATION_VERIFIED=true` and terminal Success (`artifacts/p4-installer-tests/install-worker-readiness.log`). No repeat download, full suite or package build for this small readiness increment. The editor still reported a stale missing `CheckModelAsync` member at its consumer, contradicted by the compiled/working flow.
+
+The first public-repository integration run `37329006640` passed Windows/Linux but timed out in macOS's headless regression section after its Core/Inference/native bridge checks passed. A settings smoke command incorrectly used `Task.Run(...).GetResult()` while blocking the UI dispatcher; it now uses the existing bounded dispatcher-pumping helper. Regression progress markers were added without loosening assertions. Targeted run `37332480428` at `55a131a` passed Linux and macOS headless and real native clipboard/manual workflows. This follow-up does not claim a rerun of the macOS combined native-library-load step, or coverage of the later readiness change.
+
 ## Public repository and resumable download (2026-10-05)
 
 The user authorized migrating the whole project to **https://github.com/WSXYT/DeskNext**, not merely a model-only repository. The public `main` branch retains the committed source history and includes the previously separate appearance work, bilingual README navigation and a cropped real application screenshot. The old verification repository remains private; historical CI links are historical records, not public CI evidence. Automated checks covered 121 historical commits/1,065 source blobs plus 55 staged files for excluded artifacts and common credential patterns. This is hygiene checking, not a proof that arbitrary secrets are absent.

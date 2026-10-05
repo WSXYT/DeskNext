@@ -24,7 +24,7 @@ public partial class StudioViewModel
         {
             var progress = new Progress<int>(value =>
             {
-                if (!token.IsCancellationRequested) ModelInstallProgress = value;
+                if (!token.IsCancellationRequested) ModelInstallProgress = Math.Min(value, 99); // 100% includes the worker loading check.
             });
             string installed = await OnInstallLocalModelPackage(package, progress, token);
             token.ThrowIfCancellationRequested();

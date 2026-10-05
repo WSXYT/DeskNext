@@ -11,6 +11,18 @@ public static class LocalPreviewClient
     private const int MaximumFrame = 1024 * 1024;
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
+    /// <summary>Checks actual CPU worker loading and one valid inference, not classification accuracy.</summary>
+    public static async Task CheckModelAsync(ProcessStartInfo start, string modelDirectory, CancellationToken cancellationToken = default)
+    {
+        var request = new Probe.Request(Guid.NewGuid().ToString("N"), 0, "Quarterly report.txt",
+            "Classify the sample filename.", [
+                new Probe.Candidate("documents", "Written documents and reports."),
+                new Probe.Candidate(Probe.Ambiguous, "The filename is unclear."),
+                new Probe.Candidate(Probe.Insufficient, "No category fits.")]);
+        // Any validated distribution is acceptable: successful loading is not a quality decision.
+        await RunAsync(start, modelDirectory, request, cancellationToken).ConfigureAwait(false);
+    }
+
     public static async Task<Probe.Result> RunAsync(ProcessStartInfo start, string modelDirectory,
         Probe.Request request, CancellationToken cancellationToken = default)
     {

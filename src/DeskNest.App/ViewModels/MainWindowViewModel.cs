@@ -345,9 +345,14 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         {
             if (_disposed || _store is null) throw new ObjectDisposedException(nameof(MainWindowViewModel));
             string cache = Path.Combine(_store.DataDirectory, "models");
-            return Task.Run(() => package is null
-                ? DeskNest.Inference.ModelPackageDownload.InstallAsync(cache, progress, token)
-                : DeskNest.Inference.LocalModelInstaller.InstallArchiveAsync(package, cache, progress, token), token);
+            return Task.Run(async () =>
+            {
+                string installed = package is null
+                    ? await DeskNest.Inference.ModelPackageDownload.InstallAsync(cache, progress, token)
+                    : await DeskNest.Inference.LocalModelInstaller.InstallArchiveAsync(package, cache, progress, token);
+                await DeskNest.Inference.LocalPreviewClient.CheckModelAsync(CreateLocalWorkerStart(), installed, token);
+                return installed;
+            }, token);
         };
         if (_manualCoordinator != null)
         {
@@ -380,6 +385,15 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         if (_manualCoordinator is null) throw new InvalidOperationException("Manual organization is not initialized.");
         try { await _manualCoordinator.ImportPendingAsync(pendingId, targetSpaceId, revision); }
         finally { if (_store is not null) await SetUIStateAsync(() => ApplySnapshot(_store.Snapshot)); }
+    }
+
+    private static System.Diagnostics.ProcessStartInfo CreateLocalWorkerStart()
+    {
+        var start = new System.Diagnostics.ProcessStartInfo(Environment.ProcessPath
+            ?? throw new InvalidOperationException("Cannot locate the application worker host."));
+        if (Path.GetFileNameWithoutExtension(start.FileName).Equals("dotnet", StringComparison.OrdinalIgnoreCase))
+            start.ArgumentList.Add(typeof(Program).Assembly.Location);
+        return start;
     }
 
     private async Task ExecuteClassificationPreviewAsync(object selected, System.Threading.CancellationToken token)
@@ -428,11 +442,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         }
         else
         {
-            var start = new System.Diagnostics.ProcessStartInfo(Environment.ProcessPath
-                ?? throw new InvalidOperationException("Cannot locate the application worker host."));
-            if (Path.GetFileNameWithoutExtension(start.FileName).Equals("dotnet", StringComparison.OrdinalIgnoreCase))
-                start.ArgumentList.Add(typeof(Program).Assembly.Location);
-            var result = await DeskNest.Inference.LocalPreviewClient.RunAsync(start, directory!, request, token);
+            var result = await DeskNest.Inference.LocalPreviewClient.RunAsync(CreateLocalWorkerStart(), directory!, request, token);
             probabilities = result.Probabilities;
             choice = result.Choice;
         }
