@@ -392,5 +392,7 @@
   "Classification.PackageInstalled": "Модель проверена и установлена. Сохраните настройки для активации.",
   "Classification.DownloadPackage": "Скачать модель",
   "Classification.DownloadingPackage": "Загрузка, проверка и установка модели…",
-  "Classification.DownloadPackageNotice": "Около 813 МБ с GitHub. При поддержке повторная попытка продолжит загрузку. Текущая модель работает до сохранения настроек."
+  "Classification.DownloadPackageNotice": "Около 813 МБ с GitHub. При поддержке повторная попытка продолжит загрузку. Текущая модель работает до сохранения настроек.",
+  "Classification.RepairPackage": "Восстановить модель",
+  "Classification.RepairPackageNotice": "Устанавливает проверенную многоязычную модель в новую папку, не изменяя старую. Для переключения сохраните настройки."
 }

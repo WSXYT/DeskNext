@@ -292,8 +292,10 @@ internal static class ManualClipboardSmoke
             if (view.FindControl<Button>("ImportModelPackageButton")?.IsEffectivelyVisible != true ||
                 view.FindControl<Button>("CancelModelInstallButton")?.Command != studio.InstallLocalModelPackageCancelCommand)
                 throw new InvalidOperationException("Model package installation and cancellation must have real UI entries.");
-            if (view.FindControl<Button>("DownloadModelPackageButton")?.Command != studio.InstallLocalModelPackageCommand)
-                throw new InvalidOperationException("Online installation must share the cancellable model-install command.");
+            var repair = view.FindControl<Button>("RepairModelPackageButton");
+            if (view.FindControl<Button>("DownloadModelPackageButton")?.Command != studio.InstallLocalModelPackageCommand ||
+                repair?.Command != studio.InstallLocalModelPackageCommand || repair.CommandParameter is not null || !repair.IsEffectivelyVisible)
+                throw new InvalidOperationException("Online installation and repair must share the cancellable model-install command.");
             var install = studio.OnInstallLocalModelPackage;
             try
             {
@@ -322,7 +324,8 @@ internal static class ManualClipboardSmoke
                 await studio.InstallLocalModelPackageCommand.ExecuteAsync(package);
                 string installed = studio.SettingsModelCache;
                 if (installed == bundle || !File.Exists(Path.Combine(installed, "manifest.json")) ||
-                    store.Snapshot.Revision != beforeInstall || store.Snapshot.Settings.ModelCacheDirectory != bundle)
+                    store.Snapshot.Revision != beforeInstall || store.Snapshot.Settings.ModelCacheDirectory != bundle ||
+                    File.ReadAllText(Path.Combine(bundle, "manifest.json")) != "{}")
                     throw new InvalidOperationException("Installing the real model must prepare a verified draft without activating it: " + studio.ModelInstallNotice);
                 await studio.SaveSettingsAsync();
                 if (store.Snapshot.Settings.ModelCacheDirectory != installed)

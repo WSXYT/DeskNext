@@ -8,7 +8,7 @@ namespace DeskNest.App.ViewModels;
 
 public partial class StudioViewModel
 {
-    // Null package is the explicit online-download button; a non-null value is an offline ZIP path.
+    // Download and repair both prepare a fresh verified directory. Non-null input selects an offline ZIP.
     public Func<string?, IProgress<int>, CancellationToken, Task<string>>? OnInstallLocalModelPackage { get; set; }
     [ObservableProperty] private int _modelInstallProgress;
     [ObservableProperty] private string _modelInstallNotice = string.Empty;

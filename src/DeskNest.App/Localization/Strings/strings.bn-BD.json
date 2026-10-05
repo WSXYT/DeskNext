@@ -392,5 +392,7 @@
   "Classification.PackageInstalled": "মডেল যাচাই ও ইনস্টল হয়েছে। সক্রিয় করতে সেটিংস সংরক্ষণ করুন।",
   "Classification.DownloadPackage": "মডেল ডাউনলোড করুন",
   "Classification.DownloadingPackage": "মডেল ডাউনলোড, যাচাই ও ইনস্টল হচ্ছে…",
-  "Classification.DownloadPackageNotice": "GitHub থেকে প্রায় 813 MB। সমর্থিত হলে পুনরায় চেষ্টা আগের ডাউনলোড চালায়। সেটিংস সংরক্ষণের আগে বর্তমান মডেল বদলায় না।"
+  "Classification.DownloadPackageNotice": "GitHub থেকে প্রায় 813 MB। সমর্থিত হলে পুনরায় চেষ্টা আগের ডাউনলোড চালায়। সেটিংস সংরক্ষণের আগে বর্তমান মডেল বদলায় না।",
+  "Classification.RepairPackage": "মডেল মেরামত করুন",
+  "Classification.RepairPackageNotice": "যাচাইকৃত বহুভাষী মডেল নতুন ফোল্ডারে ইনস্টল করে; পুরোনো ফোল্ডার অপরিবর্তিত থাকে। বদলাতে সেটিংস সংরক্ষণ করুন।"
 }

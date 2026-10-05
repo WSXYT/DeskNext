@@ -392,5 +392,7 @@
   "Classification.PackageInstalled": "मॉडल सत्यापित और इंस्टॉल हो गया। सक्रिय करने के लिए सेटिंग्स सहेजें।",
   "Classification.DownloadPackage": "मॉडल डाउनलोड करें",
   "Classification.DownloadingPackage": "मॉडल डाउनलोड, सत्यापित और इंस्टॉल हो रहा है…",
-  "Classification.DownloadPackageNotice": "GitHub से लगभग 813 MB। समर्थन होने पर दोबारा कोशिश रुके डाउनलोड को जारी रखती है। सेटिंग्स सहेजने तक मौजूदा मॉडल सक्रिय रहता है।"
+  "Classification.DownloadPackageNotice": "GitHub से लगभग 813 MB। समर्थन होने पर दोबारा कोशिश रुके डाउनलोड को जारी रखती है। सेटिंग्स सहेजने तक मौजूदा मॉडल सक्रिय रहता है।",
+  "Classification.RepairPackage": "मॉडल सुधारें",
+  "Classification.RepairPackageNotice": "सत्यापित बहुभाषी मॉडल नए फ़ोल्डर में इंस्टॉल करता है, पुराने को नहीं बदलता। बदलने के लिए सेटिंग्स सहेजें।"
 }

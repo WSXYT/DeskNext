@@ -392,5 +392,7 @@
   "Classification.PackageInstalled": "モデルの検証とインストールが完了しました。設定を保存して有効にしてください。",
   "Classification.DownloadPackage": "モデルをダウンロード",
   "Classification.DownloadingPackage": "モデルをダウンロード・検証・インストール中…",
-  "Classification.DownloadPackageNotice": "GitHub から約813 MBをダウンロードします。対応時は再試行で再開します。設定保存まで現在のモデルは変わりません。"
+  "Classification.DownloadPackageNotice": "GitHub から約813 MBをダウンロードします。対応時は再試行で再開します。設定保存まで現在のモデルは変わりません。",
+  "Classification.RepairPackage": "モデルを修復",
+  "Classification.RepairPackageNotice": "検証済みの多言語モデルを新しいフォルダーにインストールし、元のフォルダーは保持します。設定保存で切り替えます。"
 }

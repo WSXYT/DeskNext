@@ -392,5 +392,7 @@
   "Classification.PackageInstalled": "Modell geprüft und installiert. Zum Aktivieren die Einstellungen speichern.",
   "Classification.DownloadPackage": "Modell herunterladen",
   "Classification.DownloadingPackage": "Modell wird heruntergeladen, geprüft und installiert…",
-  "Classification.DownloadPackageNotice": "Etwa 813 MB von GitHub. Erneuter Versuch setzt den Download fort, sofern unterstützt. Das aktuelle Modell bleibt bis zum Speichern aktiv."
+  "Classification.DownloadPackageNotice": "Etwa 813 MB von GitHub. Erneuter Versuch setzt den Download fort, sofern unterstützt. Das aktuelle Modell bleibt bis zum Speichern aktiv.",
+  "Classification.RepairPackage": "Modell reparieren",
+  "Classification.RepairPackageNotice": "Installiert das geprüfte mehrsprachige Modell in einem neuen Ordner. Der alte bleibt unverändert. Zum Wechseln Einstellungen speichern."
 }

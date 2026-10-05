@@ -392,5 +392,7 @@
   "Classification.PackageInstalled": "تم التحقق من النموذج وتثبيته. احفظ الإعدادات لتفعيله.",
   "Classification.DownloadPackage": "تنزيل النموذج",
   "Classification.DownloadingPackage": "جارٍ تنزيل النموذج والتحقق منه وتثبيته…",
-  "Classification.DownloadPackageNotice": "حوالي 813 ميغابايت من GitHub. تُستأنف المحاولة عند دعم ذلك. يبقى النموذج الحالي فعالًا حتى حفظ الإعدادات."
+  "Classification.DownloadPackageNotice": "حوالي 813 ميغابايت من GitHub. تُستأنف المحاولة عند دعم ذلك. يبقى النموذج الحالي فعالًا حتى حفظ الإعدادات.",
+  "Classification.RepairPackage": "إصلاح النموذج",
+  "Classification.RepairPackageNotice": "يثبّت النموذج متعدد اللغات بعد التحقق في مجلد جديد دون تغيير القديم. احفظ الإعدادات للتبديل."
 }

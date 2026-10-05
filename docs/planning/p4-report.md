@@ -2,6 +2,12 @@
 
 P3's user-approved safe manual workflow is accepted; **P4 is not complete**. These previews are read-only: they do not authorize any file move or copy. Manual file operations have their separate P3 evidence.
 
+## Non-destructive model repair entry (2026-10-05)
+
+Settings now exposes **Repair model**. It deliberately reuses the online download/verified installation/CPU loading command rather than modifying individual files in a damaged directory. A verified cached ZIP can be reused offline; otherwise the fixed public package is downloaded. The old model directory is retained, and the replacement becomes only a draft until settings are saved. This reinstalls the supported multilingual package; it does not repair arbitrary third-party models in place or perform disk cleanup/uninstall.
+
+The new button and its cancellation path use the existing production command, with two labels in every locale. App Release build passed with zero warnings/errors, and the existing checked workflow passed (`artifacts/p4-installer-tests/model-repair-entry.log`, Success/parity true). The real-package optional assertion additionally checks that the old invalid manifest is not overwritten; this increment did not rerun the large-package path, network transfer, full suite or CI.
+
 ## Post-install CPU readiness and public CI follow-up (2026-10-05)
 
 Online and offline installation now finish by launching the existing App-hosted CPU worker and processing one fixed, non-user sample through `LocalPreviewClient.CheckModelAsync`. Any protocol-valid distribution passes this availability check; no expected category/confidence is asserted and no classification quality is implied. The same worker-start helper is reused by normal previews. The model-folder draft is only replaced after loading succeeds; failure/cancellation preserves the current setting and keeps the installed files for diagnosis. Progress reaches 100 only after the loading check. Explicit settings save still controls activation.

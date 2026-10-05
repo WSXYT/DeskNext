@@ -392,5 +392,7 @@
   "Classification.PackageInstalled": "Modelo verificado e instalado. Guarda los ajustes para activarlo.",
   "Classification.DownloadPackage": "Descargar modelo",
   "Classification.DownloadingPackage": "Descargando, verificando e instalando el modelo…",
-  "Classification.DownloadPackageNotice": "Unos 813 MB desde GitHub. Se reanuda al reintentar si es compatible. El modelo actual sigue activo hasta guardar los ajustes."
+  "Classification.DownloadPackageNotice": "Unos 813 MB desde GitHub. Se reanuda al reintentar si es compatible. El modelo actual sigue activo hasta guardar los ajustes.",
+  "Classification.RepairPackage": "Reparar modelo",
+  "Classification.RepairPackageNotice": "Instala el modelo multilingüe verificado en una carpeta nueva sin modificar la anterior. Guarda los ajustes para cambiar."
 }

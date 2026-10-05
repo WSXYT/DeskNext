@@ -392,5 +392,7 @@
   "Classification.PackageInstalled": "模型已驗證並安裝。儲存設定後啟用。",
   "Classification.DownloadPackage": "下載模型",
   "Classification.DownloadingPackage": "正在下載、驗證並安裝模型…",
-  "Classification.DownloadPackageNotice": "從 GitHub 下載約 813 MB；支援時重試會續傳。儲存設定前不會切換目前模型。"
+  "Classification.DownloadPackageNotice": "從 GitHub 下載約 813 MB；支援時重試會續傳。儲存設定前不會切換目前模型。",
+  "Classification.RepairPackage": "修復模型",
+  "Classification.RepairPackageNotice": "將已驗證的多語言模型安裝到新目錄，保留舊目錄不動；儲存設定後才切換。"
 }

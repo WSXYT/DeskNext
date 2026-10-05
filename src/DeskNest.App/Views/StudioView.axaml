@@ -796,6 +796,10 @@
                                         Command="{Binding InstallLocalModelPackageCommand}"/>
                                 <Button Name="ImportModelPackageButton" Classes="ActionButton" Margin="0,0,8,0"
                                         Content="{Binding Localizer[Classification.ImportPackage]}" Click="OnImportModelPackageClick"/>
+                                <Button Name="RepairModelPackageButton" Classes="ActionButton" Margin="0,0,8,0"
+                                        Content="{Binding Localizer[Classification.RepairPackage]}"
+                                        ToolTip.Tip="{Binding Localizer[Classification.RepairPackageNotice]}"
+                                        Command="{Binding InstallLocalModelPackageCommand}"/>
                                 <Button Name="CancelModelInstallButton" Classes="ActionButton"
                                         Content="{Binding Localizer[Action.Cancel]}"
                                         IsVisible="{Binding InstallLocalModelPackageCommand.IsRunning}"

@@ -392,5 +392,7 @@
   "Classification.PackageInstalled": "Modèle vérifié et installé. Enregistrez les paramètres pour l’activer.",
   "Classification.DownloadPackage": "Télécharger le modèle",
   "Classification.DownloadingPackage": "Téléchargement, vérification et installation du modèle…",
-  "Classification.DownloadPackageNotice": "Environ 813 Mo depuis GitHub. La reprise est utilisée si disponible. Le modèle actuel reste actif jusqu’à l’enregistrement des paramètres."
+  "Classification.DownloadPackageNotice": "Environ 813 Mo depuis GitHub. La reprise est utilisée si disponible. Le modèle actuel reste actif jusqu’à l’enregistrement des paramètres.",
+  "Classification.RepairPackage": "Réparer le modèle",
+  "Classification.RepairPackageNotice": "Installe le modèle multilingue vérifié dans un nouveau dossier sans modifier l’ancien. Enregistrez les paramètres pour basculer."
 }
