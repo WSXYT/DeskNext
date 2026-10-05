@@ -43,6 +43,12 @@ These are bounded capabilities, not a claim that every OS version, filesystem, v
 
 ## Getting started
 
+### Download the Windows preview
+
+[**Download DeskNext 0.4.0 Preview 1 · Windows x64**](https://github.com/WSXYT/DeskNext/releases/tag/v0.4.0-preview.1)
+
+Extract the complete ZIP and run `payload/DeskNest.App.exe`. No .NET SDK or Python installation is needed. The release includes a checksum file, bilingual instructions and an optional per-user installer. It is **unsigned and intended for development evaluation**; read its limitations and back up important data first. Model weights are optional and downloaded separately.
+
 ### Run from source
 
 Install the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0), then:

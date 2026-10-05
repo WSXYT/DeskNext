@@ -43,6 +43,12 @@
 
 ## 开始使用
 
+### 下载 Windows 预览版
+
+[**下载 DeskNext 0.4.0 Preview 1 · Windows x64**](https://github.com/WSXYT/DeskNext/releases/tag/v0.4.0-preview.1)
+
+完整解压 ZIP 后运行 `payload/DeskNest.App.exe`，无需安装 .NET SDK 或 Python。发布页提供校验文件、中英文说明及可选的按用户安装方式。这是**未签名的开发体验版**，请先阅读限制并备份重要数据。模型并非必需，另行下载。
+
 ### 从源码运行
 
 安装 [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)，然后执行：

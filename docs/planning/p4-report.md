@@ -2,6 +2,10 @@
 
 P3's user-approved safe manual workflow is accepted; **P4 is not complete**. These previews are read-only: they do not authorize any file move or copy. Manual file operations have their separate P3 evidence.
 
+## Public Windows development preview
+
+The already checked package is published as `v0.4.0-preview.1` at https://github.com/WSXYT/DeskNext/releases/tag/v0.4.0-preview.1, with a bilingual release introduction and both README language entry points. Asset `DeskNext-0.4.0-preview.1-win-x64.zip` is 125,453,069 bytes; its complete ZIP manifest (450 payload files) and SHA-256 were checked. GitHub reports the same `2ed4a34b…9a14b01` digest. Only the archive filename changed; internal build identity remains `0.4.0-p4-parity-20261005` from source `936e10211fcc0841b7e8c1c46570134d0c1b1f76`. This default package excludes the test-only recovery probe and all model weights. It is an unsigned preview, not P4/P7 completion or a production release.
+
 ## Installed CPU parity and confirmed file workflow (2026-10-05)
 
 The existing parity driver now accepts explicit bundle, installed worker, diagnostic worker and output paths. Fresh A (official Torch), B (Python split ORT) and C (.NET diagnostic) ran serially; D used the **actually installed DeskNest.App.exe** from unsigned build `0.4.0-p4-parity-20261005`. Three fixed cases cover mixed-language input, literal mask with reordered candidates, and a longer multilingual state. Input tensors match exactly; C/D results match exactly. Maximum D-vs-Torch logit delta was **1.5717e-5**, D-vs-Python-ORT **2.3072e-7**, probability delta **1.5443e-6**. Choices and pending/proposed routing matched.
