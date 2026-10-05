@@ -2,6 +2,16 @@
 
 Status: implementation in progress. Desktop takeover and watcher-driven automatic moves remain disabled.
 
+## Native Finder two-way drag (2026-10-05)
+
+CI [37257429847](https://github.com/WSXYT/desknest-p1-probes/actions/runs/37257429847) at `a98f4df` passed four native macOS gestures for files and directories. `tests/finder-input.swift` checks existing Accessibility, Quartz posting, screen-capture and Finder automation permissions without prompting or editing TCC; AX locates the visible source label and Quartz posts a Copy-modified drag. The shared App probe uses a 1000-point minimum width on macOS (the hosted screen is 1024 points), without changing display settings. Confirmation and undo use production commands; input is injected, not human physical interaction.
+
+`tests/finder-drag.mjs` independently observes Reveal by enumerating actual Finder window targets and matching the target directory's device/inode. Both case records have `SpaceCreated`, `ImportConfirmed`, `ExternalCopyPreservedSource`, `UndoRestored` true, including empty directory preservation. The sole App terminal has `Success=true`, `ExplorerDragVerified=true`; the driver ends with `finderDragVerified=true`, four stages. Preflight's separate `finderDragVerified=false` correctly does not claim a gesture. Evidence: `artifacts/p3-publication-tests/finder-37257429847/` and `finder-37257429847.log`.
+
+The preflight-only run `37255584880` passed prerequisites, not drag acceptance. Earlier full runs `37256379805` and `37256946475` completed the first inbound import but failed Reveal observation: AppleScript attempted to coerce an unevaluated window-target reference to an alias (`-1700`). Explicitly fetching the windows and target values fixed the observer; there was no demonstrated application Reveal defect or firmlink mismatch. Failed logs/screenshots remain retained. An initial artifact-download timeout was followed by a completed download and inspection of both case records and the App terminal; the timeout itself is not success evidence.
+
+The obsolete Windows-only import hints and unavailable-session message are corrected in all twelve locales (only these two keys are published; prior appearance edits remain separate). JSON/key parity is checked. Unix in-app copy is still unavailable. This closes the hosted Finder file/directory interoperability subset, not installed Unix GUI, virtual payloads, multi-DPI, desktop-layer residence, remaining storage/firmlink faults, power loss or all of F02/P3.
+
 ## Native Nautilus two-way drag (2026-10-04)
 
 CI [37221792730](https://github.com/WSXYT/desknest-p1-probes/actions/runs/37221792730) at `8e7ed29` passed four real X11/Xvfb gestures through Nautilus 46 and DeskNext: inbound and outbound, each for a file and a directory. Both `EXPLORER_DRAG_CASE` records require space creation, explicit production import confirmation, outward Copy preserving source/content/metadata, and undo to the external origin, including empty directories. The driver independently observes Reveal's Nautilus window. Terminal `Success=true`, `ExplorerDragVerified=true`, and `nautilusDragVerified=true`; the legacy Explorer field names identify the shared probe, not a Windows execution.
