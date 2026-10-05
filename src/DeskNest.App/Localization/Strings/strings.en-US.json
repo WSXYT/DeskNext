@@ -78,7 +78,7 @@
   "Classification.JevCloud": "Jev · Cloud",
   "Classification.SessionKey": "API key (not saved automatically)",
   "Classification.ClearSession": "Clear this session",
-  "Classification.JevSetup": "Select Jev and save settings. Enter your TypeSafe key and allow sending below, then request a preview. The default is session-only.",
+  "Classification.JevSetup": "Select Jev and save settings. Enter your TypeSafe key and allow sending below, then request a preview. The default is session-only. Explicit rate-limit refusals may retry twice within 45 seconds; longer server waits require a new action.",
   "Classification.JevConsent": "I allow sending filenames, item types, and all space names/descriptions to TypeSafe AI for previews this session. No contents or full paths are sent. API usage may be charged.",
   "Classification.JevResultNotice": "Jev cloud suggestion only. Names and space descriptions were sent to TypeSafe AI; no contents were read, and no files or workspace records were changed.",
   "Classification.JevRunning": "Requesting a Jev cloud preview… Cancel from the context menu.",

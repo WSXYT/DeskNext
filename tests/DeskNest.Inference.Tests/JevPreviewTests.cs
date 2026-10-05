@@ -81,6 +81,71 @@ public sealed class JevPreviewTests
         Assert.Equal(1, calls);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RateLimitRetryPreservesRequestAndStopsAtThreeAttempts(bool alwaysLimited)
+    {
+        int calls = 0;
+        string? original = null;
+        using var client = new HttpClient(new Handler(async (message, token) =>
+        {
+            calls++;
+            string body = await message.Content!.ReadAsStringAsync(token);
+            original ??= body;
+            Assert.Equal(original, body);
+            var response = new HttpResponseMessage(alwaysLimited || calls < 2 ? HttpStatusCode.TooManyRequests : HttpStatusCode.OK)
+                { Content = new StringContent(Reply()) };
+            response.Headers.RetryAfter = new System.Net.Http.Headers.RetryConditionHeaderValue(TimeSpan.Zero);
+            return response;
+        }));
+        if (alwaysLimited)
+        {
+            var error = await Assert.ThrowsAsync<HttpRequestException>(() => JevPreviewClient.RunAsync(client, "fixture-key", Request()));
+            Assert.Equal(HttpStatusCode.TooManyRequests, error.StatusCode);
+            Assert.Equal(3, calls);
+        }
+        else
+        {
+            Assert.Equal("design", (await JevPreviewClient.RunAsync(client, "fixture-key", Request())).Choice);
+            Assert.Equal(2, calls);
+        }
+    }
+
+    [Theory]
+    [InlineData(429, 60)]
+    [InlineData(503, 0)]
+    public async Task LongServerWaitAndAmbiguousFailureDoNotRetry(int status, int seconds)
+    {
+        int calls = 0;
+        using var client = new HttpClient(new Handler((_, _) =>
+        {
+            calls++;
+            var response = new HttpResponseMessage((HttpStatusCode)status);
+            response.Headers.RetryAfter = new System.Net.Http.Headers.RetryConditionHeaderValue(TimeSpan.FromSeconds(seconds));
+            return Task.FromResult(response);
+        }));
+        await Assert.ThrowsAsync<HttpRequestException>(() => JevPreviewClient.RunAsync(client, "fixture-key", Request()));
+        Assert.Equal(1, calls);
+    }
+
+    [Fact]
+    public async Task CancellationDuringRateLimitWaitPreventsAnotherRequest()
+    {
+        using var stop = new CancellationTokenSource();
+        int calls = 0;
+        using var client = new HttpClient(new Handler((_, _) =>
+        {
+            calls++;
+            var response = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+            response.Headers.RetryAfter = new System.Net.Http.Headers.RetryConditionHeaderValue(TimeSpan.FromSeconds(10));
+            stop.CancelAfter(25);
+            return Task.FromResult(response);
+        }));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => JevPreviewClient.RunAsync(client, "fixture-key", Request(), stop.Token));
+        Assert.Equal(1, calls);
+    }
+
     private sealed class Handler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage message, CancellationToken token) => send(message, token);

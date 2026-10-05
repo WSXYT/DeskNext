@@ -78,7 +78,7 @@
   "Classification.JevCloud": "Jev · クラウド",
   "Classification.SessionKey": "API キー（自動保存しません）",
   "Classification.ClearSession": "このセッションをクリア",
-  "Classification.JevSetup": "Jev を選択して設定を保存し、TypeSafe キーを入力して下で送信を許可してからプレビューを要求します。既定ではセッション内のみです。",
+  "Classification.JevSetup": "Jev を選択して設定を保存し、TypeSafe キーを入力して下で送信を許可してからプレビューを要求します。既定ではセッション内のみです。 明示的なレート制限時のみ45秒以内に最大2回再試行します。長い待機が必要な場合は後で手動で再試行してください。",
   "Classification.JevConsent": "このセッションのプレビューで、ファイル名、項目の種類、全スペースの名前と説明を TypeSafe AI に送信することを許可します。内容や完全なパスは送信しません。API 利用料が発生する場合があります。",
   "Classification.JevResultNotice": "Jev クラウドの提案です。名前とスペースの説明を TypeSafe AI に送信しました。ファイル内容の読み取りや、ファイル・ワークスペース記録の変更は行っていません。",
   "Classification.JevRunning": "Jev クラウドにプレビューを要求中…右クリックメニューでキャンセルできます。",

@@ -78,7 +78,7 @@
   "Classification.JevCloud": "Jev · 云端",
   "Classification.SessionKey": "API 密钥（不会自动保存）",
   "Classification.ClearSession": "清空本次会话",
-  "Classification.JevSetup": "选择 Jev 并保存设置。输入 TypeSafe 密钥并在下方允许发送，再请求预览。默认仅用于本次会话。",
+  "Classification.JevSetup": "选择 Jev 并保存设置。输入 TypeSafe 密钥并在下方允许发送，再请求预览。默认仅用于本次会话。 遇到明确限流时，可在45秒内最多重试两次；服务器要求更长等待时需稍后手动重试。",
   "Classification.JevConsent": "我允许本次会话的预览将文件名、项目类型及全部空间名称/描述发送至 TypeSafe AI。不发送内容或完整路径，API 使用可能产生费用。",
   "Classification.JevResultNotice": "仅为 Jev 云端建议。已向 TypeSafe AI 发送名称及空间描述；未读取文件内容，未改变文件或工作区记录。",
   "Classification.JevRunning": "正在请求 Jev 云端预览…可在右键菜单中取消。",

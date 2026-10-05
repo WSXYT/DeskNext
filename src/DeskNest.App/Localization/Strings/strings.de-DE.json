@@ -78,7 +78,7 @@
   "Classification.JevCloud": "Jev · Cloud",
   "Classification.SessionKey": "API-Schlüssel (keine automatische Speicherung)",
   "Classification.ClearSession": "Sitzung leeren",
-  "Classification.JevSetup": "Jev auswählen und Einstellungen speichern. TypeSafe-Schlüssel eingeben, das Senden unten erlauben und eine Vorschau anfordern. Standardmäßig gilt der Schlüssel nur für diese Sitzung.",
+  "Classification.JevSetup": "Jev auswählen und Einstellungen speichern. TypeSafe-Schlüssel eingeben, das Senden unten erlauben und eine Vorschau anfordern. Standardmäßig gilt der Schlüssel nur für diese Sitzung. Bei ausdrücklicher Ratenbegrenzung erfolgen höchstens zwei Wiederholungen innerhalb von 45 Sekunden; längere Wartezeiten erfordern einen neuen Aufruf.",
   "Classification.JevConsent": "Ich erlaube für Vorschauen dieser Sitzung die Übertragung von Dateinamen, Objekttypen sowie allen Bereichsnamen und -beschreibungen an TypeSafe AI. Keine Inhalte oder vollständigen Pfade. API-Nutzung kann kostenpflichtig sein.",
   "Classification.JevResultNotice": "Nur ein Jev-Cloud-Vorschlag. Namen und Bereichsbeschreibungen wurden an TypeSafe AI gesendet; keine Dateiinhalte gelesen und keine Dateien oder Arbeitsbereichsdaten geändert.",
   "Classification.JevRunning": "Jev-Cloud-Vorschau wird angefordert… Abbruch im Kontextmenü.",

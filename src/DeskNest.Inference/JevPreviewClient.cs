@@ -14,6 +14,26 @@ public static class JevPreviewClient
     public static Task<Result> RunAsync(string apiKey, Probe.Request request, CancellationToken token = default) =>
         RunAsync(DefaultClient, apiKey, request, token);
 
+    // Retry only an explicit rate-limit refusal, not an ambiguous network/server failure or a malformed answer.
+    private static async Task<HttpResponseMessage> SendWithRateLimitRetryAsync(HttpClient client, string key, byte[] body, CancellationToken token)
+    {
+        for (int attempt = 0; ; attempt++)
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Post, "https://api.typesafe.ai/v1/systemone");
+            message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key);
+            message.Content = new ByteArrayContent(body);
+            message.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+            var response = await client.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
+            if (response.StatusCode != System.Net.HttpStatusCode.TooManyRequests || attempt == 2) return response;
+            var retry = response.Headers.RetryAfter;
+            TimeSpan delay = retry?.Delta ?? (retry?.Date is { } date ? date - DateTimeOffset.UtcNow : TimeSpan.FromSeconds(attempt + 1));
+            if (delay < TimeSpan.Zero) delay = TimeSpan.Zero;
+            if (delay > TimeSpan.FromSeconds(10)) return response; // Do not shorten the server's requested wait.
+            response.Dispose();
+            await Task.Delay(delay, token).ConfigureAwait(false);
+        }
+    }
+
     public static async Task<Result> RunAsync(HttpClient client, string apiKey, Probe.Request request, CancellationToken token = default)
     {
         token.ThrowIfCancellationRequested();
@@ -35,16 +55,11 @@ public static class JevPreviewClient
             }
         });
         if (body.Length > MaximumBytes) throw new InvalidDataException("Jev preview request exceeds 1 MiB.");
-        using var message = new HttpRequestMessage(HttpMethod.Post, "https://api.typesafe.ai/v1/systemone");
-        message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-        message.Content = new ByteArrayContent(body);
-        message.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
         deadline.CancelAfter(TimeSpan.FromSeconds(45));
         try
         {
-            // No automatic POST retries: another click is an explicit, potentially billable request.
-            using var response = await client.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, deadline.Token).ConfigureAwait(false);
+            using var response = await SendWithRateLimitRetryAsync(client, apiKey, body, deadline.Token).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
                 throw new HttpRequestException($"Jev preview failed (HTTP {(int)response.StatusCode}).", null, response.StatusCode);
             await response.Content.LoadIntoBufferAsync(MaximumBytes, deadline.Token).ConfigureAwait(false);

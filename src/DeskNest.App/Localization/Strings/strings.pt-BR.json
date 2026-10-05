@@ -78,7 +78,7 @@
   "Classification.JevCloud": "Jev · Nuvem",
   "Classification.SessionKey": "Chave API (sem salvamento automático)",
   "Classification.ClearSession": "Limpar esta sessão",
-  "Classification.JevSetup": "Selecione Jev e salve as configurações. Insira a chave TypeSafe, permita o envio abaixo e solicite uma prévia. Por padrão, a chave vale só nesta sessão.",
+  "Classification.JevSetup": "Selecione Jev e salve as configurações. Insira a chave TypeSafe, permita o envio abaixo e solicite uma prévia. Por padrão, a chave vale só nesta sessão. Limites explícitos permitem até duas novas tentativas em 45 segundos; esperas maiores exigem uma nova ação.",
   "Classification.JevConsent": "Autorizo o envio de nomes de arquivos, tipos de itens e nomes/descrições de todos os espaços ao TypeSafe AI para prévias nesta sessão. Nenhum conteúdo ou caminho completo é enviado. O uso da API pode ser cobrado.",
   "Classification.JevResultNotice": "Apenas uma sugestão do Jev na nuvem. Nomes e descrições foram enviados ao TypeSafe AI; nenhum conteúdo foi lido e nenhum arquivo ou registro do espaço de trabalho foi alterado.",
   "Classification.JevRunning": "Solicitando prévia do Jev… Cancele pelo menu de contexto.",
