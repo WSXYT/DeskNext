@@ -1056,7 +1056,9 @@ public static class HeadlessSmokeRunner
 
                 mainVm.Studio.SelectedTabIndex = 3; // Switch to Settings tab
                 var studioInstanceBefore = mainVm.Studio;
-                Task.Run(async () => await mainVm.Studio.SaveSettingsAsync()).GetAwaiter().GetResult();
+                // UI commands can await dispatcher work; keep the dispatcher pumping while persistence completes.
+                AwaitOnUIThread(mainVm.Studio.SaveSettingsAsync(), "settings selection preservation");
+                Console.WriteLine("[REGRESSION] Settings persistence completed on the UI dispatcher.");
 
                 if (!ReferenceEquals(mainVm.Studio, studioInstanceBefore))
                     throw new InvalidOperationException("Studio ViewModel was destroyed/recreated on store update! Tab state lost.");
@@ -1231,6 +1233,7 @@ public static class HeadlessSmokeRunner
                 result.LongTextLayoutDidNotThrow = true;
                 result.LongTextVisualBoundsVerified = true;
                 result.Resolutions1280x720And1600x900Verified = true;
+                Console.WriteLine("[REGRESSION] Long-text layouts completed.");
 
                 // Regression Assertion 7: RTL Layout & Isolated LTR File Path Verification
                 localizer.CurrentLanguage = "ar-SA";
@@ -1418,6 +1421,7 @@ public static class HeadlessSmokeRunner
                 result.HeadlessScale = window.RenderScaling;
                 result.ModalHotKeyAcceleratorsConfigured = true;
                 result.KeyboardKeyInjectionAndNavigationVerified = true;
+                Console.WriteLine("[REGRESSION] Keyboard navigation completed.");
 
                 // Regression Assertion 9: Real Drag-and-Drop Event Wiring, Visual States, Absolute Path Routing & Non-File Rejection
                 mainVm.Studio.SelectedTabIndex = 0;
@@ -1620,6 +1624,7 @@ public static class HeadlessSmokeRunner
                     throw new InvalidOperationException($"Expected CapsuleNotice to be '{localizer["Triage.P2Notice"]}', got '{mainVm.Studio.CapsuleNotice}'");
 
                 result.DragDropCapsuleRoutingVerified = true;
+                Console.WriteLine("[REGRESSION] Drop routing completed.");
 
                 // Regression Assertion 10: Truthful Operation History Surface, Lifecycle Statuses (Proposed, PendingUser, Completed, RecoveryRequired), Actionable Warning, and Gated Manual Move Boundary
                 mainVm.Studio.SelectedTabIndex = 3; // Switch to Settings tab
@@ -2221,6 +2226,7 @@ public static class HeadlessSmokeRunner
 
                 result.OperationRecoveryRequiredActionWarningVerified = true;
                 result.OperationHistorySurfaceVerified = true;
+                Console.WriteLine("[REGRESSION] File actions and history completed.");
 
                 // Reset tab to 0
                 mainVm.Studio.SelectedTabIndex = 0;
