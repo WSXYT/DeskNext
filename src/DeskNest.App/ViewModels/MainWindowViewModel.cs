@@ -292,6 +292,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             SelectedTheme = themeMode;
         }
 
+        ThemeMgr.ApplyAccentSettings(state.Settings.AccentSource, state.Settings.AccentColor);
+
         // Maintain RepresentativeSpaces for backward compatibility
         RepresentativeSpaces.Clear();
         foreach (var s in state.Spaces)
@@ -343,7 +345,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         {
             if (_disposed || _store is null) throw new ObjectDisposedException(nameof(MainWindowViewModel));
             string cache = Path.Combine(_store.DataDirectory, "models");
-            return Task.Run(() => DeskNest.Inference.LocalModelInstaller.InstallArchiveAsync(package, cache, progress, token), token);
+            return Task.Run(() => package is null
+                ? DeskNest.Inference.ModelPackageDownload.InstallAsync(cache, progress, token)
+                : DeskNest.Inference.LocalModelInstaller.InstallArchiveAsync(package, cache, progress, token), token);
         };
         if (_manualCoordinator != null)
         {

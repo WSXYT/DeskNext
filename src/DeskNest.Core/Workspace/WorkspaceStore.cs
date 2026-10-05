@@ -176,6 +176,9 @@ public sealed class WorkspaceStore : IAsyncDisposable
             state.Preset is not ("office" or "development" or "creative" or "custom") ||
             string.IsNullOrWhiteSpace(state.Settings.Language) || state.Settings.Language.Length > 20 ||
             state.Settings.Theme is not ("System" or "Dark" or "Light") ||
+            !WorkspaceSettings.IsValidAccentColor(state.Settings.AccentColor) ||
+            !Enum.IsDefined(state.Settings.AccentSource) ||
+            state.Settings.CapsuleIconPath is { } capsuleIcon && (capsuleIcon.Length > 4096 || !Path.IsPathFullyQualified(capsuleIcon)) ||
             !Enum.IsDefined(state.Settings.Provider) ||
             !Path.IsPathFullyQualified(state.Settings.ManagedRoot) ||
             state.Settings.ModelCacheDirectory is { } cache && !Path.IsPathFullyQualified(cache) ||
@@ -191,7 +194,8 @@ public sealed class WorkspaceStore : IAsyncDisposable
             if (space.Id == Guid.Empty || !spaces.Add(space.Id) ||
                 string.IsNullOrWhiteSpace(space.Name) || space.Name.Length > 160 ||
                 space.Description is null || space.Description.Length > 1_000 ||
-                !Enum.IsDefined(space.Mode) || !Path.IsPathFullyQualified(space.Folder))
+                !Enum.IsDefined(space.Mode) || !Enum.IsDefined(space.FileView) || !Path.IsPathFullyQualified(space.Folder) ||
+                space.CustomIconPath is { } spaceIcon && (spaceIcon.Length > 4096 || !Path.IsPathFullyQualified(spaceIcon)))
                 throw new InvalidDataException("Invalid or duplicate workspace space");
             if (space.WindowPlacement is { } placement &&
                 (!double.IsFinite(placement.Width) || !double.IsFinite(placement.Height) ||
@@ -206,7 +210,8 @@ public sealed class WorkspaceStore : IAsyncDisposable
         {
             if (file.Id == Guid.Empty || !files.Add(file.Id) || !spaces.Contains(file.SpaceId) ||
                 string.IsNullOrWhiteSpace(file.Name) || file.Name.Length > 260 ||
-                !Path.IsPathFullyQualified(file.Path))
+                !Path.IsPathFullyQualified(file.Path) ||
+                file.CustomIconPath is { } fileIcon && (fileIcon.Length > 4096 || !Path.IsPathFullyQualified(fileIcon)))
                 throw new InvalidDataException("Invalid or orphaned workspace file metadata");
             if (file.Publication is { } publication)
                 PublicationEvidenceValidation.Validate(publication, file.IsDirectory);

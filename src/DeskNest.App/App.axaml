@@ -7,28 +7,72 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceInclude Source="avares://DeskNest.App/Themes/DesignTokens.axaml" />
             </ResourceDictionary.MergedDictionaries>
+            <ControlTheme x:Key="WorkspaceRowTheme" TargetType="ListBoxItem"
+                          BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderBrush" Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="CornerRadius" Value="4"/>
+                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                <Style Selector="^:pointerover"><Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/></Style>
+                <Style Selector="^:selected"><Setter Property="Background" Value="{DynamicResource SelectionSurfaceBrush}"/></Style>
+                <Style Selector="^:selected /template/ ContentPresenter#PART_ContentPresenter">
+                    <Setter Property="Background" Value="{DynamicResource SelectionSurfaceBrush}"/>
+                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                </Style>
+                <Style Selector="^:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                    <Setter Property="Background" Value="{DynamicResource SelectionSurfaceBrush}"/>
+                </Style>
+                <Style Selector="^:focus-visible"><Setter Property="BorderBrush" Value="{DynamicResource AccentBorderBrush}"/></Style>
+                <Style Selector="^:disabled"><Setter Property="Opacity" Value="0.45"/></Style>
+            </ControlTheme>
         </ResourceDictionary>
     </Application.Resources>
 
     <Application.Styles>
+        <Style Selector="Border.SettingsSection">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="24"/>
+        </Style>
         <FluentTheme>
             <FluentTheme.Palettes>
                 <ColorPaletteResources x:Key="Light" Accent="#187B68" />
                 <ColorPaletteResources x:Key="Dark" Accent="#80D5BA" />
             </FluentTheme.Palettes>
         </FluentTheme>
+        <StyleInclude Source="avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml"/>
 
+        <Style Selector="Button.IconAction">
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="Padding" Value="8"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.IconAction PathIcon">
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        </Style>
+        <Style Selector="Button.IconAction:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+        </Style>
         <!-- Native Fluent controls with consistent corner radii. -->
         <Style Selector="Button">
             <Setter Property="CornerRadius" Value="{DynamicResource RadiusSmall}" />
         </Style>
         <Style Selector="TextBox">
             <Setter Property="CornerRadius" Value="{DynamicResource RadiusSmall}" />
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="MinHeight" Value="36" />
         </Style>
         <Style Selector="ComboBox">
             <Setter Property="CornerRadius" Value="{DynamicResource RadiusSmall}" />
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="MinHeight" Value="36" />
         </Style>
 
         <!-- Window Chrome Control Buttons: Native Compact Windows Geometry -->
@@ -80,17 +124,19 @@
             <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}" />
         </Style>
         <Style Selector="Button.StudioNavTab.Active">
-            <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentTextBrush}" />
         </Style>
 
         <Style Selector="Button.StudioNavTab.NavRail">
-            <Setter Property="Height" Value="38" />
+            <Setter Property="Height" Value="40" />
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="Padding" Value="12,7" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="10,8" />
         </Style>
 
         <!-- Segmented Filter Buttons -->
@@ -120,8 +166,9 @@
             <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="{DynamicResource RadiusSmall}" />
-            <Setter Property="Padding" Value="8,3" />
-            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="FontSize" Value="13" />
             <Setter Property="FontWeight" Value="Medium" />
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         </Style>
@@ -151,26 +198,6 @@
             <Setter Property="Padding" Value="0" />
             <Setter Property="Margin" Value="0,0,0,3" />
             <Setter Property="CornerRadius" Value="{DynamicResource RadiusSmall}" />
-        </Style>
-        <Style Selector="ListBoxItem:selected Border.SpaceCard">
-            <Setter Property="BorderBrush" Value="{DynamicResource AccentPrimaryBrush}" />
-            <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}" />
-        </Style>
-        <Style Selector="ListBoxItem:not(:selected) Border.SpaceCard">
-            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
-        </Style>
-        <Style Selector="ListBoxItem:pointerover:not(:selected) Border.SpaceCard">
-            <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
-        </Style>
-        <Style Selector="ListBoxItem:selected Border.FileRowCard">
-            <Setter Property="BorderBrush" Value="{DynamicResource AccentBorderBrush}" />
-            <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}" />
-        </Style>
-        <Style Selector="ListBoxItem:not(:selected) Border.FileRowCard">
-            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
-        </Style>
-        <Style Selector="ListBoxItem:pointerover:not(:selected) Border.FileRowCard">
-            <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
         </Style>
     </Application.Styles>
 </Application>

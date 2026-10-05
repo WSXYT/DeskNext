@@ -1,23 +1,55 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:DeskNest.App.ViewModels"
+        xmlns:views="using:DeskNest.App.Views"
         x:Class="DeskNest.App.Views.SpaceWindow" x:Name="SpaceRoot"
         x:DataType="vm:StudioViewModel"
-        Title="DeskNext" Width="400" Height="460" MinWidth="300" MinHeight="260"
+        Title="DeskNext" Topmost="False" Width="400" Height="460" MinWidth="300" MinHeight="260"
         WindowDecorations="None" ExtendClientAreaToDecorationsHint="False"
-        Background="Transparent" TransparencyLevelHint="Transparent"
+        Background="Transparent" TransparencyLevelHint="AcrylicBlur, Mica, None"
         TransparencyBackgroundFallback="{DynamicResource WindowBackgroundBrush}"
         Foreground="{DynamicResource TextPrimaryBrush}"
         FlowDirection="{Binding Localizer.FlowDirectionValue}">
-    <Border Margin="6" CornerRadius="{DynamicResource RadiusWindow}" ClipToBounds="True"
-            Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-            BorderThickness="1" BoxShadow="0 4 16 0 #20000000">
+    <Window.Resources>
+        <ItemsPanelTemplate x:Key="ListPanel"><VirtualizingStackPanel/></ItemsPanelTemplate>
+        <ItemsPanelTemplate x:Key="GridPanel"><WrapPanel/></ItemsPanelTemplate>
+        <DataTemplate x:Key="FileListTemplate" x:DataType="vm:WorkspaceFileItemViewModel">
+            <Border Classes="FileRowCard" Padding="10,6" Background="Transparent"
+                    CornerRadius="{DynamicResource RadiusSmall}" DoubleTapped="OnFileDoubleTapped">
+                <ToolTip.Tip><TextBlock Text="{Binding Path}" FlowDirection="LeftToRight"/></ToolTip.Tip>
+                <Border.ContextMenu><ContextMenu Opened="OnFileMenuOpened"/></Border.ContextMenu>
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
+                    <views:FileIcon FileName="{Binding Name}" IsDirectory="{Binding IsDirectory}" CustomIconPath="{Binding CustomIconPath}" Width="24" Height="24"/>
+                    <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Grid.Column="2" Text="{Binding ExtensionLabel}" FontSize="10" MaxWidth="48" TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource TextTertiaryBrush}" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="3" Text="{Binding Path}" FlowDirection="LeftToRight" FontSize="10" Width="120"
+                               TextTrimming="CharacterEllipsis" IsVisible="{Binding #SpaceRoot.IsDetailsView}"
+                               Foreground="{DynamicResource TextTertiaryBrush}" VerticalAlignment="Center"/>
+                </Grid>
+            </Border>
+        </DataTemplate>
+        <DataTemplate x:Key="FileGridTemplate" x:DataType="vm:WorkspaceFileItemViewModel">
+            <Border Classes="FileRowCard" Width="86" Height="88" Padding="4" Background="Transparent"
+                    CornerRadius="{DynamicResource RadiusSmall}" DoubleTapped="OnFileDoubleTapped">
+                <ToolTip.Tip><TextBlock Text="{Binding Path}" FlowDirection="LeftToRight"/></ToolTip.Tip>
+                <Border.ContextMenu><ContextMenu Opened="OnFileMenuOpened"/></Border.ContextMenu>
+                <Grid RowDefinitions="48,*" RowSpacing="5">
+                    <views:FileIcon FileName="{Binding Name}" IsDirectory="{Binding IsDirectory}" CustomIconPath="{Binding CustomIconPath}" Width="40" Height="40"/>
+                    <TextBlock Grid.Row="1" Text="{Binding Name}" FontSize="11" TextWrapping="Wrap" MaxLines="2"
+                               TextAlignment="Center" TextTrimming="CharacterEllipsis" HorizontalAlignment="Stretch"/>
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </Window.Resources>
+    <Border Margin="0" CornerRadius="{DynamicResource RadiusWindow}" ClipToBounds="True"
+            Background="{DynamicResource CompanionMaterialBrush}" BorderBrush="{DynamicResource GlassEdgeBrush}"
+            BorderThickness="1">
         <Grid RowDefinitions="Auto,Auto,*,Auto">
-            <Grid ColumnDefinitions="Auto,*,Auto" Background="{DynamicResource WindowBackgroundBrush}"
+            <Grid ColumnDefinitions="Auto,*,Auto" Background="Transparent"
                   PointerPressed="OnTitlePointerPressed" Margin="0" Height="42">
-                <PathIcon Data="{StaticResource IconDeskNext}" Width="18" Height="18" Margin="14,0,10,0"
-                          Foreground="{DynamicResource AccentPrimaryBrush}"/>
-                <TextBlock Grid.Column="1" Text="{Binding #SpaceRoot.Space.Name}" FontWeight="SemiBold"
+                <views:FileIcon FileName="folder" IsDirectory="True" CustomIconPath="{Binding #SpaceRoot.Space.CustomIconPath}" Width="22" Height="22" Margin="14,0,10,0"/>
+                <TextBlock Grid.Column="1" Text="{Binding #SpaceRoot.Space.Name}" FontWeight="Medium" FontSize="13"
                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                 <Button Grid.Column="2" Classes="WindowChromeButton CloseButton" Width="38" Height="36"
                         Click="OnCloseClick" ToolTip.Tip="{Binding Localizer[Action.Close]}"
@@ -25,19 +57,25 @@
                     <PathIcon Data="{StaticResource IconChromeClose}" Width="10" Height="10"/>
                 </Button>
             </Grid>
-            <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="14,10">
-                <StackPanel Spacing="3">
-                    <TextBlock Text="{Binding #SpaceRoot.Space.ModeLocalized}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="18,2,12,6">
+                <StackPanel Spacing="3" VerticalAlignment="Center">
                     <TextBlock Text="{Binding #SpaceRoot.Space.ItemCountText}" FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
-                    <Button Name="SaveSpaceLayoutButton" Click="OnSaveLayoutClick" Width="32" Padding="6"
+                    <Button Name="SpaceViewOptionsButton" Classes="IconAction" Click="OnViewOptionsClick"
+                            ToolTip.Tip="{Binding Localizer[SpaceView.Options]}" AutomationProperties.Name="{Binding Localizer[SpaceView.Options]}">
+                        <PathIcon Data="{StaticResource IconSpaces}" Width="14" Height="14"/>
+                    </Button>
+                    <Button Name="SaveSpaceLayoutButton" Classes="IconAction" Click="OnSaveLayoutClick" Width="32" Padding="6"
                             ToolTip.Tip="{Binding Localizer[Spaces.SaveLayout]}"
                             AutomationProperties.Name="{Binding Localizer[Spaces.SaveLayout]}">
                         <PathIcon Data="{StaticResource IconCheck}" Width="14" Height="14"/>
                     </Button>
-                    <Button Content="{Binding Localizer[Spaces.ReturnToStudio]}" Click="OnReturnClick"
-                            FontSize="11" ToolTip.Tip="{Binding Localizer[Spaces.WindowNotice]}"/>
+                    <Button Click="OnReturnClick" Classes="IconAction"
+                            ToolTip.Tip="{Binding Localizer[Spaces.ReturnToStudio]}"
+                            AutomationProperties.Name="{Binding Localizer[Spaces.ReturnToStudio]}">
+                        <PathIcon Data="{StaticResource IconWindow}" Width="16" Height="16"/>
+                    </Button>
                 </StackPanel>
             </Grid>
             <Border Grid.Row="2" x:Name="SpaceWindowDropSurface" DragDrop.AllowDrop="True" Background="Transparent" Margin="8,0">
@@ -45,7 +83,7 @@
                     <TextBlock Text="{Binding Localizer[Spaces.EmptyFiles]}" IsVisible="{Binding #SpaceRoot.Space.IsEmpty}"
                                Foreground="{DynamicResource TextSecondaryBrush}" Margin="16" TextWrapping="Wrap"
                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    <ListBox Name="SpaceWindowFiles" ItemsSource="{Binding #SpaceRoot.Space.Files}"
+                    <ListBox Name="SpaceWindowFiles" ItemContainerTheme="{StaticResource WorkspaceRowTheme}" ItemTemplate="{StaticResource FileListTemplate}"
                              Background="Transparent" BorderThickness="0" Padding="0"
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                         <ListBox.KeyBindings>
@@ -53,32 +91,16 @@
                                         CommandParameter="{Binding #SpaceWindowFiles.SelectedItem}"/>
                         </ListBox.KeyBindings>
                         <ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel/></ItemsPanelTemplate></ListBox.ItemsPanel>
-                        <ListBox.ItemTemplate>
-                            <DataTemplate x:DataType="vm:WorkspaceFileItemViewModel">
-                                <Border Classes="FileRowCard" Padding="10,10" Background="Transparent"
-                                        CornerRadius="{DynamicResource RadiusSmall}" DoubleTapped="OnFileDoubleTapped">
-                                    <ToolTip.Tip><TextBlock Text="{Binding Path}" FlowDirection="LeftToRight"/></ToolTip.Tip>
-                                    <Border.ContextMenu><ContextMenu Opened="OnFileMenuOpened"/></Border.ContextMenu>
-                                    <Grid ColumnDefinitions="Auto,*">
-                                        <Grid Margin="0,0,10,0">
-                                            <PathIcon Data="{StaticResource IconFolder}" Width="20" Height="20" IsVisible="{Binding IsDirectory}"
-                                                      Foreground="{DynamicResource AccentPrimaryBrush}"/>
-                                            <PathIcon Data="{StaticResource IconFile}" Width="20" Height="20" IsVisible="{Binding !IsDirectory}"
-                                                      Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                        </Grid>
-                                        <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="13"
-                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
                     </ListBox>
                 </Grid>
             </Border>
             <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="14,10">
                 <StackPanel Spacing="4">
-                    <TextBlock Text="{Binding Localizer[Drop.SpaceTargetHint]}" FontSize="10" TextWrapping="Wrap"
-                               Foreground="{DynamicResource TextTertiaryBrush}"/>
+                    <StackPanel Name="GridPageControls" Orientation="Horizontal" Spacing="8" IsVisible="False">
+                        <Button Name="PreviousGridPage" Click="OnPreviousPage" Content="‹" AutomationProperties.Name="{Binding Localizer[SpaceView.Previous]}"/>
+                        <TextBlock Name="GridPageLabel" VerticalAlignment="Center" FontSize="11"/>
+                        <Button Name="NextGridPage" Click="OnNextPage" Content="›" AutomationProperties.Name="{Binding Localizer[SpaceView.Next]}"/>
+                    </StackPanel>
                     <TextBlock Text="{Binding SpaceDropNotice}" IsVisible="{Binding HasSpaceDropNotice}" MaxLines="2"
                                TextWrapping="Wrap" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SpaceDropNotice}"
                                FontSize="11" Foreground="{DynamicResource AccentTextBrush}"/>

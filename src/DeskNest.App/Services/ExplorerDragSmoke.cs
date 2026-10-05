@@ -12,7 +12,7 @@ namespace DeskNest.App.Services;
 // this side only verifies the resulting production events and confirms/undoes fixture imports.
 internal static class ExplorerDragSmoke
 {
-    internal static async Task VerifyAsync(Window mainWindow, WorkspaceStore store)
+    internal static async Task VerifyAsync(Window mainWindow, WorkspaceStore store, bool awaitExternalKill = false)
     {
         var main = (MainWindowViewModel)mainWindow.DataContext!;
         var studio = main.Studio!;
@@ -58,8 +58,12 @@ internal static class ExplorerDragSmoke
                 var explorerRect = new { X = area.X + (int)(440 * scale), Y = area.Y + (int)(16 * scale), Width = area.Width - (int)(456 * scale), Height = (int)(540 * scale) };
                 Announce(new { Stage = "inbound", Directory = directory, Folder = inbox, Item = name,
                     Point = dropPoint, Scale = scale, ExplorerRect = explorerRect, Window = floating.TryGetPlatformHandle()!.Handle.ToInt64() });
-                await UntilAsync(() => studio.IsImportConfirmationOpen, deadline.Token, "Explorer drop did not reach import confirmation: " + studio.SpaceDropNotice);
-                if (studio.ImportSourcePath != source || !File.Exists(Content(source)) || store.Snapshot.Files.Count != 0)
+                try { await UntilAsync(() => studio.IsImportConfirmationOpen, deadline.Token, "Explorer drop did not reach import confirmation."); }
+                catch (Exception error)
+                {
+                    throw new InvalidOperationException($"Explorer import was not confirmed. Drop notice: {studio.SpaceDropNotice}; action notice: {studio.FileActionNotice}; import available: {studio.OnImportPending is not null}", error);
+                }
+                if (studio.ImportSourcePath != source || !File.Exists(Content(source)) || store.Snapshot.Files.Count != (awaitExternalKill && directory ? 1 : 0))
                     throw new InvalidOperationException("Explorer drop must request confirmation before moving or cataloging its external source.");
                 await studio.ConfirmImportCommand.ExecuteAsync(null);
                 var operation = store.Snapshot.Operations.Single(o => o.ImportSource?.Path == source);
@@ -75,7 +79,10 @@ internal static class ExplorerDragSmoke
                 floating.Activate();
                 await Task.Delay(250, deadline.Token);
                 var list = floating.FindControl<ListBox>("SpaceWindowFiles")!;
-                var row = list.ContainerFromIndex(0) ?? throw new InvalidOperationException("No realized outgoing file row.");
+                var outgoingIndex = floating.Space!.Files.ToList().FindIndex(item => item.Id == imported.Id);
+                list.ScrollIntoView(imported);
+                await Task.Delay(100, deadline.Token);
+                var row = list.ContainerFromIndex(outgoingIndex) ?? throw new InvalidOperationException("No realized outgoing file row for the imported subject.");
                 var rowPoint = floating.PointToScreen(row.TranslatePoint(new Point(70, row.Bounds.Height / 2), floating)!.Value);
                 long revision = store.Snapshot.Revision;
                 Announce(new { Stage = "outbound", Directory = directory, Folder = receiver, Item = name,
@@ -86,6 +93,7 @@ internal static class ExplorerDragSmoke
                 if (File.ReadAllText(Content(received)) != "Explorer drag fixture" || File.ReadAllText(Content(published)) != "Explorer drag fixture" ||
                     store.Snapshot.Revision != revision || directory && !System.IO.Directory.Exists(Path.Combine(received, "empty")))
                     throw new InvalidOperationException("Outgoing Explorer copy must preserve source, metadata, content and empty directories.");
+                if (awaitExternalKill) continue; // The fresh GUI process must perform undo, not this process.
                 await studio.ExecuteUndoManualMoveCommand.ExecuteAsync(operation.Id);
                 if (File.ReadAllText(Content(source)) != "Explorer drag fixture" || File.Exists(Content(published)) ||
                     store.Snapshot.Operations.Single(o => o.Id == operation.Id).Status != ProposedOperationStatus.Undone ||
@@ -95,6 +103,35 @@ internal static class ExplorerDragSmoke
             }
         }
         finally { floating.Close(); }
+        if (awaitExternalKill)
+        {
+            Console.WriteLine("EXPLORER_RESTART_READY:" + JsonSerializer.Serialize(new { Root = store.DataDirectory }));
+            Console.Out.Flush();
+            await Task.Delay(Timeout.InfiniteTimeSpan, deadline.Token);
+        }
+    }
+
+    internal static async Task VerifyRestartAsync(Window window, WorkspaceStore store)
+    {
+        var main = (MainWindowViewModel)window.DataContext!;
+        await main.InitializeWorkspaceAsync(store.DataDirectory);
+        if (!main.IsStudioActive) throw new InvalidOperationException("Restart did not recover the production workspace.");
+        var operations = store.Snapshot.Operations;
+        if (operations.Count != 2 || operations.Any(o => o.Status != ProposedOperationStatus.Completed || o.ImportSource is null))
+            throw new InvalidOperationException("Restart lost committed GUI imports.");
+        foreach (var operation in operations)
+        {
+            var file = store.Snapshot.Files.Single(f => f.Id == operation.FileId);
+            string Content(string path) => file.IsDirectory ? Path.Combine(path, "document.txt") : path;
+            if (File.Exists(Content(operation.SourcePath!)) || File.ReadAllText(Content(file.Path)) != "Explorer drag fixture")
+                throw new InvalidOperationException("Restart changed the committed physical location.");
+            await main.Studio!.ExecuteUndoManualMoveCommand.ExecuteAsync(operation.Id);
+            if (File.ReadAllText(Content(operation.SourcePath!)) != "Explorer drag fixture" || File.Exists(Content(file.Path)) ||
+                store.Snapshot.Operations.Single(o => o.Id == operation.Id).Status != ProposedOperationStatus.Undone ||
+                !store.Snapshot.Pending.Any(p => p.Id == operation.ImportSource!.Id) ||
+                file.IsDirectory && !Directory.Exists(Path.Combine(operation.SourcePath!, "empty")))
+                throw new InvalidOperationException("Restarted GUI undo failed to restore the external item and review record.");
+        }
     }
 
     private static void Announce(object value)

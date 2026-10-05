@@ -55,6 +55,8 @@ public static class Program
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
+            // Match the actual blur surface to the borderless window, not just its XAML content.
+            .With(new Win32PlatformOptions { WinUICompositionBackdropCornerRadius = 8 })
             .WithInterFont()
             .LogToTrace();
 }

@@ -688,6 +688,28 @@ public sealed partial class StudioViewModel : ViewModelBase
     [ObservableProperty]
     private AppThemeMode _settingsTheme;
 
+    public bool CanFollowWindowsAppearance => OperatingSystem.IsWindows();
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsManualAccent))]
+    [NotifyPropertyChangedFor(nameof(IsWindowsAccent))]
+    [NotifyPropertyChangedFor(nameof(IsWallpaperAccent))]
+    private AccentColorSource _settingsAccentSource;
+    public bool IsManualAccent { get => SettingsAccentSource == AccentColorSource.Manual; set { if (value) SettingsAccentSource = AccentColorSource.Manual; } }
+    public bool IsWindowsAccent { get => SettingsAccentSource == AccentColorSource.Windows; set { if (value) SettingsAccentSource = AccentColorSource.Windows; } }
+    public bool IsWallpaperAccent { get => SettingsAccentSource == AccentColorSource.Wallpaper; set { if (value) SettingsAccentSource = AccentColorSource.Wallpaper; } }
+
+    [ObservableProperty]
+    private string _settingsAccentColor = string.Empty;
+    public Avalonia.Media.Color CustomAccent
+    {
+        get => Avalonia.Media.Color.TryParse(SettingsAccentColor, out var color) ? color : Avalonia.Media.Color.Parse("#187B68");
+        set => SettingsAccentColor = $"#{value.R:X2}{value.G:X2}{value.B:X2}";
+    }
+    partial void OnSettingsAccentColorChanged(string value) => OnPropertyChanged(nameof(CustomAccent));
+    public IReadOnlyList<string> AccentPresets { get; } = ["#187B68", "#3869B8", "#7754B8", "#B95070", "#B46C28", "#60727B"];
+    [RelayCommand]
+    private void SelectAccent(string? color) { SettingsAccentSource = AccentColorSource.Manual; SettingsAccentColor = color ?? string.Empty; }
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsJevPreview))]
     [NotifyPropertyChangedFor(nameof(IsLayaPreview))]
@@ -821,6 +843,8 @@ public sealed partial class StudioViewModel : ViewModelBase
         _settingsTheme = Enum.TryParse<AppThemeMode>(state.Settings.Theme, out var tm)
             ? tm : AppThemeMode.Dark;
 
+        _settingsAccentColor = state.Settings.AccentColor ?? string.Empty;
+        _settingsAccentSource = state.Settings.AccentSource;
         _settingsProvider = state.Settings.Provider;
         _settingsModelCache = state.Settings.ModelCacheDirectory ?? string.Empty;
         _settingsManagedRoot = state.Settings.ManagedRoot;
@@ -922,6 +946,8 @@ public sealed partial class StudioViewModel : ViewModelBase
     public void RefreshFromState(WorkspaceState state)
     {
         _workspaceRevision = state.Revision;
+        CapsuleIconPath = state.Settings.CapsuleIconPath;
+        OnPropertyChanged(nameof(CapsuleIconPath));
         var observationTargetDraft = ObservationTargetSpace?.Id;
         var prevSpaceId = SelectedSpace?.Id;
         var prevPendingId = SelectedPendingItem?.Id;
@@ -936,7 +962,7 @@ public sealed partial class StudioViewModel : ViewModelBase
             var spaceVm = new SpaceItemViewModel(s, filesInSpace.Count);
             foreach (var f in filesInSpace)
             {
-                spaceVm.Files.Add(new WorkspaceFileItemViewModel(f.Id, f.SpaceId, f.Name, f.Path, f.IsDirectory, s.Mode, f.IsInTrash));
+                spaceVm.Files.Add(new WorkspaceFileItemViewModel(f.Id, f.SpaceId, f.Name, f.Path, f.IsDirectory, s.Mode, f.IsInTrash, f.CustomIconPath));
             }
             spaceVm.NotifyFilesChanged();
             AllSpaces.Add(spaceVm);
@@ -2270,10 +2296,18 @@ public sealed partial class StudioViewModel : ViewModelBase
             return; // Do not silently erase a previously configured model directory.
         }
 
+        var accent = string.IsNullOrWhiteSpace(SettingsAccentColor) ? null : SettingsAccentColor.Trim().ToUpperInvariant();
+        if (!WorkspaceSettings.IsValidAccentColor(accent))
+        {
+            SettingsSavedFeedback = Localizer["Theme.AccentInvalid"];
+            return;
+        }
         var updated = await _updateStore(state => state with
         {
             Settings = state.Settings with
             {
+                AccentColor = accent,
+                AccentSource = SettingsAccentSource,
                 Language = SettingsLanguage.Code,
                 Theme = SettingsTheme.ToString(),
                 Provider = SettingsProvider,
@@ -2289,6 +2323,7 @@ public sealed partial class StudioViewModel : ViewModelBase
 
         if (updated != null)
         {
+            ThemeMgr.ApplyAccentSettings(updated.Settings.AccentSource, updated.Settings.AccentColor);
             SettingsSavedFeedback = Localizer["Settings.SavedToast"];
         }
     }

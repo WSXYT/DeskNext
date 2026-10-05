@@ -1,99 +1,70 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:DeskNest.App.ViewModels"
+             xmlns:views="using:DeskNest.App.Views"
              xmlns:loc="using:DeskNest.App.Localization"
              xmlns:th="using:DeskNest.App.Themes"
              xmlns:core="using:DeskNest.Core.Workspace"
              x:Class="DeskNest.App.Views.StudioView"
              x:DataType="vm:StudioViewModel"
              KeyDown="OnWorkspaceKeyDown"
-             Background="{DynamicResource WindowBackgroundBrush}"
+             Background="Transparent"
              Foreground="{DynamicResource TextPrimaryBrush}">
 
-    <Grid ColumnDefinitions="184,*">
-        <Border Grid.Column="0"
-                Background="{DynamicResource WindowBackgroundBrush}"
-                BorderBrush="{DynamicResource BorderSubtleBrush}"
-                BorderThickness="0,0,1,0"
-                Padding="10,16">
-            <Grid RowDefinitions="*,Auto">
-                <StackPanel Grid.Row="0" Spacing="4">
-                    <Button Classes="StudioNavTab NavRail" Classes.Active="{Binding IsSpacesTab}"
-                            Command="{Binding SelectTabCommand}" CommandParameter="0">
-                        <TextBlock Text="{Binding Localizer[Nav.Spaces]}" TextTrimming="CharacterEllipsis"/>
+    <Grid ColumnDefinitions="244,*">
+        <Border Grid.Column="0" Background="Transparent" Padding="12,16,12,18">
+            <Grid RowDefinitions="Auto,*,Auto">
+                <StackPanel Spacing="6">
+                    <Button  Classes="StudioNavTab NavRail" Classes.Active="{Binding IsSpacesTab}"
+                            Command="{Binding SelectTabCommand}" CommandParameter="0"
+                            ToolTip.Tip="{Binding Localizer[Nav.Spaces]}" AutomationProperties.Name="{Binding Localizer[Nav.Spaces]}">
+                        <Grid ColumnDefinitions="20,*" ColumnSpacing="12">
+                            <PathIcon Data="{StaticResource IconSpaces}" Width="16" Height="16"/>
+                            <TextBlock Grid.Column="1" Text="{Binding Localizer[Nav.Spaces]}" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </Grid>
                     </Button>
-                    <Button Classes="StudioNavTab NavRail" Classes.Active="{Binding IsTriageTab}"
-                            Command="{Binding SelectTabCommand}" CommandParameter="1">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{Binding Localizer[Nav.Triage]}" TextTrimming="CharacterEllipsis"/>
-                            <TextBlock Grid.Column="1" Text="{Binding PendingCount}"
-                                       IsVisible="{Binding HasPendingItems}" Margin="8,0,0,0"
-                                       Foreground="{DynamicResource PendingMarkerBrush}"/>
+                    <Button  Classes="StudioNavTab NavRail" Classes.Active="{Binding IsTriageTab}"
+                            Command="{Binding SelectTabCommand}" CommandParameter="1"
+                            ToolTip.Tip="{Binding Localizer[Nav.Triage]}" AutomationProperties.Name="{Binding Localizer[Nav.Triage]}">
+                        <Grid ColumnDefinitions="20,*" ColumnSpacing="12">
+                            <PathIcon Data="{StaticResource IconInbox}" Width="16" Height="16"/>
+                            <TextBlock Grid.Column="1" Text="{Binding Localizer[Nav.Triage]}" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"/>
                         </Grid>
                     </Button>
                     <Button Name="WorkspaceSearchButton" Classes="StudioNavTab NavRail" Classes.Active="{Binding IsWorkspaceSearchTab}"
-                            Click="OnWorkspaceSearchClick" ToolTip.Tip="{Binding Localizer[Search.Workspace]}">
-                        <TextBlock Text="{Binding Localizer[Search.Workspace]}" TextTrimming="CharacterEllipsis"/>
+                            Click="OnWorkspaceSearchClick"
+                            ToolTip.Tip="{Binding Localizer[Search.Workspace]}" AutomationProperties.Name="{Binding Localizer[Search.Workspace]}">
+                        <Grid ColumnDefinitions="20,*" ColumnSpacing="12">
+                            <PathIcon Data="{StaticResource IconSearch}" Width="16" Height="16"/>
+                            <TextBlock Grid.Column="1" Text="{Binding Localizer[Search.Workspace]}" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </Grid>
                     </Button>
-                    <Button Classes="StudioNavTab NavRail" Classes.Active="{Binding IsCapsuleTab}"
-                            Command="{Binding SelectTabCommand}" CommandParameter="2">
-                        <TextBlock Text="{Binding Localizer[Capsule.Title]}" TextTrimming="CharacterEllipsis"/>
+                    <Button  Classes="StudioNavTab NavRail" Classes.Active="{Binding IsCapsuleTab}"
+                            Command="{Binding SelectTabCommand}" CommandParameter="2"
+                            ToolTip.Tip="{Binding Localizer[Capsule.Title]}" AutomationProperties.Name="{Binding Localizer[Capsule.Title]}">
+                        <Grid ColumnDefinitions="20,*" ColumnSpacing="12">
+                            <PathIcon Data="{StaticResource IconDeskNext}" Width="16" Height="16"/>
+                            <TextBlock Grid.Column="1" Text="{Binding Localizer[Capsule.Title]}" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </Grid>
                     </Button>
                 </StackPanel>
-                <StackPanel Grid.Row="1" Spacing="4">
-                    <Button Classes="StudioNavTab NavRail" Classes.Active="{Binding IsSettingsTab}"
-                            Command="{Binding SelectTabCommand}" CommandParameter="3">
-                        <TextBlock Text="{Binding Localizer[Nav.Settings]}" TextTrimming="CharacterEllipsis"/>
-                    </Button>
-                    <Button Classes="StudioNavTab NavRail" Classes.Active="{Binding IsProbeTab}"
-                            Command="{Binding SelectTabCommand}" CommandParameter="4">
-                        <TextBlock Text="{Binding Localizer[Nav.Probe]}" TextTrimming="CharacterEllipsis"/>
-                    </Button>
-                </StackPanel>
-            </Grid>
-        </Border>
-
-        <Grid Grid.Column="1" RowDefinitions="Auto,*">
-            <Border Grid.Row="0" Height="48"
-                    Background="{DynamicResource SurfaceBrush}"
-                    BorderBrush="{DynamicResource BorderSubtleBrush}"
-                    BorderThickness="0,0,0,1" Padding="16,0">
-                <StackPanel Orientation="Horizontal" Spacing="8"
-                            VerticalAlignment="Center" HorizontalAlignment="Right">
-                    <Button Classes="ActionButton"
-                            Click="OnOpenDropCapsuleClick"
-                            ToolTip.Tip="{Binding Localizer[Capsule.Title]}">
-                        <StackPanel Orientation="Horizontal" Spacing="5">
-                            <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14"
-                                      Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            <TextBlock Text="{Binding Localizer[Capsule.Title]}"/>
-                        </StackPanel>
-                    </Button>
-                    <Button Classes="PrimaryAction" Content="{Binding Localizer[Spaces.AddSpace]}"
-                            Command="{Binding OpenAddSpaceDialogCommand}" Padding="12,5"/>
-                </StackPanel>
-            </Border>
-
-            <Grid Grid.Row="1">
-
-            <!-- ================= TAB 0: SPACES WORKSPACE ================= -->
-            <Grid ColumnDefinitions="260,*" IsVisible="{Binding IsSpacesTab}">
                 <!-- Left: Spaces Rail -->
-                <Border Grid.Column="0"
-                        Background="{DynamicResource WindowBackgroundBrush}"
-                        BorderBrush="{DynamicResource BorderSubtleBrush}"
-                        BorderThickness="0,0,1,0"
-                        Padding="10,12">
-                    <Grid RowDefinitions="Auto,*">
+                <Border Grid.Row="1" IsVisible="{Binding IsSpacesTab}"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Padding="0,24,0,16">
+                    <Grid RowDefinitions="Auto,*,Auto">
                         <!-- Filter bar & Counters -->
                         <Grid Grid.Row="0" RowDefinitions="Auto,Auto" Margin="0,0,0,10">
                             <!-- Segmented Filter Control -->
                             <Border Grid.Row="0"
-                                    Background="{DynamicResource ConsoleBackgroundBrush}"
+                                    Background="Transparent"
                                     CornerRadius="{DynamicResource RadiusSmall}"
-                                    BorderBrush="{DynamicResource BorderSubtleBrush}"
-                                    BorderThickness="1"
-                                    Padding="2">
+                                    BorderThickness="0" Padding="0">
                                 <WrapPanel Orientation="Horizontal">
                                     <Button Classes="SegmentButton" Classes.Active="{Binding IsAllFilter}" Margin="0,0,3,3"
                                             Content="{Binding Localizer[Spaces.FilterAll]}"
@@ -108,7 +79,7 @@
                             </Border>
 
                             <!-- Space Count Summaries -->
-                            <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="12" Margin="2,6,0,0">
+                            <StackPanel Grid.Row="1" IsVisible="False" Orientation="Horizontal" Spacing="12" Margin="2,6,0,0">
                                 <TextBlock Text="{Binding ManagedSpacesCountText}"
                                            FontSize="10" Foreground="{DynamicResource TextTertiaryBrush}"/>
                                 <TextBlock Text="{Binding MappedSpacesCountText}"
@@ -117,7 +88,7 @@
                         </Grid>
 
                         <!-- Spaces List -->
-                        <ListBox Name="SpacesListBox" Grid.Row="1"
+                        <ListBox Name="SpacesListBox" Grid.Row="1" ItemContainerTheme="{StaticResource WorkspaceRowTheme}"
                                  ItemsSource="{Binding FilteredSpaces}"
                                  SelectedItem="{Binding SelectedSpace}"
                                  Background="Transparent"
@@ -137,11 +108,10 @@
                                             </ContextMenu>
                                         </Border.ContextMenu>
                                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
-                                            <PathIcon Grid.Column="0" Data="{StaticResource IconFolder}"
-                                                      Width="18" Height="18" VerticalAlignment="Center"
-                                                      Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                            <views:FileIcon Grid.Column="0" FileName="folder" IsDirectory="True" CustomIconPath="{Binding CustomIconPath}"
+                                                            Width="22" Height="22" VerticalAlignment="Center"/>
                                             <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
+                                                <TextBlock Text="{Binding Name}" FontWeight="Normal" FontSize="13"
                                                            TextTrimming="CharacterEllipsis"/>
                                                 <TextBlock Text="{Binding ModeLocalized}" FontSize="11"
                                                            Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -154,23 +124,77 @@
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
+                        <Button Grid.Row="2" Classes="ActionButton" HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Center" Margin="0,12,0,0" Padding="12,8"
+                                Command="{Binding OpenAddSpaceDialogCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <PathIcon Data="{StaticResource IconPlus}" Width="14" Height="14"/>
+                                <TextBlock Text="{Binding Localizer[Spaces.AddSpace]}"/>
+                            </StackPanel>
+                        </Button>
                     </Grid>
                 </Border>
 
+                <StackPanel Grid.Row="2" Spacing="6">
+                    <Button  Classes="StudioNavTab NavRail" Classes.Active="{Binding IsSettingsTab}"
+                            Command="{Binding SelectTabCommand}" CommandParameter="3"
+                            ToolTip.Tip="{Binding Localizer[Nav.Settings]}" AutomationProperties.Name="{Binding Localizer[Nav.Settings]}">
+                        <Grid ColumnDefinitions="20,*" ColumnSpacing="12">
+                            <PathIcon Data="{StaticResource IconSettings}" Width="16" Height="16"/>
+                            <TextBlock Grid.Column="1" Text="{Binding Localizer[Nav.Settings]}" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </Grid>
+                    </Button>
+                    <Button  Classes="StudioNavTab NavRail" Classes.Active="{Binding IsProbeTab}"
+                            Command="{Binding SelectTabCommand}" CommandParameter="4"
+                            ToolTip.Tip="{Binding Localizer[Nav.Probe]}" AutomationProperties.Name="{Binding Localizer[Nav.Probe]}">
+                        <Grid ColumnDefinitions="20,*" ColumnSpacing="12">
+                            <PathIcon Data="{StaticResource IconAlert}" Width="16" Height="16"/>
+                            <TextBlock Grid.Column="1" Text="{Binding Localizer[Nav.Probe]}" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </Grid>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Column="1" RowDefinitions="Auto,*">
+            <Border Grid.Row="0" Height="60" Background="Transparent" Padding="20,0,22,0"
+                    IsVisible="{Binding !IsSpacesTab}">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="{Binding Localizer[Nav.Spaces]}" IsVisible="{Binding IsSpacesTab}"
+                               FontSize="20" FontWeight="Normal" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding Localizer[Nav.Triage]}" IsVisible="{Binding IsTriageTab}"
+                               FontSize="20" FontWeight="Normal" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <Button Classes="IconAction" Click="OnOpenDropCapsuleClick"
+                                ToolTip.Tip="{Binding Localizer[Capsule.Title]}" AutomationProperties.Name="{Binding Localizer[Capsule.Title]}">
+                            <PathIcon Data="{StaticResource IconDeskNext}" Width="18" Height="18"/>
+                        </Button>
+
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1">
+
+            <!-- ================= TAB 0: SPACES WORKSPACE ================= -->
+            <Grid IsVisible="{Binding IsSpacesTab}">
                 <!-- Right: Selected Space Detail & Open Catalog Canvas -->
                 <Border x:Name="SpaceDetailSurface"
-                        Grid.Column="1"
                         DragDrop.AllowDrop="True"
-                        Background="{DynamicResource SurfaceBrush}"
-                        Padding="28,22">
+                        Background="{DynamicResource ContentSurfaceBrush}"
+                        BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
+                        CornerRadius="6,0,0,0" Margin="4,0,0,0"
+                        Padding="28,28,24,20">
                     <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*">
                         <!-- Space Header Info -->
                         <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
                             <StackPanel Grid.Column="0" Spacing="4">
                                 <Grid ColumnDefinitions="*,Auto">
-                                    <TextBlock Text="{Binding SelectedSpace.Name}" FontSize="18" FontWeight="SemiBold"
+                                    <TextBlock Text="{Binding SelectedSpace.Name}" FontSize="20" FontWeight="Medium"
                                                TextTrimming="CharacterEllipsis"/>
-                                    <Border Grid.Column="1" Margin="8,0,0,0" CornerRadius="3"
+                                    <Border Grid.Column="1" IsVisible="False" Margin="8,0,0,0" CornerRadius="3"
                                             Background="{DynamicResource SurfaceElevatedBrush}"
                                             BorderBrush="{DynamicResource BorderSubtleBrush}"
                                             BorderThickness="1"
@@ -178,12 +202,16 @@
                                         <TextBlock Text="{Binding SelectedSpace.ModeLocalized}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </Border>
                                 </Grid>
-                                <TextBlock Text="{Binding SelectedSpace.Description}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <TextBlock Text="{Binding SelectedSpace.Description}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                                           TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1" Margin="12,0,0,0" Spacing="6">
-                                <Button Name="OpenSpaceWindowButton" Classes="ActionButton" HorizontalAlignment="Stretch"
-                                        Content="{Binding Localizer[Spaces.OpenWindow]}" Click="OnOpenSpaceWindowClick"
-                                        ToolTip.Tip="{Binding Localizer[Spaces.WindowNotice]}"/>
+                                <Button Name="OpenSpaceWindowButton" Classes="IconAction" HorizontalAlignment="Right"
+                                        Click="OnOpenSpaceWindowClick"
+                                        ToolTip.Tip="{Binding Localizer[Spaces.OpenWindow]}"
+                                        AutomationProperties.Name="{Binding Localizer[Spaces.OpenWindow]}">
+                                    <PathIcon Data="{StaticResource IconWindow}" Width="16" Height="16"/>
+                                </Button>
                                 <Button Name="CatalogSpaceButton" Classes="ActionButton" HorizontalAlignment="Stretch"
                                         Content="{Binding Localizer[Spaces.CatalogFolder]}"
                                         ToolTip.Tip="{Binding Localizer[Spaces.CatalogFolderHint]}"
@@ -192,7 +220,7 @@
                         </Grid>
 
                          <!-- Path is secondary metadata, not a banner across the canvas. -->
-                         <TextBlock Grid.Row="1" Text="{Binding SelectedSpace.Folder}"
+                         <TextBlock Grid.Row="1" IsVisible="False" Text="{Binding SelectedSpace.Folder}"
                                     FontSize="11" FlowDirection="LeftToRight"
                                     TextTrimming="CharacterEllipsis"
                                     Foreground="{DynamicResource TextTertiaryBrush}"
@@ -224,70 +252,43 @@
                                        FontSize="11" Foreground="{DynamicResource AccentTextBrush}"/>
                         </StackPanel>
 
-                        <!-- Section Title & File Row Action Bar -->
-                        <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto" Margin="0,4,0,8">
-                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding Localizer[Spaces.FilesTitle]}"
-                                           FontWeight="SemiBold" FontSize="13"/>
-                                <TextBlock Text="{Binding FileActionNotice}"
-                                           IsVisible="{Binding HasFileActionNotice}"
-                                           FontSize="11" Foreground="{DynamicResource AccentTextBrush}"
-                                           VerticalAlignment="Center"/>
-                            </StackPanel>
-
-                            <!-- Compact action bar with capability gates -->
-                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                <Button Classes="ActionButton"
-                                        Content="{Binding Localizer[Files.ActionOpen]}"
-                                        Command="{Binding ExecuteOpenFileCommand}"
-                                        CommandParameter="{Binding SelectedFile}"
-                                        IsEnabled="{Binding CanOpenFile}"
-                                        ToolTip.Tip="{Binding OpenFileStatusNotice}"/>
-                                <Button Classes="ActionButton"
-                                        Content="{Binding Localizer[Files.ActionPreview]}"
-                                        Command="{Binding ExecutePreviewFileCommand}"
-                                        CommandParameter="{Binding SelectedFile}"
-                                        IsEnabled="{Binding CanPreviewFile}"
-                                        ToolTip.Tip="{Binding PreviewFileStatusNotice}"/>
-                                <Button Classes="ActionButton"
-                                        Content="{Binding Localizer[Files.ActionCut]}"
-                                        Command="{Binding ExecuteCutFileCommand}"
-                                        CommandParameter="{Binding SelectedFile}"
-                                        IsEnabled="{Binding CanCutFile}"
-                                        ToolTip.Tip="{Binding CutFileStatusNotice}"/>
-                                <Button Classes="ActionButton"
-                                        Content="{Binding Localizer[Files.ActionCopy]}"
-                                        Command="{Binding ExecuteCopyFileCommand}"
-                                        CommandParameter="{Binding SelectedFile}"
-                                        IsEnabled="{Binding CanCopyFile}"
-                                        ToolTip.Tip="{Binding CopyFileStatusNotice}"/>
-                                <Button Classes="ActionButton"
-                                        Content="{Binding Localizer[Files.ActionPaste]}"
-                                        Command="{Binding ExecutePasteFileCommand}"
-                                        CommandParameter="{Binding SelectedSpace}"
-                                        IsEnabled="{Binding CanPasteFile}"
-                                        ToolTip.Tip="{Binding PasteFileStatusNotice}"/>
-                                <Button Classes="ActionButton"
-                                        Content="{Binding Localizer[Files.ActionRename]}"
-                                        Command="{Binding OpenRenameDialogCommand}"
-                                        CommandParameter="{Binding SelectedFile}"
-                                        IsEnabled="{Binding CanRenameFile}"
-                                        ToolTip.Tip="{Binding RenameFileStatusNotice}"/>
-                                <Button Classes="ActionButton"
-                                        Content="{Binding SelectedFileDeleteActionText}"
-                                        Command="{Binding ExecuteDeleteFileCommand}"
-                                        CommandParameter="{Binding SelectedFile}"
-                                        IsEnabled="{Binding CanDeleteFile}"
-                                        ToolTip.Tip="{Binding DeleteFileStatusNotice}"/>
+                        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,12,0,6">
+                            <TextBox Name="FileSearchInput" Text="{Binding FileSearchText}" MaxLength="260"
+                                     Height="36" Padding="12,6" Margin="0,0,12,0"
+                                     PlaceholderText="{Binding Localizer[Files.SearchName]}"
+                                     AutomationProperties.Name="{Binding Localizer[Files.SearchName]}"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                                <Button Classes="IconAction" Command="{Binding ExecutePreviewFileCommand}"
+                                        CommandParameter="{Binding SelectedFile}" IsEnabled="{Binding CanPreviewFile}"
+                                        ToolTip.Tip="{Binding Localizer[Files.ActionPreview]}"
+                                        AutomationProperties.Name="{Binding Localizer[Files.ActionPreview]}">
+                                    <PathIcon Data="{StaticResource IconPreview}" Width="18" Height="18"/>
+                                </Button>
+                                <Button Classes="IconAction" Command="{Binding ExecuteCopyFileCommand}"
+                                        CommandParameter="{Binding SelectedFile}" IsEnabled="{Binding CanCopyFile}"
+                                        ToolTip.Tip="{Binding Localizer[Files.ActionCopy]}"
+                                        AutomationProperties.Name="{Binding Localizer[Files.ActionCopy]}">
+                                    <PathIcon Data="{StaticResource IconCopy}" Width="18" Height="18"/>
+                                </Button>
+                                <Button Classes="IconAction" Command="{Binding ExecutePasteFileCommand}"
+                                        CommandParameter="{Binding SelectedSpace}" IsEnabled="{Binding CanPasteFile}"
+                                        ToolTip.Tip="{Binding Localizer[Files.ActionPaste]}"
+                                        AutomationProperties.Name="{Binding Localizer[Files.ActionPaste]}">
+                                    <PathIcon Data="{StaticResource IconInbox}" Width="18" Height="18"/>
+                                </Button>
                             </StackPanel>
                         </Grid>
 
-                        <Grid Grid.Row="4" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
-                            <TextBox Name="FileSearchInput" Text="{Binding FileSearchText}" MaxLength="260"
-                                     PlaceholderText="{Binding Localizer[Files.SearchName]}"
-                                     AutomationProperties.Name="{Binding Localizer[Files.SearchName]}"/>
-                            <CheckBox Name="FilesDescending" Grid.Column="1" IsChecked="{Binding SortFilesDescending}" Margin="12,0,0,0"
-                                      Content="{Binding Localizer[Files.SortDescending]}"/>
+                        <Grid Grid.Row="4" ColumnDefinitions="*,Auto" Margin="0,4,0,8">
+                            <TextBlock Text="{Binding SelectedSpace.ItemCountText}" FontSize="11"
+                                       Foreground="{DynamicResource TextTertiaryBrush}" VerticalAlignment="Center"/>
+                            <ToggleButton Name="FilesDescending" Grid.Column="1" IsChecked="{Binding SortFilesDescending}"
+                                          Width="28" Height="28" MinHeight="0" Padding="6" BorderThickness="0"
+                                          Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}"
+                                          ToolTip.Tip="{Binding Localizer[Files.SortDescending]}"
+                                          AutomationProperties.Name="{Binding Localizer[Files.SortDescending]}">
+                                <PathIcon Data="{StaticResource IconSort}" Width="14" Height="14"/>
+                            </ToggleButton>
                         </Grid>
                         <!-- Virtualized File List or Empty State -->
                         <Grid Grid.Row="5">
@@ -321,7 +322,7 @@
                             </Border>
 
                             <!-- Virtualizing ListBox for File Metadata: Optimized for Scanning -->
-                            <ListBox x:Name="FilesListBox"
+                            <ListBox x:Name="FilesListBox" ItemContainerTheme="{StaticResource WorkspaceRowTheme}"
                                      ItemsSource="{Binding VisibleFiles}"
                                      SelectedItem="{Binding SelectedFile}"
                                      IsVisible="{Binding SelectedSpace.HasFiles}"
@@ -339,7 +340,7 @@
                                                 DoubleTapped="OnFileDoubleTapped"
                                                 Margin="0,0,0,1"
                                                 CornerRadius="{DynamicResource RadiusSmall}"
-                                                Padding="12,10"
+                                                Padding="12,3"
                                                 ToolTip.Tip="{Binding Path}">
                                             <Border.ContextMenu>
                                                 <ContextMenu Opened="OnFileMenuOpened">
@@ -392,21 +393,13 @@
                                                 </ContextMenu>
                                             </Border.ContextMenu>
                                             <Grid ColumnDefinitions="Auto,*,Auto">
-                                                <Panel Grid.Column="0" Width="20" Height="20" Margin="0,0,12,0" VerticalAlignment="Center">
-                                                    <PathIcon Data="{StaticResource IconFolder}"
-                                                              IsVisible="{Binding IsDirectory}"
-                                                              Width="18" Height="18"
-                                                              Foreground="{DynamicResource AccentPrimaryBrush}"/>
-                                                    <PathIcon Data="{StaticResource IconFile}"
-                                                              IsVisible="{Binding !IsDirectory}"
-                                                              Width="18" Height="18"
-                                                              Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                </Panel>
+                                                <views:FileIcon Grid.Column="0" FileName="{Binding Name}" IsDirectory="{Binding IsDirectory}" CustomIconPath="{Binding CustomIconPath}"
+                                                                Width="24" Height="24" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                                 <TextBlock Grid.Column="1" Text="{Binding Name}"
-                                                           FontWeight="Medium" FontSize="13"
+                                                           FontWeight="Normal" FontSize="12"
                                                            TextTrimming="CharacterEllipsis"
                                                            VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="2" Text="{Binding CapabilityBadgeText}"
+                                                <TextBlock Grid.Column="2" Text="{Binding ExtensionLabel}" MaxWidth="68" TextTrimming="CharacterEllipsis"
                                                            ToolTip.Tip="{Binding CapabilityDescription}"
                                                            Margin="16,0,0,0" FontSize="11"
                                                            Foreground="{DynamicResource TextTertiaryBrush}"
@@ -422,11 +415,10 @@
             </Grid>
 
             <!-- ================= TAB 1: TRIAGE DRAWER ================= -->
-            <Grid RowDefinitions="Auto,*" IsVisible="{Binding IsTriageTab}" Margin="24,18">
+            <Grid RowDefinitions="Auto,*" IsVisible="{Binding IsTriageTab}" Margin="28,8,24,20">
                 <Grid Grid.Row="0" Margin="0,0,0,16">
                     <StackPanel Spacing="4">
                         <TextBlock Text="{Binding Localizer[Triage.Title]}" FontSize="18" FontWeight="SemiBold"/>
-                        <TextBlock Text="{Binding Localizer[Triage.Subtitle]}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </StackPanel>
                 </Grid>
 
@@ -448,23 +440,24 @@
                     </Border>
 
                     <!-- Pending Items List -->
-                    <ListBox ItemsSource="{Binding PendingItems}"
+                    <ListBox ItemsSource="{Binding PendingItems}" ItemContainerTheme="{StaticResource WorkspaceRowTheme}"
                              SelectedItem="{Binding SelectedPendingItem}"
                              IsVisible="{Binding HasPendingItems}"
                              Background="Transparent"
                              BorderThickness="0">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:PendingItemViewModel">
-                                <Border Margin="0,0,0,8"
-                                        Background="{DynamicResource SurfaceBrush}"
+                                <Border Margin="0,0,0,10"
+                                        Background="{DynamicResource ContentSurfaceBrush}"
                                         BorderBrush="{DynamicResource BorderSubtleBrush}"
                                         BorderThickness="1"
                                         CornerRadius="{DynamicResource RadiusPrimary}"
-                                        Padding="14,12">
+                                        Padding="20,18">
                                     <Grid RowDefinitions="Auto,Auto,Auto,Auto">
                                         <!-- Header: Name & Reason Badge -->
                                         <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
-                                            <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"/>
+                                            <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="Medium" FontSize="15"
+                                                       Margin="0,0,12,0" TextTrimming="CharacterEllipsis"/>
                                             <Border Grid.Column="1"
                                                     CornerRadius="{DynamicResource RadiusSmall}"
                                                     Background="{DynamicResource WarningBadgeBgBrush}"
@@ -478,8 +471,10 @@
                                         <!-- Path & Time -->
                                         <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,5,0,0">
                                             <TextBlock Grid.Column="0" Text="{Binding Path}"
-                                                       FontFamily="Consolas,Menlo,Monospace" FontSize="10"
-                                                       FlowDirection="LeftToRight" Foreground="{DynamicResource TextTertiaryBrush}"/>
+                                                       FontSize="12" Margin="0,0,12,0" TextTrimming="CharacterEllipsis"
+                                                       FlowDirection="LeftToRight" Foreground="{DynamicResource TextSecondaryBrush}">
+                                                <ToolTip.Tip><TextBlock Text="{Binding Path}" FlowDirection="LeftToRight"/></ToolTip.Tip>
+                                            </TextBlock>
                                             <TextBlock Grid.Column="1" Text="{Binding FormattedSeenAt}"
                                                        FontSize="10" Foreground="{DynamicResource TextMutedBrush}"/>
                                         </Grid>
@@ -531,7 +526,7 @@
                                                     Command="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).PreviewClassificationCancelCommand}"/>
 
                                             <!-- Assign Button -->
-                                            <Button Classes="ActionButton"
+                                            <Button Classes="PrimaryAction"
                                                     Name="ImportPendingButton"
                                                     Content="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).Localizer[Triage.ImportAction]}"
                                                     Command="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).OpenImportConfirmationCommand}"
@@ -650,42 +645,43 @@
             </Grid>
 
             <!-- ================= TAB 3: SETTINGS ================= -->
-            <ScrollViewer IsVisible="{Binding IsSettingsTab}">
-                <StackPanel Spacing="20" MaxWidth="720" HorizontalAlignment="Stretch" Margin="24,18">
+            <ScrollViewer IsVisible="{Binding IsSettingsTab}" Classes="SettingsPage">
+                <StackPanel Spacing="16" MaxWidth="820" HorizontalAlignment="Stretch" Margin="32,12,32,28">
                     <StackPanel Spacing="4">
-                        <TextBlock Text="{Binding Localizer[Settings.Title]}" FontSize="18" FontWeight="SemiBold"/>
-                        <TextBlock Text="{Binding Localizer[Settings.Subtitle]}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <TextBlock Text="{Binding Localizer[Settings.Title]}" FontSize="20" FontWeight="Medium"/>
                     </StackPanel>
 
-                    <Border Height="1" Background="{DynamicResource BorderSubtleBrush}"/>
 
+
+                    <Border Classes="SettingsSection">
+                        <StackPanel Spacing="24">
                     <!-- Section: General -->
-                    <StackPanel Spacing="10">
-                        <TextBlock Text="{Binding Localizer[Settings.General]}" FontWeight="SemiBold" FontSize="13"/>
+                    <StackPanel Spacing="16">
+                        <TextBlock Text="{Binding Localizer[Settings.General]}" FontWeight="SemiBold" FontSize="16"/>
                         <Grid ColumnDefinitions="*,16,*">
-                            <StackPanel Grid.Column="0" Spacing="4">
-                                <TextBlock Text="{Binding Localizer[Language.Label]}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <StackPanel Grid.Column="0" Spacing="8">
+                                <TextBlock Text="{Binding Localizer[Language.Label]}" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 <ComboBox ItemsSource="{Binding SupportedLanguages}"
                                           SelectedItem="{Binding SettingsLanguage}"
                                           HorizontalAlignment="Stretch"
                                           CornerRadius="{DynamicResource RadiusSmall}">
                                     <ComboBox.ItemTemplate>
                                         <DataTemplate x:DataType="loc:LanguageInfo">
-                                            <TextBlock Text="{Binding DisplayText}" FontSize="12"/>
+                                            <TextBlock Text="{Binding DisplayText}" FontSize="14"/>
                                         </DataTemplate>
                                     </ComboBox.ItemTemplate>
                                 </ComboBox>
                             </StackPanel>
 
-                            <StackPanel Grid.Column="2" Spacing="4">
-                                <TextBlock Text="{Binding Localizer[Theme.Label]}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <StackPanel Grid.Column="2" Spacing="8">
+                                <TextBlock Text="{Binding Localizer[Theme.Label]}" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 <ComboBox ItemsSource="{Binding SupportedThemes}"
                                           SelectedItem="{Binding SettingsTheme}"
                                           HorizontalAlignment="Stretch"
                                           CornerRadius="{DynamicResource RadiusSmall}">
                                     <ComboBox.ItemTemplate>
                                         <DataTemplate x:DataType="th:AppThemeMode">
-                                            <TextBlock Text="{Binding}" FontSize="12"/>
+                                            <TextBlock Text="{Binding}" FontSize="14"/>
                                         </DataTemplate>
                                     </ComboBox.ItemTemplate>
                                 </ComboBox>
@@ -693,9 +689,52 @@
                         </Grid>
                     </StackPanel>
 
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="{Binding Localizer[Theme.Accent]}" FontSize="16" FontWeight="Medium"/>
+                        <TextBlock Text="{Binding Localizer[Theme.AccentHint]}" FontSize="14" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <WrapPanel>
+                            <RadioButton Name="ManualAccentMode" GroupName="AccentSource" Margin="0,0,16,8"
+                                         Content="{Binding Localizer[Theme.AccentManual]}" IsChecked="{Binding IsManualAccent}"/>
+                            <RadioButton Name="WindowsAccentMode" GroupName="AccentSource" Margin="0,0,16,8"
+                                         Content="{Binding Localizer[Theme.AccentWindows]}" IsChecked="{Binding IsWindowsAccent}"
+                                         IsEnabled="{Binding CanFollowWindowsAppearance}"/>
+                            <RadioButton Name="WallpaperAccentMode" GroupName="AccentSource" Margin="0,0,0,8"
+                                         Content="{Binding Localizer[Theme.AccentWallpaper]}" IsChecked="{Binding IsWallpaperAccent}"
+                                         IsEnabled="{Binding CanFollowWindowsAppearance}"/>
+                        </WrapPanel>
+                        <TextBlock Text="{Binding Localizer[Theme.AccentAutoHint]}" IsVisible="{Binding !IsManualAccent}"
+                                   FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <ItemsControl ItemsSource="{Binding AccentPresets}" IsEnabled="{Binding IsManualAccent}">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <Button Width="28" Height="28" Margin="0,0,8,0" CornerRadius="4"
+                                            Background="{Binding}" ToolTip.Tip="{Binding}" AutomationProperties.Name="{Binding}"
+                                            Command="{Binding $parent[ItemsControl].((vm:StudioViewModel)DataContext).SelectAccentCommand}"
+                                            CommandParameter="{Binding}"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <ColorPicker Name="CustomAccentPicker" Color="{Binding CustomAccent, Mode=TwoWay}"
+                                         IsEnabled="{Binding IsManualAccent}" ColorSpectrumShape="Ring" IsColorSpectrumVisible="True"
+                                         IsAlphaEnabled="False" IsAlphaVisible="False"
+                                         IsColorPaletteVisible="False" IsColorModelVisible="True"
+                                         IsColorComponentsVisible="True" IsHexInputVisible="True"
+                                         ToolTip.Tip="{Binding Localizer[Theme.Accent]}"
+                                         AutomationProperties.Name="{Binding Localizer[Theme.Accent]}"/>
+                            <TextBox Name="AccentColorInput" Width="144" MaxLength="7" Text="{Binding SettingsAccentColor}" IsEnabled="{Binding IsManualAccent}"
+                                     PlaceholderText="#RRGGBB" FlowDirection="LeftToRight" AutomationProperties.Name="{Binding Localizer[Theme.Accent]}"/>
+                            <Button Content="{Binding Localizer[Theme.AccentDefault]}" Command="{Binding SelectAccentCommand}"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <Border Height="1" Background="{DynamicResource BorderSubtleBrush}"/>
+
                     <!-- Section: Engine -->
-                    <StackPanel Spacing="10">
-                        <TextBlock Text="{Binding Localizer[Settings.Engine]}" FontWeight="SemiBold" FontSize="13"/>
+                    <StackPanel Spacing="16">
+                        <TextBlock Text="{Binding Localizer[Settings.Engine]}" FontWeight="SemiBold" FontSize="16"/>
                         <WrapPanel>
                             <RadioButton Name="LayaPreviewProvider" GroupName="PreviewProvider" Margin="0,0,16,0"
                                          Content="{Binding Localizer[Classification.LocalCpu]}" IsChecked="{Binding IsLayaPreview, Mode=TwoWay}"/>
@@ -713,7 +752,7 @@
                                         Command="{Binding ClearJevSessionCommand}"/>
                             </Grid>
                             <TextBlock Text="{Binding Localizer[Classification.CredentialNotice]}" TextWrapping="Wrap"
-                                       FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                       FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             <WrapPanel IsVisible="{Binding CanStoreJevCredential}">
                                 <Button Name="SaveJevKeyButton" Content="{Binding Localizer[Classification.SaveKey]}"
                                         Command="{Binding ManageJevCredentialCommand}" CommandParameter="save" Margin="0,0,6,6"/>
@@ -722,19 +761,19 @@
                                 <Button Name="DeleteJevKeyButton" Content="{Binding Localizer[Classification.DeleteKey]}"
                                         Command="{Binding ManageJevCredentialCommand}" CommandParameter="delete" Margin="0,0,6,6"/>
                             </WrapPanel>
-                            <TextBlock Text="{Binding JevCredentialNotice}" TextWrapping="Wrap" FontSize="11"/>
+                            <TextBlock Text="{Binding JevCredentialNotice}" TextWrapping="Wrap" FontSize="13"/>
                             <CheckBox Name="JevSendConsent" IsChecked="{Binding JevSendConsent, Mode=TwoWay}">
                                 <TextBlock Text="{Binding Localizer[Classification.JevConsent]}" TextWrapping="Wrap"/>
                             </CheckBox>
                         </StackPanel>
-                        <StackPanel Spacing="4" IsVisible="{Binding IsLayaPreview}">
-                            <TextBlock Text="{Binding Localizer[OOBE.Step2.ModelCache]}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <StackPanel Spacing="8" IsVisible="{Binding IsLayaPreview}">
+                            <TextBlock Text="{Binding Localizer[OOBE.Step2.ModelCache]}" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             <TextBlock Text="{Binding Localizer[Classification.Setup]}" TextWrapping="Wrap"
-                                       FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                       FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             <Grid ColumnDefinitions="*,Auto">
                                 <TextBox Name="ModelFolderInput" Text="{Binding SettingsModelCache}"
                                          CornerRadius="{DynamicResource RadiusSmall}"
-                                         FontFamily="Consolas,Menlo,Monospace" FontSize="11" FlowDirection="LeftToRight"
+                                         FontFamily="Consolas,Menlo,Monospace" FontSize="13" FlowDirection="LeftToRight"
                                          AutomationProperties.Name="{Binding Localizer[OOBE.Step2.ModelCache]}"/>
                                 <Button Name="BrowseModelFolderButton" Grid.Column="1" Margin="8,0,0,0"
                                         Content="{Binding Localizer[Action.Browse]}" Click="OnBrowseModelFolderClick"
@@ -748,9 +787,13 @@
                                         IsVisible="{Binding VerifyLocalModelCommand.IsRunning}"
                                         Command="{Binding VerifyLocalModelCancelCommand}"/>
                             </WrapPanel>
-                            <TextBlock Text="{Binding ModelVerificationNotice}" TextWrapping="Wrap" FontSize="11"
+                            <TextBlock Text="{Binding ModelVerificationNotice}" TextWrapping="Wrap" FontSize="13"
                                        Foreground="{DynamicResource TextSecondaryBrush}"/>
                             <WrapPanel>
+                                <Button Name="DownloadModelPackageButton" Classes="PrimaryAction" Margin="0,0,8,0"
+                                        Content="{Binding Localizer[Classification.DownloadPackage]}"
+                                        ToolTip.Tip="{Binding Localizer[Classification.DownloadPackageNotice]}"
+                                        Command="{Binding InstallLocalModelPackageCommand}"/>
                                 <Button Name="ImportModelPackageButton" Classes="ActionButton" Margin="0,0,8,0"
                                         Content="{Binding Localizer[Classification.ImportPackage]}" Click="OnImportModelPackageClick"/>
                                 <Button Name="CancelModelInstallButton" Classes="ActionButton"
@@ -765,29 +808,31 @@
                         </StackPanel>
                     </StackPanel>
 
+                    <Border Height="1" Background="{DynamicResource BorderSubtleBrush}"/>
+
                     <!-- Section: Storage & Monitoring -->
                     <StackPanel Spacing="10">
-                        <TextBlock Text="{Binding Localizer[Settings.Storage]}" FontWeight="SemiBold" FontSize="13"/>
+                        <TextBlock Text="{Binding Localizer[Settings.Storage]}" FontWeight="SemiBold" FontSize="16"/>
                         <StackPanel Spacing="4">
-                            <TextBlock Text="{Binding Localizer[OOBE.Step4.ManagedRootLabel]}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <TextBlock Text="{Binding Localizer[OOBE.Step4.ManagedRootLabel]}" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             <TextBox Text="{Binding SettingsManagedRoot}"
                                      CornerRadius="{DynamicResource RadiusSmall}"
                                      FontFamily="Consolas,Menlo,Monospace"
-                                     FontSize="11"
+                                     FontSize="13"
                                      FlowDirection="LeftToRight"/>
                             <TextBlock Text="{Binding Localizer[Settings.ManagedRootNotice]}"
-                                       TextWrapping="Wrap" FontSize="10" Foreground="{DynamicResource TextMutedBrush}"
+                                       TextWrapping="Wrap" FontSize="13" Foreground="{DynamicResource TextMutedBrush}"
                                        Margin="0,2,0,0"/>
                         </StackPanel>
 
                         <!-- Monitored list -->
                         <StackPanel Spacing="4">
-                            <TextBlock Text="{Binding Localizer[OOBE.Step4.MonitoredLabel]}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <TextBlock Text="{Binding Localizer[OOBE.Step4.MonitoredLabel]}" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             <Grid ColumnDefinitions="*,8,Auto,Auto">
                                 <Button Grid.Column="3" Content="{Binding Localizer[Action.Browse]}" Click="OnBrowseObservationFoldersClick" Margin="6,0,0,0"/>
                                 <TextBox Grid.Column="0" Text="{Binding NewSettingsMonitoredFolder}"
                                          FontFamily="Consolas,Menlo,Monospace" FlowDirection="LeftToRight"
-                                         FontSize="11"
+                                         FontSize="13"
                                          CornerRadius="{DynamicResource RadiusSmall}"/>
                                 <Button Grid.Column="2" Classes="ActionButton" Content="{Binding Localizer[Action.Add]}" Command="{Binding AddSettingsMonitoredFolderCommand}"/>
                             </Grid>
@@ -796,10 +841,10 @@
                                     <DataTemplate x:DataType="x:String">
                                         <Grid ColumnDefinitions="*,Auto" Margin="0,2">
                                             <TextBlock Grid.Column="0" Text="{Binding}"
-                                                       FontFamily="Consolas,Menlo,Monospace" FontSize="10" FlowDirection="LeftToRight" VerticalAlignment="Center"/>
+                                                       FontFamily="Consolas,Menlo,Monospace" FontSize="13" FlowDirection="LeftToRight" VerticalAlignment="Center"/>
                                             <Button Grid.Column="1" Classes="ActionButton" Content="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).Localizer[Action.Delete]}"
                                                     Command="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).RemoveSettingsMonitoredFolderCommand}"
-                                                    CommandParameter="{Binding}" Padding="6,1" FontSize="10"/>
+                                                    CommandParameter="{Binding}" Padding="6,1" FontSize="13"/>
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -808,12 +853,12 @@
 
                         <!-- Excluded list -->
                         <StackPanel Spacing="4">
-                            <TextBlock Text="{Binding Localizer[OOBE.Step4.ExcludedLabel]}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <TextBlock Text="{Binding Localizer[OOBE.Step4.ExcludedLabel]}" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             <Grid ColumnDefinitions="*,8,Auto,Auto">
                                 <Button Grid.Column="3" Content="{Binding Localizer[Action.Browse]}" Click="OnBrowseObservationFoldersClick" Tag="excluded" Margin="6,0,0,0"/>
                                 <TextBox Grid.Column="0" Text="{Binding NewSettingsExcludedFolder}"
                                          FontFamily="Consolas,Menlo,Monospace" FlowDirection="LeftToRight"
-                                         FontSize="11"
+                                         FontSize="13"
                                          CornerRadius="{DynamicResource RadiusSmall}"/>
                                 <Button Grid.Column="2" Classes="ActionButton" Content="{Binding Localizer[Action.Add]}" Command="{Binding AddSettingsExcludedFolderCommand}"/>
                             </Grid>
@@ -822,10 +867,10 @@
                                     <DataTemplate x:DataType="x:String">
                                         <Grid ColumnDefinitions="*,Auto" Margin="0,2">
                                             <TextBlock Grid.Column="0" Text="{Binding}"
-                                                       FontFamily="Consolas,Menlo,Monospace" FontSize="10" FlowDirection="LeftToRight" VerticalAlignment="Center"/>
+                                                       FontFamily="Consolas,Menlo,Monospace" FontSize="13" FlowDirection="LeftToRight" VerticalAlignment="Center"/>
                                             <Button Grid.Column="1" Classes="ActionButton" Content="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).Localizer[Action.Delete]}"
                                                     Command="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).RemoveSettingsExcludedFolderCommand}"
-                                                    CommandParameter="{Binding}" Padding="6,1" FontSize="10"/>
+                                                    CommandParameter="{Binding}" Padding="6,1" FontSize="13"/>
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -835,25 +880,25 @@
                         <!-- Explicit session observation: pending metadata only, no automatic moves. -->
                         <StackPanel Spacing="6">
                             <TextBlock Text="{Binding Localizer[Observation.Notice]}" TextWrapping="Wrap"
-                                       Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
+                                       Foreground="{DynamicResource TextSecondaryBrush}" FontSize="14"/>
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Button x:Name="StartFolderObservationButton" Content="{Binding Localizer[Observation.Start]}"
                                         Command="{Binding StartFolderObservationCommand}" IsEnabled="{Binding !IsFolderObservationActive}"/>
                                 <Button Content="{Binding Localizer[Observation.Stop]}" Command="{Binding StopFolderObservationCommand}"/>
                             </StackPanel>
-                            <TextBlock Text="{Binding FolderObservationNotice}" TextWrapping="Wrap" FontSize="12"/>
+                            <TextBlock Text="{Binding FolderObservationNotice}" TextWrapping="Wrap" FontSize="14"/>
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Button Name="ScanObservedFoldersButton" Content="{Binding Localizer[Observation.Scan]}"
                                         Command="{Binding ScanObservedFoldersCommand}"/>
                                 <Button Content="{Binding Localizer[Action.Cancel]}" Command="{Binding ScanObservedFoldersCancelCommand}"
                                         IsVisible="{Binding ScanObservedFoldersCommand.IsRunning}"/>
                             </StackPanel>
-                            <TextBlock Text="{Binding FolderScanNotice}" TextWrapping="Wrap" FontSize="12"/>
-                            <TextBlock Text="{Binding Localizer[Observation.TargetNotice]}" TextWrapping="Wrap" FontSize="12"/>
+                            <TextBlock Text="{Binding FolderScanNotice}" TextWrapping="Wrap" FontSize="14"/>
+                            <TextBlock Text="{Binding Localizer[Observation.TargetNotice]}" TextWrapping="Wrap" FontSize="14"/>
                             <ComboBox Name="ObservationSourcePicker" ItemsSource="{Binding ObservationSources}"
                                       SelectedItem="{Binding ObservationSourcePath}" HorizontalAlignment="Stretch"
                                       FlowDirection="LeftToRight"/>
-                            <TextBlock Text="{Binding ObservationSourceStatus}" TextWrapping="Wrap" FontSize="12"/>
+                            <TextBlock Text="{Binding ObservationSourceStatus}" TextWrapping="Wrap" FontSize="14"/>
                             <WrapPanel IsEnabled="{Binding !IsChangingObservationSource}">
                                 <Button Name="PauseObservationSourceButton" Content="{Binding Localizer[Observation.PauseSource]}"
                                         Command="{Binding PauseObservationSourceCommand}" Margin="0,0,8,4"/>
@@ -875,15 +920,19 @@
 
                     </StackPanel>
 
-                    <Border Height="1" Background="{DynamicResource BorderSubtleBrush}"/>
+
+                    <Border Classes="SettingsSection">
+                        <StackPanel Spacing="24">
+                        </StackPanel>
+                    </Border>
 
                     <!-- Section: Operation History & Transaction Audit Log (P3) -->
                     <StackPanel Spacing="10">
                         <Grid ColumnDefinitions="*,Auto">
                             <StackPanel Grid.Column="0" Spacing="2">
-                                <TextBlock Text="{Binding Localizer[Operations.Title]}" FontWeight="SemiBold" FontSize="13"/>
+                                <TextBlock Text="{Binding Localizer[Operations.Title]}" FontWeight="SemiBold" FontSize="16"/>
                                 <TextBlock Text="{Binding Localizer[Operations.Subtitle]}"
-                                           FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                                           FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"
                                            TextWrapping="Wrap"/>
                             </StackPanel>
                             <Border Grid.Column="1"
@@ -893,7 +942,7 @@
                                     CornerRadius="{DynamicResource RadiusSmall}"
                                     Padding="6,2" VerticalAlignment="Center">
                                 <TextBlock Text="{Binding OperationHistoryCount, StringFormat='{}{0}'}"
-                                           FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                           FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             </Border>
                         </Grid>
 
@@ -907,7 +956,7 @@
                                 <Ellipse Width="5" Height="5" VerticalAlignment="Center"
                                          Fill="{DynamicResource AccentPrimaryBrush}"/>
                                 <TextBlock Text="{Binding ManualMoveStatusNotice}"
-                                           FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                           FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             </StackPanel>
                         </Border>
 
@@ -921,7 +970,7 @@
                                 <Ellipse Width="5" Height="5" VerticalAlignment="Center"
                                          Fill="{DynamicResource AccentPrimaryBrush}"/>
                                 <TextBlock Text="{Binding ManualUndoStatusNotice}"
-                                           FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                           FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             </StackPanel>
                         </Border>
 
@@ -930,7 +979,7 @@
                                 Background="{DynamicResource WarningBadgeBgBrush}"
                                 Padding="10,6">
                             <TextBlock Text="{Binding Localizer[Operations.NoUndoNotice]}"
-                                       TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource WarningBadgeFgBrush}"/>
+                                       TextWrapping="Wrap" FontSize="13" Foreground="{DynamicResource WarningBadgeFgBrush}"/>
                         </Border>
 
                         <!-- Empty State: Visible when no operations exist -->
@@ -942,7 +991,7 @@
                                 Padding="16">
                             <TextBlock Text="{Binding Localizer[Operations.Empty]}"
                                        HorizontalAlignment="Center" TextAlignment="Center"
-                                       FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}"/>
+                                       FontSize="13" Foreground="{DynamicResource TextTertiaryBrush}"/>
                         </Border>
 
                         <!-- Virtualized Operations List: Visible when operations exist -->
@@ -967,10 +1016,10 @@
                                             <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
                                                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                                     <PathIcon Data="{StaticResource IconFile}" Width="12" Height="12" Foreground="{DynamicResource TextTertiaryBrush}"/>
-                                                    <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" FontSize="12" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" FontSize="14" TextTrimming="CharacterEllipsis"/>
                                                     <TextBlock Text="{Binding TargetSpaceName, StringFormat='→ {0}'}"
                                                                IsVisible="{Binding TargetSpaceName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                                               FontSize="11" Foreground="{DynamicResource AccentTextBrush}" FontWeight="SemiBold"
+                                                               FontSize="13" Foreground="{DynamicResource AccentTextBrush}" FontWeight="SemiBold"
                                                                VerticalAlignment="Center"/>
                                                 </StackPanel>
 
@@ -992,7 +1041,7 @@
                                                             Padding="6,2"
                                                             Background="{DynamicResource SurfaceElevatedBrush}">
                                                         <TextBlock Text="{Binding StatusLocalized}"
-                                                                   FontSize="10" FontWeight="SemiBold"/>
+                                                                   FontSize="13" FontWeight="SemiBold"/>
                                                     </Border>
                                                 </StackPanel>
                                             </Grid>
@@ -1002,23 +1051,23 @@
                                                 <StackPanel Grid.Column="0" Spacing="1">
                                                     <TextBlock Text="{Binding SourcePath, StringFormat='Source: {0}'}"
                                                                IsVisible="{Binding HasSourcePath}"
-                                                               FontFamily="Consolas,Menlo,Monospace" FontSize="10"
+                                                               FontFamily="Consolas,Menlo,Monospace" FontSize="13"
                                                                FlowDirection="LeftToRight" Foreground="{DynamicResource TextTertiaryBrush}"
                                                                TextTrimming="CharacterEllipsis"/>
                                                     <TextBlock Text="{Binding DestinationPath, StringFormat='Target: {0}'}"
                                                                IsVisible="{Binding HasDestinationPath}"
-                                                               FontFamily="Consolas,Menlo,Monospace" FontSize="10"
+                                                               FontFamily="Consolas,Menlo,Monospace" FontSize="13"
                                                                FlowDirection="LeftToRight" Foreground="{DynamicResource TextTertiaryBrush}"
                                                                TextTrimming="CharacterEllipsis"/>
                                                 </StackPanel>
                                                 <TextBlock Grid.Column="1" Text="{Binding FormattedCreatedAt}"
-                                                           FontSize="10" Foreground="{DynamicResource TextMutedBrush}"
+                                                           FontSize="13" Foreground="{DynamicResource TextMutedBrush}"
                                                            VerticalAlignment="Top"/>
                                             </Grid>
 
                                             <!-- Status Description -->
                                             <TextBlock Grid.Row="2" Text="{Binding StatusDescription}"
-                                                       FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                                                       FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"
                                                        Margin="0,4,0,0" TextWrapping="Wrap"/>
 
                                             <!-- Actionable Warning Banner for RecoveryRequired (NEVER SUCCESS) -->
@@ -1034,7 +1083,7 @@
                                                     <PathIcon Grid.Column="0" Data="{StaticResource IconAlert}" Width="12" Height="12"
                                                               Foreground="#EF4444" Margin="0,0,6,0" VerticalAlignment="Center"/>
                                                     <TextBlock Grid.Column="1" Text="{Binding RecoveryActionPrompt}"
-                                                               TextWrapping="Wrap" FontSize="11" FontWeight="SemiBold"
+                                                               TextWrapping="Wrap" FontSize="13" FontWeight="SemiBold"
                                                                Foreground="#EF4444"/>
                                                 </Grid>
                                             </Border>
@@ -1044,18 +1093,20 @@
                             </ListBox.ItemTemplate>
                         </ListBox>
                     </StackPanel>
+                        </StackPanel>
+                    </Border>
 
                     <!-- Save & Reset Actions -->
                     <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,6,0,16">
                         <Button Classes="PrimaryAction"
                                 Content="{Binding Localizer[Settings.Save]}"
                                 Command="{Binding SaveSettingsCommand}"
-                                Padding="16,7" FontSize="12"/>
+                                Padding="18,8" FontSize="14"/>
 
                         <Button Classes="ActionButton"
                                 Content="{Binding Localizer[Settings.ResetOnboarding]}"
                                 Command="{Binding ResetOnboardingCommand}"
-                                Padding="14,7" FontSize="12"/>
+                                Padding="16,8" FontSize="14"/>
 
                         <TextBlock Text="{Binding SettingsSavedFeedback}"
                                    Foreground="{DynamicResource SuccessBadgeFgBrush}"

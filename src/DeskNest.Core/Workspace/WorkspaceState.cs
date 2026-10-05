@@ -2,7 +2,9 @@ namespace DeskNest.Core.Workspace;
 
 // P2 metadata contracts. These records describe files and intentions; none authorize filesystem changes.
 public enum SpaceStorageMode { Managed, Mapped }
+public enum SpaceFileView { List, Grid, Details }
 public enum InferenceProvider { Laya, Jev }
+public enum AccentColorSource { Manual, Windows, Wallpaper }
 public enum TriageReason { FilenameAmbiguous, CategoriesInsufficient, NearTie }
 public enum ProposedOperationStatus { Proposed, PendingUser, Completed, Undone, RecoveryRequired }
 
@@ -11,6 +13,8 @@ public sealed record SpaceWindowPlacement(int X, int Y, double Width, double Hei
 public sealed record WorkspaceSpace(Guid Id, string Name, string Description, SpaceStorageMode Mode, string Folder)
 {
     public SpaceWindowPlacement? WindowPlacement { get; init; }
+    public SpaceFileView FileView { get; init; } = SpaceFileView.List;
+    public string? CustomIconPath { get; init; }
 }
 public sealed record WorkspacePublishedNodeIdentity(string RelativePath, string NativeId, bool IsDirectory,
     long Length, long LastWriteTimeUtcTicks, string Sha256);
@@ -23,6 +27,7 @@ public sealed record WorkspacePublicationEvidence(string NativeId, string Volume
 public sealed record WorkspaceFile(Guid Id, Guid SpaceId, string Name, string Path, bool IsDirectory)
 {
     public bool IsInTrash { get; init; }
+    public string? CustomIconPath { get; init; }
     // Creation-time evidence, not permission to undo or delete by path. Null on legacy metadata.
     public WorkspacePublicationEvidence? Publication { get; init; }
 }
@@ -58,6 +63,11 @@ public sealed record WorkspaceSettings
 {
     public string Language { get; init; } = "zh-CN";
     public string Theme { get; init; } = "System";
+    public string? AccentColor { get; init; } // Saved manual color; automatic modes never overwrite it.
+    public AccentColorSource AccentSource { get; init; } = AccentColorSource.Manual;
+    public string? CapsuleIconPath { get; init; }
+    public static bool IsValidAccentColor(string? value) => value is null ||
+        value.Length == 7 && value[0] == '#' && value.AsSpan(1).ToArray().All(Uri.IsHexDigit);
     public InferenceProvider Provider { get; init; } = InferenceProvider.Laya;
     public string? ModelCacheDirectory { get; init; }
     public string ManagedRoot { get; init; } = Path.Combine(

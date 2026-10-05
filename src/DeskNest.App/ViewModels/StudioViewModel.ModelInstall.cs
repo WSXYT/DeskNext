@@ -8,17 +8,18 @@ namespace DeskNest.App.ViewModels;
 
 public partial class StudioViewModel
 {
-    public Func<string, IProgress<int>, CancellationToken, Task<string>>? OnInstallLocalModelPackage { get; set; }
+    // Null package is the explicit online-download button; a non-null value is an offline ZIP path.
+    public Func<string?, IProgress<int>, CancellationToken, Task<string>>? OnInstallLocalModelPackage { get; set; }
     [ObservableProperty] private int _modelInstallProgress;
     [ObservableProperty] private string _modelInstallNotice = string.Empty;
 
     [RelayCommand(IncludeCancelCommand = true)]
     private async Task InstallLocalModelPackageAsync(string? package, CancellationToken token)
     {
-        if (!IsLayaPreview || string.IsNullOrWhiteSpace(package) || OnInstallLocalModelPackage is null) return;
+        if (!IsLayaPreview || package is not null && string.IsNullOrWhiteSpace(package) || OnInstallLocalModelPackage is null) return;
         string selected = SettingsModelCache;
         ModelInstallProgress = 0;
-        ModelInstallNotice = Localizer["Classification.InstallingPackage"];
+        ModelInstallNotice = Localizer[package is null ? "Classification.DownloadingPackage" : "Classification.InstallingPackage"];
         try
         {
             var progress = new Progress<int>(value =>

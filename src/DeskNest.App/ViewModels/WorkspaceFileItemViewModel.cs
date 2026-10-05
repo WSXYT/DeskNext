@@ -16,12 +16,14 @@ public sealed partial class WorkspaceFileItemViewModel : ViewModelBase
     private Guid _spaceId;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ExtensionLabel))]
     private string _name = string.Empty;
 
     [ObservableProperty]
     private string _path = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ExtensionLabel))]
     private bool _isDirectory;
 
     [ObservableProperty]
@@ -47,6 +49,9 @@ public sealed partial class WorkspaceFileItemViewModel : ViewModelBase
     public string DeleteActionKey => IsManaged ? "Files.ActionDelete" : "Files.ActionRemove";
     public string DeleteActionText => Localizer[DeleteActionKey];
 
+    public string ExtensionLabel => IsDirectory ? string.Empty : System.IO.Path.GetExtension(Name).TrimStart('.').ToUpperInvariant();
+
+    public string? CustomIconPath { get; }
     public string Icon => string.Empty;
     public string TypeLabel => IsDirectory ? "Directory" : "File";
 
@@ -69,7 +74,7 @@ public sealed partial class WorkspaceFileItemViewModel : ViewModelBase
         string path,
         bool isDirectory,
         SpaceStorageMode storageMode = SpaceStorageMode.Managed,
-        bool isInTrash = false)
+        bool isInTrash = false, string? customIconPath = null)
     {
         _id = id;
         _spaceId = spaceId;
@@ -78,6 +83,7 @@ public sealed partial class WorkspaceFileItemViewModel : ViewModelBase
         _isDirectory = isDirectory;
         _storageMode = storageMode;
         _isInTrash = isInTrash;
+        CustomIconPath = customIconPath;
 
         // Rows are replaced during refresh; the singleton must not retain discarded rows.
         WeakEventHandlerManager.Subscribe<LocalizationManager, PropertyChangedEventArgs, WorkspaceFileItemViewModel>(

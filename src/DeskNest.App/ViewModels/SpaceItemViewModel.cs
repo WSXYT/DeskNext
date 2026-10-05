@@ -37,6 +37,8 @@ public sealed partial class SpaceItemViewModel : ViewModelBase
 
     public ObservableCollection<WorkspaceFileItemViewModel> Files { get; } = new();
     public SpaceWindowPlacement? WindowPlacement { get; }
+    public SpaceFileView FileView { get; }
+    public string? CustomIconPath { get; }
 
     public bool IsManaged => Mode == SpaceStorageMode.Managed;
     public bool IsMapped => Mode == SpaceStorageMode.Mapped;
@@ -77,5 +79,7 @@ public sealed partial class SpaceItemViewModel : ViewModelBase
         _folder = space.Folder;
         _itemCount = itemCount;
         WindowPlacement = space.WindowPlacement;
+        FileView = space.FileView;
+        CustomIconPath = space.CustomIconPath;
     }
 }

@@ -1,4 +1,4 @@
-param([string]$App = "$PSScriptRoot/../../src/DeskNest.App/bin/Release/net10.0/DeskNest.App.exe")
+param([string]$App = "$PSScriptRoot/../../src/DeskNest.App/bin/Release/net10.0/DeskNest.App.exe", [switch]$Restart)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -67,6 +67,9 @@ function Drag($from, $to, $sourceWindow) {
 $start = New-Object Diagnostics.ProcessStartInfo
 $start.FileName = (Resolve-Path -LiteralPath $App).Path
 $start.Arguments = '--native-window-smoke --explorer-drag'
+if ($Restart) { $start.Arguments += ' --kill-after-explorer' }
+$resumeRoot = $null
+$restartErrorText = ''
 $start.UseShellExecute = $false
 $start.CreateNoWindow = $true
 $start.RedirectStandardOutput = $true
@@ -80,6 +83,13 @@ try {
         $line = $read.GetAwaiter().GetResult()
         if ($null -eq $line) { break }
         [void]$log.AppendLine($line)
+        if ($Restart -and $line.StartsWith('EXPLORER_RESTART_READY:')) {
+            $resumeRoot = ($line.Substring('EXPLORER_RESTART_READY:'.Length) | ConvertFrom-Json).Root
+            $process.Kill()
+            if (!$process.WaitForExit(5000) -or $process.ExitCode -eq 0) { throw 'The GUI was not forcibly terminated.' }
+            [void]$log.AppendLine('GUI_FORCIBLY_TERMINATED: true')
+            break
+        }
         if (!$line.StartsWith('EXPLORER_DRAG_READY:')) { continue }
         $stage = $line.Substring('EXPLORER_DRAG_READY:'.Length) | ConvertFrom-Json
         Write-Output ("OS drag stage: " + $stage.Stage + ", directory=" + $stage.Directory)
@@ -96,8 +106,17 @@ try {
             $hitWindow = [ExplorerDragNative]::GetAncestor([ExplorerDragNative]::WindowFromPoint($point), 2)
             Write-Output ("Inbound geometry: item=" + $rect.ToString() + "; target=" + $point.X + ',' + $point.Y + '; expected=' + $stage.Window + '; hit=' + $hitWindow.ToInt64())
             if ($hitWindow.ToInt64() -ne $stage.Window) { throw 'Another window obscures the announced drop point; no drag was injected.' }
-            # In Details view ListItem spans blank columns too; start on the icon/name, not the row center.
-            Drag @{X=$rect.X+[Math]::Min(40, $rect.Width/2); Y=$rect.Y+($rect.Height/2)} $stage.Point $view.HWND
+            # Use the actual name cell, not a fixed pixel offset (which can hit the selection checkbox at high DPI).
+            $nameCell = $item.FindFirst([Windows.Automation.TreeScope]::Descendants,
+                (New-Object Windows.Automation.PropertyCondition ([Windows.Automation.AutomationElement]::AutomationIdProperty), 'System.ItemNameDisplay'))
+            if (!$nameCell) {
+                $nameCell = $item.FindFirst([Windows.Automation.TreeScope]::Descendants,
+                    (New-Object Windows.Automation.PropertyCondition ([Windows.Automation.AutomationElement]::ControlTypeProperty), ([Windows.Automation.ControlType]::Text)))
+            }
+            if (!$nameCell -or $nameCell.Current.BoundingRectangle.IsEmpty) { throw 'Explorer name cell is unavailable; refusing a guessed drag coordinate.' }
+            $nameRect = $nameCell.Current.BoundingRectangle
+            Write-Output ('Inbound name cell: ' + $nameRect.ToString())
+            Drag @{X=$nameRect.X+($nameRect.Width/2); Y=$nameRect.Y+($nameRect.Height/2)} $stage.Point $view.HWND
         } elseif ($stage.Stage -eq 'outbound') {
             # The production Reveal action, not this driver, must have opened the managed folder.
             $located = $null
@@ -118,15 +137,34 @@ try {
             Drag $stage.Point @{X=$rect.X+($rect.Width*0.75); Y=$rect.Y+($rect.Height*0.7)} $stage.Window
         } else { throw 'Unknown Explorer drag stage.' }
     }
+    if ($Restart) {
+        if (!$resumeRoot) { throw 'The GUI never reached the committed-import kill barrier.' }
+        $start.Arguments = '--native-window-smoke --resume-explorer="' + $resumeRoot + '"'
+        $restarted = [Diagnostics.Process]::Start($start)
+        try {
+            $restartOutput = $restarted.StandardOutput.ReadToEndAsync()
+            $restartErrors = $restarted.StandardError.ReadToEndAsync()
+            if (!$restarted.WaitForExit(45000)) { throw 'Restarted GUI did not finish recovery and undo.' }
+            [void]$log.AppendLine($restartOutput.GetAwaiter().GetResult())
+            $restartErrorText = $restartErrors.GetAwaiter().GetResult()
+            if ($restarted.ExitCode -ne 0) { throw 'Restarted GUI failed; retain its workspace and log.' }
+        } finally {
+            if (!$restarted.HasExited) { $restarted.Kill(); $restarted.WaitForExit() }
+            $restarted.Dispose()
+        }
+    }
     if (!$process.WaitForExit(5000)) { throw 'Explorer probe did not exit.' }
     $match = [regex]::Match($log.ToString(), 'NATIVE_WINDOW_RESULT_JSON:\s*(\{[\s\S]*\})\s*$')
     if (!$match.Success) { throw 'Missing terminal Explorer probe evidence.' }
     $result = $match.Groups[1].Value | ConvertFrom-Json
-    if ($process.ExitCode -ne 0 -or $result.Success -cne $true -or $result.ExplorerDragVerified -cne $true) { throw 'Explorer drag workflow failed; inspect retained logs.' }
+    if ($result.Success -cne $true -or
+        (!$Restart -and ($process.ExitCode -ne 0 -or $result.ExplorerDragVerified -cne $true)) -or
+        ($Restart -and $result.ExplorerRestartVerified -cne $true)) { throw 'Explorer drag/restart workflow failed; inspect retained logs.' }
     Write-Output "Explorer file/directory import, outgoing Copy and undo passed. Evidence: $output"
 } finally {
     [ExplorerDragNative]::mouse_event(4, 0, 0, 0, [UIntPtr]::Zero)
     if (!$process.HasExited) { $process.Kill(); $process.WaitForExit() }
+    [void]$log.AppendLine($restartErrorText)
     [void]$log.AppendLine($errors.GetAwaiter().GetResult())
     $log.ToString() | Set-Content -LiteralPath (Join-Path $output 'native-explorer.log') -Encoding UTF8
     foreach ($view in $ownedWindows) { try { $view.Quit() } catch { } }

@@ -16,6 +16,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         var vm = new MainWindowViewModel(clipboardProvider: () => this.Clipboard);
         DataContext = vm;
+        Activated += (_, _) => Themes.ThemeManager.Instance.RefreshAutomaticAccent();
 
         Closed += async (s, e) =>
         {
@@ -31,6 +32,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         viewModel.ClipboardProvider ??= () => this.Clipboard;
         DataContext = viewModel;
+        Activated += (_, _) => Themes.ThemeManager.Instance.RefreshAutomaticAccent();
 
         Closed += async (s, e) =>
         {

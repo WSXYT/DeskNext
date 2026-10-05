@@ -672,6 +672,11 @@ public static class HeadlessSmokeRunner
             if (!themeMgr.IsDark)
                 throw new InvalidOperationException("Theme did not switch to Dark.");
 
+            themeMgr.CurrentThemeMode = AppThemeMode.System;
+            if (Application.Current!.RequestedThemeVariant != Avalonia.Styling.ThemeVariant.Default ||
+                themeMgr.IsDark != (Application.Current.ActualThemeVariant == Avalonia.Styling.ThemeVariant.Dark))
+                throw new InvalidOperationException("System mode must follow Avalonia's platform theme, not force Light.");
+
             // Reset back to primary neutral Light default
             themeMgr.CurrentThemeMode = AppThemeMode.Light;
 
@@ -1191,17 +1196,18 @@ public static class HeadlessSmokeRunner
                             .FirstOrDefault(box => ReferenceEquals(box.ItemsSource, stressStudioVm.FilteredSpaces));
                         var railName = spaceList?.GetVisualDescendants().OfType<TextBlock>()
                             .FirstOrDefault(t => t.Text == longName && t.IsEffectivelyVisible);
-                        if (railName is null || railName.Bounds.Width > 240.0)
-                            throw new InvalidOperationException($"Long space name escaped the 260px space rail in {testLang}");
+                        if (railName is null || spaceList is null || railName.Bounds.Width > spaceList.Bounds.Width)
+                            throw new InvalidOperationException($"Long space name escaped the space rail in {testLang}");
 
+                        var detail = sv.FindControl<Border>("SpaceDetailSurface")!;
                         var descTb = tbs.FirstOrDefault(t => t.Text?.StartsWith("LongDescription_") == true);
-                        if (descTb is null || descTb.Bounds.Width > maxW - 444.0)
+                        if (descTb is null || descTb.Bounds.Width > detail.Bounds.Width - detail.Padding.Left - detail.Padding.Right + 0.5)
                             throw new InvalidOperationException($"Long description escaped the detail pane in {testLang}");
 
                         var fileList = sv.FindControl<ListBox>("FilesListBox");
                         var fileNameTb = fileList?.GetVisualDescendants().OfType<TextBlock>()
                             .FirstOrDefault(t => t.Text == Path.GetFileName(longPath) && t.IsEffectivelyVisible);
-                        if (fileNameTb is null || fileNameTb.Bounds.Width > maxW - 444.0)
+                        if (fileNameTb is null || fileList is null || fileNameTb.Bounds.Width > fileList.Bounds.Width)
                             throw new InvalidOperationException($"Long filename escaped the file row in {testLang}");
                     }
 

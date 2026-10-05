@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using DeskNest.App.ViewModels;
 
@@ -46,6 +47,26 @@ public partial class DropCapsuleWindow : Window
             BeginMoveDrag(e);
         }
     }
+
+    private async void OnChangeIconClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not DropCapsuleViewModel vm) return;
+        try
+        {
+            if (!StorageProvider.CanOpen) { vm.CapsuleNotice = vm.Localizer["Spaces.FolderPickerUnavailable"]; return; }
+            var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = vm.Localizer["Icons.Change"], AllowMultiple = false,
+                FileTypeFilter = [new FilePickerFileType(vm.Localizer["Icons.Images"]) { Patterns = ["*.png", "*.jpg", "*.jpeg", "*.webp", "*.ico"] }]
+            });
+            try { if (files.Count != 0 && files[0].TryGetLocalPath() is { } path) await vm.SetCustomIconAsync(path); }
+            finally { foreach (var file in files) file.Dispose(); }
+        }
+        catch (Exception error) { vm.CapsuleNotice = vm.Localizer.GetString("Files.ActionFailedNotice", error.Message); }
+    }
+
+    private async void OnResetIconClick(object? sender, RoutedEventArgs e)
+    { if (DataContext is DropCapsuleViewModel vm) await vm.SetCustomIconAsync(null); }
 
     private void OnCloseButtonClick(object? sender, RoutedEventArgs e)
     {

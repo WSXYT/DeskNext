@@ -292,6 +292,24 @@ internal static class ManualClipboardSmoke
             if (view.FindControl<Button>("ImportModelPackageButton")?.IsEffectivelyVisible != true ||
                 view.FindControl<Button>("CancelModelInstallButton")?.Command != studio.InstallLocalModelPackageCancelCommand)
                 throw new InvalidOperationException("Model package installation and cancellation must have real UI entries.");
+            if (view.FindControl<Button>("DownloadModelPackageButton")?.Command != studio.InstallLocalModelPackageCommand)
+                throw new InvalidOperationException("Online installation must share the cancellable model-install command.");
+            var install = studio.OnInstallLocalModelPackage;
+            try
+            {
+                studio.OnInstallLocalModelPackage = async (package, progress, token) =>
+                {
+                    if (package is not null) throw new InvalidOperationException("The download entry must not pretend to select an offline file.");
+                    await Task.Delay(System.Threading.Timeout.Infinite, token);
+                    return bundle;
+                };
+                var downloading = studio.InstallLocalModelPackageCommand.ExecuteAsync(null);
+                studio.InstallLocalModelPackageCancelCommand.Execute(null);
+                await downloading;
+                if (studio.ModelInstallNotice != studio.Localizer["Classification.Cancelled"] || studio.SettingsModelCache != bundle)
+                    throw new InvalidOperationException("Cancelled download changed model selection.");
+            }
+            finally { studio.OnInstallLocalModelPackage = install; }
             string invalidPackage = Path.Combine(root, "invalid-model.zip");
             await File.WriteAllTextAsync(invalidPackage, "invalid model package");
             long beforeInstall = store.Snapshot.Revision;
@@ -348,7 +366,54 @@ internal static class ManualClipboardSmoke
             if (studio.JevSessionKey.Length != 0 || studio.JevSendConsent)
                 throw new InvalidOperationException("Clearing the Jev session must drop both key and permission.");
             studio.IsLayaPreview = true;
+            var accentInput = view.FindControl<TextBox>("AccentColorInput")!;
+            if (!accentInput.IsEffectivelyVisible)
+                throw new InvalidOperationException("Accent setting must be visible.");
+            var colorPicker = view.FindControl<ColorPicker>("CustomAccentPicker")!;
+            long beforeColorDraft = store.Snapshot.Revision;
+            colorPicker.Color = Avalonia.Media.Color.Parse("#F7D038");
+            Dispatcher.UIThread.RunJobs();
+            if (!colorPicker.IsEffectivelyVisible || studio.SettingsAccentColor != "#F7D038" ||
+                store.Snapshot.Revision != beforeColorDraft || colorPicker.IsAlphaEnabled)
+                throw new InvalidOperationException("Visual color selection must edit the opaque accent draft without saving.");
             await studio.SaveSettingsAsync();
+            if (store.Snapshot.Settings.AccentColor != "#F7D038" ||
+                !File.ReadAllText(Path.Combine(root, "workspace.json")).Contains("#F7D038"))
+                throw new InvalidOperationException("Accent must persist through the existing settings save.");
+            foreach (var variant in new[] { Avalonia.Styling.ThemeVariant.Light, Avalonia.Styling.ThemeVariant.Dark })
+            {
+                Avalonia.Application.Current!.TryGetResource("AccentPrimaryBrush", variant, out var background);
+                Avalonia.Application.Current.TryGetResource("AccentPrimaryFgBrush", variant, out var foreground);
+                if (background is not Avalonia.Media.SolidColorBrush bg || bg.Color != Avalonia.Media.Color.Parse("#F7D038") ||
+                    foreground is not Avalonia.Media.SolidColorBrush fg || Themes.ThemeManager.Contrast(bg.Color, fg.Color) < 4.5)
+                    throw new InvalidOperationException("Custom accent must reach both themes with readable foreground.");
+            }
+            long beforeInvalidAccent = store.Snapshot.Revision;
+            studio.SettingsAccentColor = "invalid";
+            await studio.SaveSettingsAsync();
+            if (store.Snapshot.Revision != beforeInvalidAccent || Themes.ThemeManager.Instance.AccentColor != "#F7D038")
+                throw new InvalidOperationException("Invalid color must not alter the saved palette.");
+            studio.SelectAccentCommand.Execute(null);
+            await studio.SaveSettingsAsync();
+            if (store.Snapshot.Settings.AccentColor is not null || Themes.ThemeManager.Instance.AccentColor is not null)
+                throw new InvalidOperationException("Reset must restore the default theme colors.");
+            if (colorPicker.ColorSpectrumShape != ColorSpectrumShape.Ring || !colorPicker.IsColorComponentsVisible || !colorPicker.IsHexInputVisible)
+                throw new InvalidOperationException("Custom accent must expose a complete color wheel and numeric controls.");
+            studio.IsWindowsAccent = true;
+            await studio.SaveSettingsAsync();
+            if (store.Snapshot.Settings.AccentSource != AccentColorSource.Windows || colorPicker.IsEffectivelyEnabled)
+                throw new InvalidOperationException("Automatic accent mode must persist without enabling manual controls.");
+            studio.SelectAccentCommand.Execute(null);
+            await studio.SaveSettingsAsync();
+            string wallpaper = Path.Combine(root, "accent-wallpaper.png");
+            using (var bitmap = new Avalonia.Media.Imaging.WriteableBitmap(new PixelSize(1, 1), new Vector(96, 96),
+                Avalonia.Platform.PixelFormat.Bgra8888, Avalonia.Platform.AlphaFormat.Unpremul))
+            {
+                using (var pixels = bitmap.Lock()) System.Runtime.InteropServices.Marshal.WriteInt32(pixels.Address, unchecked((int)0xFF336699));
+                bitmap.Save(wallpaper, Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+            }
+            if (Themes.ThemeManager.ReadWallpaperColor(wallpaper) != Avalonia.Media.Color.Parse("#336699"))
+                throw new InvalidOperationException("Wallpaper sampling must preserve the fixture's dominant color.");
             studio.SelectedTabIndex = 0;
             var floating = view.OpenSelectedSpaceWindow() ?? throw new InvalidOperationException("Space window did not open.");
             floating.UpdateLayout();
@@ -415,6 +480,40 @@ internal static class ManualClipboardSmoke
             if (floating.Space?.Name != "Updated space" || !floating.IsVisible ||
                 (floatingFiles.SelectedItem as WorkspaceFileItemViewModel)?.Id != fileId)
                 throw new InvalidOperationException("Space window must follow snapshot updates without losing selection.");
+            // Presentation choices persist without touching source files or operation history.
+            if (floating.Topmost) throw new InvalidOperationException("Space windows must not default to always-on-top.");
+            int appearanceHistory = store.Snapshot.Operations.Count;
+            await floating.SetFileViewAsync(SpaceFileView.Grid);
+            Dispatcher.UIThread.RunJobs();
+            if (store.Snapshot.Spaces.Single(s => s.Id == source.Id).FileView != SpaceFileView.Grid ||
+                floatingFiles.GetVisualDescendants().OfType<WrapPanel>().Any() == false)
+                throw new InvalidOperationException("Grid view must use the saved per-space arrangement.");
+            await floating.SetFileViewAsync(SpaceFileView.Details);
+            Dispatcher.UIThread.RunJobs();
+            if (!floating.IsDetailsView) throw new InvalidOperationException("Details view was not applied.");
+            await floating.ApplyIconSelectionAsync(fileId, false, wallpaper);
+            await floating.ApplyIconSelectionAsync(source.Id, true, wallpaper);
+            var capsuleView = new DropCapsuleViewModel(studio);
+            using (capsuleView)
+            {
+                await capsuleView.SetCustomIconAsync(wallpaper);
+                if (capsuleView.CustomIconPath != wallpaper || !capsuleView.HasCustomIcon)
+                    throw new InvalidOperationException("Capsule icon must follow workspace presentation settings.");
+                await capsuleView.SetCustomIconAsync(null);
+            }
+            if (store.Snapshot.Files.Single(f => f.Id == fileId).CustomIconPath != wallpaper ||
+                store.Snapshot.Spaces.Single(s => s.Id == source.Id).CustomIconPath != wallpaper ||
+                store.Snapshot.Operations.Count != appearanceHistory || File.ReadAllText(contentPath) != "clipboard fixture")
+                throw new InvalidOperationException("Custom icons must change only presentation metadata.");
+            using (var customIcon = FileIcon.LoadCustom(wallpaper))
+                if (customIcon.PixelSize.Width != 64) throw new InvalidOperationException("Custom icon decoding must remain bounded.");
+            if (OperatingSystem.IsWindows() && await SystemFileIcons.GetAsync("fixture.txt", false) is null)
+                throw new InvalidOperationException("Windows must provide a registered file-type icon.");
+            await floating.ApplyIconSelectionAsync(fileId, false, null);
+            await floating.ApplyIconSelectionAsync(source.Id, true, null);
+            await floating.SetFileViewAsync(SpaceFileView.List);
+            Dispatcher.UIThread.RunJobs();
+            floatingFiles.SelectedItem = floating.Space!.Files.Single(f => f.Id == fileId);
             floating.Width = 420;
             floating.Height = 480;
             floating.Position = new PixelPoint(60, 80);
@@ -657,7 +756,7 @@ internal static class ManualClipboardSmoke
             view.DataContext = model;
             Dispatcher.UIThread.RunJobs();
             var search = view.FindControl<TextBox>("FileSearchInput")!;
-            var descending = view.FindControl<CheckBox>("FilesDescending")!;
+            var descending = view.FindControl<Avalonia.Controls.Primitives.ToggleButton>("FilesDescending")!;
             if (!search.IsEffectivelyVisible || !model.VisibleFiles.Select(file => file.Id).SequenceEqual([folder.Id, alpha.Id, zeta.Id]))
                 throw new InvalidOperationException("The visible file list must sort folders first, then names.");
             model.SelectFile(model.VisibleFiles.Single(file => file.Id == alpha.Id));

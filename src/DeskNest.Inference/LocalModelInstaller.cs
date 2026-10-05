@@ -91,7 +91,7 @@ public static class LocalModelInstaller
         return destination;
     }
 
-    private static void RequirePlainAncestors(string path)
+    internal static void RequirePlainAncestors(string path)
     {
         for (string? current = path; current is not null; current = Path.GetDirectoryName(current))
             if ((File.Exists(current) || Directory.Exists(current)) && (File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)

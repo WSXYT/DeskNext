@@ -26,6 +26,8 @@ public static class NativeWindowSmokeRunner
     private static bool _manualWorkflow;
     private static bool _desktopReview;
     private static bool _explorerDrag;
+    private static bool _killAfterExplorer;
+    private static string? _resumeExplorer;
 
     public static int Run(string[] args)
     {
@@ -36,11 +38,26 @@ public static class NativeWindowSmokeRunner
         _explorerDrag = args.Contains("--explorer-drag", StringComparer.Ordinal);
         _spaceWindow = _desktopReview || args.Contains("--space-window", StringComparer.Ordinal);
         _manualWorkflow = args.Contains("--manual-workflow", StringComparer.Ordinal);
-        var tempDir = Path.Combine(Path.GetTempPath(), "DeskNest.NativeSmoke." + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDir);
+        _killAfterExplorer = args.Contains("--kill-after-explorer", StringComparer.Ordinal);
+        _resumeExplorer = args.FirstOrDefault(a => a.StartsWith("--resume-explorer=", StringComparison.Ordinal))?["--resume-explorer=".Length..];
+        var tempDir = _resumeExplorer ?? Path.Combine(Path.GetTempPath(), "DeskNest.NativeSmoke." + Guid.NewGuid().ToString("N"));
 
         try
         {
+            if (_killAfterExplorer && !_explorerDrag)
+                throw new ArgumentException("The kill barrier requires the Explorer workflow.");
+            if (_resumeExplorer is not null)
+            {
+                string root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(tempDir));
+                if (!OperatingSystem.IsWindows() || !Path.IsPathFullyQualified(tempDir) ||
+                    !string.Equals(Path.GetDirectoryName(root), Path.TrimEndingDirectorySeparator(Path.GetFullPath(Path.GetTempPath())), StringComparison.OrdinalIgnoreCase) ||
+                    !Path.GetFileName(root).StartsWith("DeskNest.NativeSmoke.", StringComparison.Ordinal) ||
+                    !Guid.TryParseExact(Path.GetFileName(root)["DeskNest.NativeSmoke.".Length..], "N", out _) ||
+                    _explorerDrag || _manualWorkflow || _inspectRecovery || _spaceWindow)
+                    throw new ArgumentException("Resume accepts only an isolated native-smoke directory.");
+                DeskNest.Platform.PlatformFileActions.RequireExistingLocalPath(root);
+            }
+            else Directory.CreateDirectory(tempDir);
             if (_explorerDrag && ((!OperatingSystem.IsWindows() && !OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS()) || _manualWorkflow || _inspectRecovery || _spaceWindow))
                 throw new ArgumentException("Run the file-manager drag probe separately, on Windows, Linux or macOS.");
             if (_manualWorkflow && (_inspectRecovery || _spaceWindow) || _desktopReview && _inspectRecovery)
@@ -69,13 +86,18 @@ public static class NativeWindowSmokeRunner
             ActiveTempStore = Task.Run(async () =>
             {
                 var store = await WorkspaceStore.OpenAsync(tempDir);
+                if (_resumeExplorer is not null) return store; // Never reseed the interrupted workspace.
                 await store.UpdateAsync(s => s with
                 {
                     OnboardingComplete = true,
                     OnboardingStep = 5,
                     Spaces = [testSpace],
                     Files = files,
-                    Settings = s.Settings with { ManagedRoot = Path.Combine(tempDir, "Managed") }
+                    Settings = s.Settings with
+                    {
+                        ManagedRoot = Path.Combine(tempDir, "Managed"),
+                        Theme = _desktopReview ? (args.Contains("--review-dark", StringComparer.Ordinal) ? "Dark" : "Light") : s.Settings.Theme
+                    }
                 });
                 return store;
             }).GetAwaiter().GetResult();
@@ -115,7 +137,7 @@ public static class NativeWindowSmokeRunner
             }
             try
             {
-                if (_explorerDrag && _exitCode != 0)
+                if (_resumeExplorer is not null || _killAfterExplorer || _explorerDrag && _exitCode != 0)
                     Console.Error.WriteLine("Explorer failure evidence retained: " + tempDir);
                 else if (Directory.Exists(tempDir))
                     Directory.Delete(tempDir, recursive: true);
@@ -143,7 +165,8 @@ public static class NativeWindowSmokeRunner
         floating.Width = 360;
         floating.Height = 420;
         floating.Position = new PixelPoint(window.Position.X + (int)(984 * scale), window.Position.Y);
-        floating.Topmost = true;
+        floating.Topmost = true; // Capture fixture only; product windows default to non-topmost.
+        await floating.SetFileViewAsync(SpaceFileView.Grid);
         var capsule = new DropCapsuleWindow(studio) { Topmost = true, WindowStartupLocation = WindowStartupLocation.Manual };
         try
         {
@@ -277,7 +300,7 @@ public static class NativeWindowSmokeRunner
     public static void AttachAutoClose(IClassicDesktopStyleApplicationLifetime desktop, Window window)
     {
         // Explorer automation includes four bounded OS drags, not just window startup.
-        int watchdogSeconds = _explorerDrag ? 120 : 15;
+        int watchdogSeconds = _explorerDrag ? 120 : _resumeExplorer is not null ? 30 : 15;
         var watchdogTimer = new System.Threading.Timer(_ =>
         {
             Dispatcher.UIThread.Post(() =>
@@ -325,7 +348,8 @@ public static class NativeWindowSmokeRunner
                         throw new InvalidOperationException($"Invalid native window render bounds: {bounds.Width}x{bounds.Height}.");
                     }
 
-                    if (_explorerDrag) await ExplorerDragSmoke.VerifyAsync(window, ActiveTempStore!);
+                    if (_explorerDrag) await ExplorerDragSmoke.VerifyAsync(window, ActiveTempStore!, _killAfterExplorer);
+                    if (_resumeExplorer is not null) await ExplorerDragSmoke.VerifyRestartAsync(window, ActiveTempStore!);
                     bool manualWorkflowVerified = false;
                     if (_manualWorkflow)
                     {
@@ -384,6 +408,7 @@ public static class NativeWindowSmokeRunner
                         SpaceWindowHandle = spaceHandle,
                         DesktopReviewShown = _desktopReview,
                         ExplorerDragVerified = _explorerDrag,
+                        ExplorerRestartVerified = _resumeExplorer is not null,
                         InputMethod = _explorerDrag
                             ? "OS mouse injection with the real platform file manager; production commands for confirmation and undo. Not human physical-input acceptance."
                             : "Production view-model commands in a native window; not physical keyboard/mouse injection",

@@ -1,5 +1,6 @@
 param(
-    [string]$App = "$PSScriptRoot/../../src/DeskNest.App/bin/Release/net10.0/DeskNest.App.exe"
+    [string]$App = "$PSScriptRoot/../../src/DeskNest.App/bin/Release/net10.0/DeskNest.App.exe",
+    [ValidateSet('Light', 'Dark')][string]$Theme = 'Light'
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -23,6 +24,7 @@ $output = [IO.Path]::GetFullPath($output)
 $start = New-Object Diagnostics.ProcessStartInfo
 $start.FileName = (Resolve-Path -LiteralPath $App).Path
 $start.Arguments = '--native-window-smoke --desktop-review'
+if ($Theme -eq 'Dark') { $start.Arguments += ' --review-dark' }
 $start.UseShellExecute = $false
 $start.CreateNoWindow = $true
 $start.RedirectStandardOutput = $true
@@ -68,7 +70,7 @@ try {
         throw 'Native desktop review did not complete successfully; retain the log, not an acceptance claim.'
     }
     @{
-        kind = 'native-desktop-composite'; windows = $ready.Windows
+        kind = 'native-desktop-composite'; theme = $Theme; windows = $ready.Windows
         pixels = @{ left = $left; top = $top; width = $right-$left; height = $bottom-$top }
         nativeResult = $result
         scope = 'Real OS pixels; isolated sample files; one display/scale only. Not multi-DPI, physical-input, material or release acceptance.'

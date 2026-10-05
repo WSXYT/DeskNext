@@ -17,6 +17,20 @@ public sealed partial class DropCapsuleViewModel : ViewModelBase, IDisposable
     public LocalizationManager Localizer => LocalizationManager.Instance;
 
     public FlowDirection CurrentFlowDirection => Localizer.FlowDirectionValue;
+    public string? CustomIconPath => _studio?.CapsuleIconPath;
+    public bool HasCustomIcon => CustomIconPath is not null;
+    public bool CanCustomizeIcon => _studio is not null;
+
+    internal async Task SetCustomIconAsync(string? path)
+    {
+        if (_disposed || _studio is null) return;
+        try
+        {
+            if (path is not null) await Task.Run(() => { using var image = Views.FileIcon.LoadCustom(path); });
+            if (!_disposed) await _studio.SaveCapsuleIconAsync(path);
+        }
+        catch (Exception error) { CapsuleNotice = Localizer.GetString("Files.ActionFailedNotice", error.Message); }
+    }
 
     [ObservableProperty]
     private string _capsuleInputPath = string.Empty;
@@ -151,7 +165,9 @@ public sealed partial class DropCapsuleViewModel : ViewModelBase, IDisposable
 
     private void OnStudioChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(StudioViewModel.CapsuleNotice)) CapsuleNotice = _studio!.CapsuleNotice;
+        if (e.PropertyName == nameof(StudioViewModel.CapsuleIconPath))
+        { OnPropertyChanged(nameof(CustomIconPath)); OnPropertyChanged(nameof(HasCustomIcon)); }
+        else if (e.PropertyName == nameof(StudioViewModel.CapsuleNotice)) CapsuleNotice = _studio!.CapsuleNotice;
         else if (e.PropertyName == nameof(StudioViewModel.CapsuleInputPath)) CapsuleInputPath = _studio!.CapsuleInputPath;
         else if (e.PropertyName == nameof(StudioViewModel.IsDragOverCapsule)) IsDragOverCapsule = _studio!.IsDragOverCapsule;
     }

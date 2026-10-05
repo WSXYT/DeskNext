@@ -57,7 +57,7 @@ public partial class SpaceWindow : Window
         Space = _studio?.AllSpaces.FirstOrDefault(s => s.Id == _spaceId);
         if (Space is null) { Close(); return; }
         Title = Space.Name + " · DeskNext";
-        list.SelectedItem = Space.Files.FirstOrDefault(f => f.Id == selectedId);
+        RefreshFileView(selectedId);
     }
 
     private void OnClosed(object? sender, EventArgs e)
@@ -186,6 +186,14 @@ public partial class SpaceWindow : Window
         menu.Items.Add(new Separator());
         menu.Items.Add(Action("Files.ActionRename", studio.ExecuteRenameFileCommand, file, studio.CanRenameFile, showWorkbench: true));
         menu.Items.Add(Action(file.DeleteActionKey, studio.ExecuteDeleteFileCommand, file, studio.CanDeleteFile, showWorkbench: true));
+        menu.Items.Add(new Separator());
+        var changeIcon = new MenuItem { Header = studio.Localizer["Icons.Change"] };
+        ToolTip.SetTip(changeIcon, studio.Localizer["Icons.LocalOnly"]);
+        changeIcon.Click += async (_, _) => await PickDisplayIconAsync(file.Id, false);
+        menu.Items.Add(changeIcon);
+        var resetIcon = new MenuItem { Header = studio.Localizer["Icons.Reset"], IsEnabled = file.CustomIconPath is not null };
+        resetIcon.Click += async (_, _) => await ApplyIconSelectionAsync(file.Id, false, null);
+        menu.Items.Add(resetIcon);
     }
 
     private void OnDragOver(object? sender, DragEventArgs e)

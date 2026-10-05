@@ -13,7 +13,7 @@ public sealed class WorkspaceStoreTests
         string source = Path.Combine(temp.Path, "leave-original.txt");
         await File.WriteAllTextAsync(source, "untouched");
         var mapped = new WorkspaceSpace(Guid.NewGuid(), "Studio", "Art files", SpaceStorageMode.Mapped, temp.Path)
-            { WindowPlacement = new(-1200, 40, 420, 480) };
+            { WindowPlacement = new(-1200, 40, 420, 480), FileView = SpaceFileView.Grid, CustomIconPath = Path.Combine(temp.Path, "icon.png") };
         var pending = new PendingFile(Guid.NewGuid(), "leave-original.txt", source,
             TriageReason.CategoriesInsufficient, mapped.Id, DateTimeOffset.UtcNow);
         await using (var store = await WorkspaceStore.OpenAsync(temp.Path))
@@ -24,8 +24,9 @@ public sealed class WorkspaceStoreTests
                 OnboardingStep = 5,
                 OnboardingComplete = true,
                 Preset = "custom",
-                Settings = state.Settings with { Language = "ar-SA", Provider = InferenceProvider.Jev },
+                Settings = state.Settings with { Language = "ar-SA", Provider = InferenceProvider.Jev, AccentColor = "#F7D038", AccentSource = AccentColorSource.Wallpaper, CapsuleIconPath = mapped.CustomIconPath },
                 Spaces = [mapped],
+                Files = [new WorkspaceFile(Guid.NewGuid(), mapped.Id, "leave-original.txt", source, false) { CustomIconPath = mapped.CustomIconPath }],
                 Pending = [pending]
             });
             Assert.Equal(1, saved.Revision);
@@ -35,8 +36,12 @@ public sealed class WorkspaceStoreTests
         await using (var reopened = await WorkspaceStore.OpenAsync(temp.Path))
         {
             Assert.Equal("ar-SA", reopened.Snapshot.Settings.Language);
+            Assert.Equal("#F7D038", reopened.Snapshot.Settings.AccentColor);
+            Assert.Equal(AccentColorSource.Wallpaper, reopened.Snapshot.Settings.AccentSource);
             Assert.Equal(InferenceProvider.Jev, reopened.Snapshot.Settings.Provider);
-            Assert.Equal(mapped.WindowPlacement, Assert.Single(reopened.Snapshot.Spaces).WindowPlacement);
+            Assert.Equal(mapped, Assert.Single(reopened.Snapshot.Spaces));
+            Assert.Equal(mapped.CustomIconPath, Assert.Single(reopened.Snapshot.Files).CustomIconPath);
+            Assert.Equal(mapped.CustomIconPath, reopened.Snapshot.Settings.CapsuleIconPath);
             Assert.Single(reopened.Snapshot.Pending);
         }
         Assert.Equal("untouched", await File.ReadAllTextAsync(source));
@@ -52,12 +57,22 @@ public sealed class WorkspaceStoreTests
         await Assert.ThrowsAsync<InvalidDataException>(() => store.UpdateAsync(state => state with { Spaces = [space, space] }));
         Assert.Equal(0, store.Snapshot.Revision);
         Assert.Empty(store.Snapshot.Spaces);
+        await Assert.ThrowsAsync<InvalidDataException>(() => store.UpdateAsync(state => state with
+        { Settings = state.Settings with { AccentColor = "#00FF00FF" } }));
+        await Assert.ThrowsAsync<InvalidDataException>(() => store.UpdateAsync(state => state with
+        { Settings = state.Settings with { AccentSource = (AccentColorSource)999 } }));
+        Assert.Equal(0, store.Snapshot.Revision);
         await store.UpdateAsync(state => state with { Spaces = [space] });
         Assert.Equal(1, store.Snapshot.Revision);
         await Assert.ThrowsAsync<InvalidDataException>(() => store.UpdateAsync(state => state with
             { Spaces = [space with { WindowPlacement = new(0, 0, 0, 480) }] }));
         Assert.Equal(1, store.Snapshot.Revision);
         Assert.Null(Assert.Single(store.Snapshot.Spaces).WindowPlacement);
+        await Assert.ThrowsAsync<InvalidDataException>(() => store.UpdateAsync(state => state with
+        { Spaces = [space with { FileView = (SpaceFileView)999 }] }));
+        await Assert.ThrowsAsync<InvalidDataException>(() => store.UpdateAsync(state => state with
+        { Settings = state.Settings with { CapsuleIconPath = "relative.png" } }));
+        Assert.Equal(1, store.Snapshot.Revision);
     }
 
     [Fact]

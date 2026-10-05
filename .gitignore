@@ -15,3 +15,6 @@ models/
 *.safetensors
 # Pre-existing Windows reserved-name artifact; leave untouched.
 /NUL
+# Local agent state and one-off migration helpers are not distribution sources.
+/.pi/
+/apply_strings.fsx
