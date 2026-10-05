@@ -28,6 +28,44 @@ public sealed class NativeMountTests(ITestOutputHelper output)
             await RefuseBatch(root, bind, "bind");
             Assert.Throws<IOException>(() => FileSystemVolume.Identify(Path.Combine(root, "stack", "missing")));
         }
+        else await VerifyFirmlinkAlias(root);
+    }
+
+    private async Task VerifyFirmlinkAlias(string root)
+    {
+        // Both spellings stay inside the owned fixture; do not create a system-directory target.
+        Assert.StartsWith("/Users/", root);
+        Assert.Contains(File.ReadLines("/usr/share/firmlinks"), line =>
+            line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).SequenceEqual(["Users", "Users"]));
+        string alias = "/System/Volumes/Data" + root;
+        Assert.Equal(UnixFileIdentity.CaptureDirectory(root).NativeId,
+            UnixFileIdentity.CaptureDirectory(alias).NativeId);
+        string sourceVolume = FileSystemVolume.Identify(root), aliasVolume = FileSystemVolume.Identify(alias);
+        if (sourceVolume != aliasVolume)
+        {
+            await RefuseBatch(root, alias, "firmlink");
+            output.WriteLine(JsonSerializer.Serialize(new { macFirmlink = true, sourceVolume, aliasVolume, mode = "refuse-before-mutation" }));
+            return;
+        }
+        // A platform that canonicalizes both spellings must prove the actual move and receipt-backed rollback.
+        foreach (bool directory in new[] { false, true })
+        {
+            string name = directory ? "firmlink-tree" : "firmlink-file";
+            string source = Path.Combine(root, name), destination = Path.Combine(alias, name + "-moved");
+            string journal = Path.Combine(root, name + "-journal.json");
+            CreateSource(source, directory);
+            var transaction = new DesktopOrganizationTransaction(journal);
+            if (directory) await transaction.ExecuteDirectoriesAsync([new(source, destination)], retainJournalUntilCommit: true);
+            else await transaction.ExecuteAsync([new(source, destination)], retainJournalUntilCommit: true);
+            Assert.True(transaction.HasRecoveryJournal);
+            Assert.False(Exists(source));
+            AssertContent(destination, directory);
+            await new DesktopOrganizationTransaction(journal).RecoverAsync();
+            Assert.False(transaction.HasRecoveryJournal);
+            AssertContent(source, directory);
+            Assert.False(Exists(destination));
+        }
+        output.WriteLine(JsonSerializer.Serialize(new { macFirmlink = true, sourceVolume, aliasVolume, mode = "canonicalized-move-and-rollback" }));
     }
 
     [HostedUnixMountsFact]
