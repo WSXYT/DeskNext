@@ -366,5 +366,8 @@
   "Files.PasteSameSpaceNotice": "العنصر موجود بالفعل في مساحة الوجهة.",
   "Files.PasteSameFileNotice": "لا يمكن نسخ عنصر على نفسه.",
   "Startup.RecoveryDetails": "فحص أدلة الاسترداد",
-  "Startup.RecoveryDetailsNotice": "مقتطفات للقراءة فقط، وليست إصلاحًا. لن يتم تأكيد أي شيء أو نقله أو حذفه. احتفظ بالأدلة قبل المطابقة اليدوية."
+  "Startup.RecoveryDetailsNotice": "مقتطفات للقراءة فقط، وليست إصلاحًا. لن يتم تأكيد أي شيء أو نقله أو حذفه. احتفظ بالأدلة قبل المطابقة اليدوية.",
+  "Classification.ImportPackage": "تثبيت حزمة النموذج…",
+  "Classification.InstallingPackage": "جارٍ التحقق من حزمة النموذج وتثبيتها…",
+  "Classification.PackageInstalled": "تم التحقق من النموذج وتثبيته. احفظ الإعدادات لتفعيله."
 }

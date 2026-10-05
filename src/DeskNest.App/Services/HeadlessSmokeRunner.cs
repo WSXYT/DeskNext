@@ -644,7 +644,8 @@ public static class HeadlessSmokeRunner
                 using var clipboardFixture = new TempTestDir();
                 // This is now a multi-operation functional workflow, not a 5-second latency benchmark.
                 AwaitOnUIThread(ManualClipboardSmoke.VerifyAsync(clipboardFixture.Path, directory),
-                    $"managed clipboard workflow ({(directory ? "directory" : "file")})", timeoutSeconds: 20);
+                    $"managed clipboard workflow ({(directory ? "directory" : "file")})",
+                    timeoutSeconds: string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DESKNEXT_TEST_MODEL_ARCHIVE")) ? 20 : 120);
             }
             result.ManagedClipboardWorkflowVerified = true;
             using (var observationFixture = new TempTestDir())

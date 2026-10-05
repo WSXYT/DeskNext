@@ -366,5 +366,8 @@
   "Files.PasteSameSpaceNotice": "L'élément se trouve déjà dans l'espace de destination.",
   "Files.PasteSameFileNotice": "Impossible de copier un élément sur lui-même.",
   "Startup.RecoveryDetails": "Examiner les preuves de récupération",
-  "Startup.RecoveryDetailsNotice": "Extraits en lecture seule, sans réparation. Rien n’est validé, déplacé ou supprimé. Conservez les preuves avant toute réconciliation manuelle."
+  "Startup.RecoveryDetailsNotice": "Extraits en lecture seule, sans réparation. Rien n’est validé, déplacé ou supprimé. Conservez les preuves avant toute réconciliation manuelle.",
+  "Classification.ImportPackage": "Installer un paquet de modèle…",
+  "Classification.InstallingPackage": "Vérification et installation du paquet de modèle…",
+  "Classification.PackageInstalled": "Modèle vérifié et installé. Enregistrez les paramètres pour l’activer."
 }

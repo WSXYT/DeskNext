@@ -289,6 +289,31 @@ internal static class ManualClipboardSmoke
                 throw new InvalidOperationException("An invalid draft silently erased the saved model directory.");
             studio.SettingsModelCache = bundle;
 
+            if (view.FindControl<Button>("ImportModelPackageButton")?.IsEffectivelyVisible != true ||
+                view.FindControl<Button>("CancelModelInstallButton")?.Command != studio.InstallLocalModelPackageCancelCommand)
+                throw new InvalidOperationException("Model package installation and cancellation must have real UI entries.");
+            string invalidPackage = Path.Combine(root, "invalid-model.zip");
+            await File.WriteAllTextAsync(invalidPackage, "invalid model package");
+            long beforeInstall = store.Snapshot.Revision;
+            await studio.InstallLocalModelPackageCommand.ExecuteAsync(invalidPackage);
+            if (string.IsNullOrWhiteSpace(studio.ModelInstallNotice) || studio.SettingsModelCache != bundle ||
+                store.Snapshot.Revision != beforeInstall || File.ReadAllText(invalidPackage) != "invalid model package")
+                throw new InvalidOperationException("Invalid model installation must retain the input and active model settings.");
+            if (!directory && Environment.GetEnvironmentVariable("DESKNEXT_TEST_MODEL_ARCHIVE") is { Length: > 0 } package)
+            {
+                await studio.InstallLocalModelPackageCommand.ExecuteAsync(package);
+                string installed = studio.SettingsModelCache;
+                if (installed == bundle || !File.Exists(Path.Combine(installed, "manifest.json")) ||
+                    store.Snapshot.Revision != beforeInstall || store.Snapshot.Settings.ModelCacheDirectory != bundle)
+                    throw new InvalidOperationException("Installing the real model must prepare a verified draft without activating it: " + studio.ModelInstallNotice);
+                await studio.SaveSettingsAsync();
+                if (store.Snapshot.Settings.ModelCacheDirectory != installed)
+                    throw new InvalidOperationException("Explicit settings save did not activate the installed model.");
+                studio.SettingsModelCache = bundle;
+                await studio.SaveSettingsAsync();
+                Console.WriteLine("MODEL_PACKAGE_UI_ACTIVATION_VERIFIED: true");
+            }
+
             // Session-key/permission gates only. This smoke never sends a cloud request.
             var jevProvider = view.FindControl<RadioButton>("JevPreviewProvider")!;
             jevProvider.IsChecked = true;

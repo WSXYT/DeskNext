@@ -699,7 +699,9 @@ public sealed partial class StudioViewModel : ViewModelBase
     {
         ClearJevSession();
         VerifyLocalModelCommand.Cancel();
+        InstallLocalModelPackageCommand.Cancel();
         ModelVerificationNotice = string.Empty;
+        ModelInstallNotice = string.Empty;
     }
 
     [ObservableProperty]
@@ -711,7 +713,9 @@ public sealed partial class StudioViewModel : ViewModelBase
     partial void OnSettingsModelCacheChanged(string value)
     {
         VerifyLocalModelCommand.Cancel();
+        InstallLocalModelPackageCommand.Cancel();
         ModelVerificationNotice = string.Empty;
+        ModelInstallNotice = string.Empty;
     }
 
     [RelayCommand(IncludeCancelCommand = true)]

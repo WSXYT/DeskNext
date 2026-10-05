@@ -366,5 +366,8 @@
   "Files.PasteSameSpaceNotice": "The item is already located in the destination space.",
   "Files.PasteSameFileNotice": "Cannot copy an item onto itself.",
   "Startup.RecoveryDetails": "Inspect recovery evidence",
-  "Startup.RecoveryDetailsNotice": "Read-only excerpts, not a repair. Nothing is acknowledged, moved or deleted. Preserve the evidence before manual reconciliation."
+  "Startup.RecoveryDetailsNotice": "Read-only excerpts, not a repair. Nothing is acknowledged, moved or deleted. Preserve the evidence before manual reconciliation.",
+  "Classification.ImportPackage": "Install model package…",
+  "Classification.InstallingPackage": "Verifying and installing the model package…",
+  "Classification.PackageInstalled": "Model verified and installed. Save settings to activate it."
 }

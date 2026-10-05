@@ -366,5 +366,8 @@
   "Files.PasteSameSpaceNotice": "O item já está localizado no espaço de destino.",
   "Files.PasteSameFileNotice": "Não é possível copiar um item sobre si mesmo.",
   "Startup.RecoveryDetails": "Examinar evidências de recuperação",
-  "Startup.RecoveryDetailsNotice": "Trechos somente para leitura, sem reparo. Nada é confirmado, movido ou excluído. Preserve as evidências antes da reconciliação manual."
+  "Startup.RecoveryDetailsNotice": "Trechos somente para leitura, sem reparo. Nada é confirmado, movido ou excluído. Preserve as evidências antes da reconciliação manual.",
+  "Classification.ImportPackage": "Instalar pacote do modelo…",
+  "Classification.InstallingPackage": "Verificando e instalando o pacote do modelo…",
+  "Classification.PackageInstalled": "Modelo verificado e instalado. Salve as configurações para ativá-lo."
 }

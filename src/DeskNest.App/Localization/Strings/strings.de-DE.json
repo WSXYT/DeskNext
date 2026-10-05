@@ -366,5 +366,8 @@
   "Files.PasteSameSpaceNotice": "Das Element befindet sich bereits im Zielbereich.",
   "Files.PasteSameFileNotice": "Ein Element kann nicht auf sich selbst kopiert werden.",
   "Startup.RecoveryDetails": "Wiederherstellungsnachweise prüfen",
-  "Startup.RecoveryDetailsNotice": "Nur lesbare Auszüge, keine Reparatur. Es wird nichts bestätigt, verschoben oder gelöscht. Bewahren Sie die Nachweise vor dem manuellen Abgleich auf."
+  "Startup.RecoveryDetailsNotice": "Nur lesbare Auszüge, keine Reparatur. Es wird nichts bestätigt, verschoben oder gelöscht. Bewahren Sie die Nachweise vor dem manuellen Abgleich auf.",
+  "Classification.ImportPackage": "Modellpaket installieren…",
+  "Classification.InstallingPackage": "Modellpaket wird geprüft und installiert…",
+  "Classification.PackageInstalled": "Modell geprüft und installiert. Zum Aktivieren die Einstellungen speichern."
 }

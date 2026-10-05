@@ -366,5 +366,8 @@
   "Files.PasteSameSpaceNotice": "该项目已存在于目标分类空间中。",
   "Files.PasteSameFileNotice": "无法将文件复制到自身相同路径。",
   "Startup.RecoveryDetails": "查看恢复证据",
-  "Startup.RecoveryDetailsNotice": "这里只显示只读摘要，不执行修复，也不会确认、移动或删除任何内容。人工对账前请保留原始证据。"
+  "Startup.RecoveryDetailsNotice": "这里只显示只读摘要，不执行修复，也不会确认、移动或删除任何内容。人工对账前请保留原始证据。",
+  "Classification.ImportPackage": "安装模型包…",
+  "Classification.InstallingPackage": "正在校验并安装模型包…",
+  "Classification.PackageInstalled": "模型已校验并安装。保存设置后启用。"
 }

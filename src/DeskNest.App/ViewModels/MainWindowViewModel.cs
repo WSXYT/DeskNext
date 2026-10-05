@@ -339,6 +339,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
 
     private void AttachStudioExecutors(StudioViewModel studio)
     {
+        studio.OnInstallLocalModelPackage = (package, progress, token) =>
+        {
+            if (_disposed || _store is null) throw new ObjectDisposedException(nameof(MainWindowViewModel));
+            string cache = Path.Combine(_store.DataDirectory, "models");
+            return Task.Run(() => DeskNest.Inference.LocalModelInstaller.InstallArchiveAsync(package, cache, progress, token), token);
+        };
         if (_manualCoordinator != null)
         {
             studio.AttachManualMoveExecutor(ExecuteManualMoveAsync);
@@ -1092,6 +1098,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             {
                 Studio?.ClearJevSession();
                 Studio?.VerifyLocalModelCommand.Cancel();
+                Studio?.InstallLocalModelPackageCommand.Cancel();
+                if (Studio is not null) Studio.OnInstallLocalModelPackage = null;
             });
             Localizer.LanguageChanged -= OnLanguageChanged;
             Localizer.PropertyChanged -= OnLocalizerPropertyChanged;

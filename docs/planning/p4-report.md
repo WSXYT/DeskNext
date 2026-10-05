@@ -2,6 +2,14 @@
 
 P3's user-approved safe manual workflow is accepted; **P4 is not complete**. These previews are read-only: they do not authorize any file move or copy. Manual file operations have their separate P3 evidence.
 
+## Offline model-package installation (2026-10-05)
+
+Settings > Laya now offers **Install model package**, progress and cancellation. It accepts the application-pinned multilingual ZIP, checks its exact size/SHA-256, fixed entry set, 2 GiB extraction budget, pinned manifest and existing model-file verification. It creates a new cache directory, never replaces an existing model or modifies the input ZIP, and retains interrupted staging rather than adopting or deleting it. Provider/folder changes and workbench disposal cancel installation. Success changes only the model-folder draft; the existing **Save settings** action explicitly activates it.
+
+The 812,781,615-byte package and bundled Apache-2.0 license/provenance were checked. Four targeted installer tests actually executed and passed (including the real archive): `artifacts/p4-installer-tests/model-installer.trx`. App Release build passed with zero warnings/errors. The existing UI workflow installed the real archive and verified draft-only completion followed by explicit activation: `model-install-ui.log`, `MODEL_PACKAGE_UI_ACTIVATION_VERIFIED=true`, terminal Success/parity/manual clipboard workflow, 39,433 ms. The real-package check is opt-in with `DESKNEXT_TEST_MODEL_ARCHIVE`; no test downloads automatically. All twelve locales have the three new UI labels.
+
+This is a local working-tree test with the separate appearance WIP present, not physical picker, installed-package or cross-platform acceptance. LSP checked the new installer/VM but still reports a stale missing Inference type at one App call site despite successful compilation/execution. Online download is not yet implemented; the GitHub model release remains a draft. No publisher-signature, quality, automatic-move, repair/resume or complete P4 claim is made.
+
 ## Usable path
 
 Choose a trusted offline Laya model bundle directory (containing `manifest.json`) with **Browse** in Settings, or enter its path, then use the existing **Save settings** action. Choosing/cancelling only edits the draft; no download or inference starts. Select **Laya · Local CPU**, save settings, then use **Classification preview** in a file row's context menu. The result shows ranked probabilities including filename-ambiguous and categories-insufficient. Cancellation is available in that menu. No file content enters the request and no file or workspace mutation is performed.

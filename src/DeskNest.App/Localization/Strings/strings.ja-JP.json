@@ -366,5 +366,8 @@
   "Files.PasteSameSpaceNotice": "この項目は既に移動先の空間に存在します。",
   "Files.PasteSameFileNotice": "項目を自身と同じ場所にコピーすることはできません。",
   "Startup.RecoveryDetails": "復旧の証拠を確認",
-  "Startup.RecoveryDetailsNotice": "読み取り専用の抜粋であり、修復は行いません。確定、移動、削除は一切行いません。手動で照合する前に元の証拠を保存してください。"
+  "Startup.RecoveryDetailsNotice": "読み取り専用の抜粋であり、修復は行いません。確定、移動、削除は一切行いません。手動で照合する前に元の証拠を保存してください。",
+  "Classification.ImportPackage": "モデルパッケージをインストール…",
+  "Classification.InstallingPackage": "モデルパッケージを検証・インストール中…",
+  "Classification.PackageInstalled": "モデルの検証とインストールが完了しました。設定を保存して有効にしてください。"
 }

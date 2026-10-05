@@ -366,5 +366,8 @@
   "Files.PasteSameSpaceNotice": "該項目已存在於目標分類空間中。",
   "Files.PasteSameFileNotice": "無法將檔案複製至自身相同路徑。",
   "Startup.RecoveryDetails": "檢視復原證據",
-  "Startup.RecoveryDetailsNotice": "此處僅顯示唯讀摘要，不執行修復，也不會確認、移動或刪除任何內容。人工核對前請保留原始證據。"
+  "Startup.RecoveryDetailsNotice": "此處僅顯示唯讀摘要，不執行修復，也不會確認、移動或刪除任何內容。人工核對前請保留原始證據。",
+  "Classification.ImportPackage": "安裝模型套件…",
+  "Classification.InstallingPackage": "正在驗證並安裝模型套件…",
+  "Classification.PackageInstalled": "模型已驗證並安裝。儲存設定後啟用。"
 }

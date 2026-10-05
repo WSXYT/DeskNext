@@ -207,6 +207,33 @@ public partial class StudioView : UserControl
         vm.SettingsSavedFeedback = null;
     }
 
+    private async void OnImportModelPackageClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not StudioViewModel vm || sender is not Button button || vm.InstallLocalModelPackageCommand.IsRunning) return;
+        var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
+        if (storage?.CanOpen != true)
+        {
+            vm.ModelInstallNotice = vm.Localizer["Spaces.FolderPickerUnavailable"];
+            return;
+        }
+        button.IsEnabled = false;
+        try
+        {
+            var files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = vm.Localizer["Classification.ImportPackage"], AllowMultiple = false,
+                FileTypeFilter = [new FilePickerFileType("ZIP") { Patterns = ["*.zip"] }]
+            });
+            using var file = files.FirstOrDefault();
+            if (file is null || DataContext != vm || !vm.IsSettingsTab || !vm.IsLayaPreview) return;
+            string path = file.TryGetLocalPath()
+                ?? throw new InvalidDataException(vm.Localizer["Validation.ValidAbsolutePathRequired"]);
+            await vm.InstallLocalModelPackageCommand.ExecuteAsync(path);
+        }
+        catch (Exception error) { vm.ModelInstallNotice = vm.Localizer.GetString("Files.ActionFailedNotice", error.Message); }
+        finally { button.IsEnabled = true; }
+    }
+
     private async void OnBrowseModelFolderClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (DataContext is not StudioViewModel vm || sender is not Button button) return;

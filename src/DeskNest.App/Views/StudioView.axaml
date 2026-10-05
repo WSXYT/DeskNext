@@ -750,6 +750,18 @@
                             </WrapPanel>
                             <TextBlock Text="{Binding ModelVerificationNotice}" TextWrapping="Wrap" FontSize="11"
                                        Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <WrapPanel>
+                                <Button Name="ImportModelPackageButton" Classes="ActionButton" Margin="0,0,8,0"
+                                        Content="{Binding Localizer[Classification.ImportPackage]}" Click="OnImportModelPackageClick"/>
+                                <Button Name="CancelModelInstallButton" Classes="ActionButton"
+                                        Content="{Binding Localizer[Action.Cancel]}"
+                                        IsVisible="{Binding InstallLocalModelPackageCommand.IsRunning}"
+                                        Command="{Binding InstallLocalModelPackageCancelCommand}"/>
+                            </WrapPanel>
+                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding ModelInstallProgress}"
+                                         IsVisible="{Binding InstallLocalModelPackageCommand.IsRunning}"/>
+                            <TextBlock Text="{Binding ModelInstallNotice}" TextWrapping="Wrap" FontSize="13"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
                         </StackPanel>
                     </StackPanel>
 

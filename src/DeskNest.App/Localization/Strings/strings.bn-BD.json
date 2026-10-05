@@ -366,5 +366,8 @@
   "Files.PasteSameSpaceNotice": "আইটেমটি ইতিমধ্যে গন্তব্য স্পেসে অবস্থিত।",
   "Files.PasteSameFileNotice": "কোনো আইটেম নিজের উপর অনুলিপি করা যায় না।",
   "Startup.RecoveryDetails": "পুনরুদ্ধারের প্রমাণ দেখুন",
-  "Startup.RecoveryDetailsNotice": "এগুলি শুধু পড়ার জন্য উদ্ধৃতাংশ, মেরামত নয়। কিছুই নিশ্চিত, সরানো বা মুছে ফেলা হবে না। হাতে যাচাই করার আগে মূল প্রমাণ সংরক্ষণ করুন।"
+  "Startup.RecoveryDetailsNotice": "এগুলি শুধু পড়ার জন্য উদ্ধৃতাংশ, মেরামত নয়। কিছুই নিশ্চিত, সরানো বা মুছে ফেলা হবে না। হাতে যাচাই করার আগে মূল প্রমাণ সংরক্ষণ করুন।",
+  "Classification.ImportPackage": "মডেল প্যাকেজ ইনস্টল করুন…",
+  "Classification.InstallingPackage": "মডেল প্যাকেজ যাচাই ও ইনস্টল করা হচ্ছে…",
+  "Classification.PackageInstalled": "মডেল যাচাই ও ইনস্টল হয়েছে। সক্রিয় করতে সেটিংস সংরক্ষণ করুন।"
 }
