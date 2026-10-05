@@ -1,10 +1,21 @@
 # P3 manual organization closure
 
-Status: final integration pending for the user-approved safe manual file/directory scope (2026-10-05). Desktop takeover and watcher-driven automatic moves remain disabled.
+Status: **P3 accepted for the user-approved safe manual local-file/directory scope (2026-10-05)**. Desktop takeover and watcher-driven automatic moves remain disabled.
 
 ## User-approved closure boundary (2026-10-05)
 
 The user explicitly selected closure around the safe manual local-file/directory workflow, followed by one final integration run. Known file-safety defects must still be fixed. Full URL/virtual-file materialization belongs to P6; long-running automatic monitoring and its continuous-write/overflow acceptance belong to P5; hardware, physical-fault durability and formal distribution belong to P7. Those requirements are retained, not declared passed or removed. Historical sections below keep their evidence limits; their broad remaining-work lists no longer silently expand the P3 phase gate.
+
+## Final integration and P3 acceptance (2026-10-05)
+
+The closing evidence is complementary, not a claim that a failed CI run was wholly green:
+
+- [37282458471](https://github.com/WSXYT/desknest-p1-probes/actions/runs/37282458471), source `3fd5c52`: Windows job passed Core 270 (9 explicit skips), Inference 12, native alias 7, native/headless UI, 20 process-kill cases and the unsigned installed manual/clipboard/recovery workflow, followed by uninstall preserving unknown files. Linux/macOS each passed Core 222 (42 explicit skips), Inference 12 and native ABI checks; their UI jobs failed on obsolete Windows-only import assertions.
+- `172d34a` corrected those test expectations to execute the now-supported cross-platform review, cancellation, repeated-drop deduplication, confirmation and undo. No production storage behavior was changed. [37283455721](https://github.com/WSXYT/desknest-p1-probes/actions/runs/37283455721) then passed both Unix headless UI checks (`DROP_PAYLOAD_PATH_IDENTITY_VERIFIED=true`, terminal Success) and native clipboard/manual workflows (`ManualWorkflowVerified=true`, `NativeClipboardRoundTripVerified=true`). Windows/Core/package suites were not repeated.
+- Earlier Explorer/Finder/Nautilus gesture, installed Windows GUI restart, Unix force-kill, mount/capacity, macOS firmlink, Windows offline/reattach and SMB refusal evidence remains applicable within its recorded scope. Skipped mount/platform tests in the general run are not counted as passing; the owned fixtures have their separate executed evidence.
+- Logs: `artifacts/p3-publication-tests/p3-final-37282458471.log` and `p3-final-unix-ui-37283455721.log`; failed Unix job logs remain preserved. Uncommitted appearance/restart-driver work is outside the published integration snapshot.
+
+This closes P3's approved manual workflow, not every F02/F05 row, automatic organization, physical power-loss durability or P7. The retained limitations below follow the user-approved phase allocation.
 
 ## Drop URI identity correction (2026-10-05)
 

@@ -20,7 +20,7 @@ This is the P0 **acceptance inventory**, not a claim of working features. All ce
 
 ## Bounded implementation evidence (updated 2026-10-05)
 
-User-approved phase allocation (2026-10-05): P3 closes around safe manual local-file/directory behavior after final integration. Full F02 URL/virtual-file materialization remains required in P6; F05 long-duration automatic monitoring in P5; hardware/durability/formal distribution in P7. Partial cells remain partial, and unverified automation remains disabled.
+User-approved phase allocation (2026-10-05): P3's safe manual local-file/directory scope is accepted using final integration `37282458471` plus the corrected Unix UI follow-up `37283455721`. Full F02 URL/virtual-file materialization remains required in P6; F05 long-duration automatic monitoring in P5; hardware/durability/formal distribution in P7. Partial cells remain partial, and unverified automation remains disabled.
 
 - F02 network-path refusal: CI [37279558624](https://github.com/WSXYT/desknest-p1-probes/actions/runs/37279558624) proves readable Windows loopback UNC and mapped SMB paths refuse file/directory source/target batches before the first move, parent creation or journal. Eight combinations, one executed/passed TRX test, verified share/mapping cleanup; no production policy change. Not remote-server faults or Unix network mounts. See [P3 report](p3-report.md).
 

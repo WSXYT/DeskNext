@@ -1,6 +1,6 @@
 # P4 classification previews — partial implementation
 
-P3 and P4 are **not complete**. These previews are read-only: they do not authorize any file move or copy. Manual file operations have their separate P3 evidence.
+P3's user-approved safe manual workflow is accepted; **P4 is not complete**. These previews are read-only: they do not authorize any file move or copy. Manual file operations have their separate P3 evidence.
 
 ## Usable path
 
