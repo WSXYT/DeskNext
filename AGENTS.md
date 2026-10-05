@@ -2,7 +2,7 @@
 ## Implementation boundaries
 - Display DeskNext; retain `DeskNest.*` paths/internals. `PLAN.md` owns execution; P0–P7 require passed gates.
 - .NET 10/Avalonia; C# Core/Platform/Inference, Pogget C++. One writer/worktree; serialize builds, disable shared compilation.
-- P3 incomplete. `FileSystemVolume` guards preparation/forward/reverse; reject reparse/unsupported/cross-volume paths. Windows: NTFS IDs. Unix: device/inode/birth IDs. Both use handle-relative/no-replace renames. Unix entry-name races remain; failed binding/receipt checks retain journals.
+- P3-manual accepted. `FileSystemVolume` guards preparation/forward/reverse; reject reparse/unsupported/cross-volume paths. Windows: NTFS IDs. Unix: device/inode/birth IDs. Both use handle-relative/no-replace renames. Unix entry-name races remain; failed binding/receipt checks retain journals.
 - Files: identity+hash/size/time. Directories: sorted root/child IDs, 100,000 entries/depth 128. Legacy evidence loads but never authorizes undo/recovery. Handles do not freeze contents.
 - `OrganizationGate` serializes through cleanup. Persist metadata+`CommittedTransactionId`; checkpoint/verify backup before acknowledgement. Clipboard ID/path/source-space agree; revision checked under both gates.
 - Preserve corruption evidence. Rollback: `Restored`+`.rollback-started`; delete backup→primary→fence. Uncheckpointed renames require reconciliation. Inspection read-only; retries reuse store; archiving copy intents requires consent.
