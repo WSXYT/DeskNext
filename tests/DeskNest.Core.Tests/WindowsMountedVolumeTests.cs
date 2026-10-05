@@ -51,7 +51,15 @@ public sealed class WindowsMountedVolumeTests(ITestOutputHelper output)
             var transaction = new DesktopOrganizationTransaction(journal);
             await Assert.ThrowsAnyAsync<IOException>(() => transaction.RecoverAsync());
             Assert.True(transaction.HasRecoveryJournal);
-            Assert.Equal(await File.ReadAllBytesAsync(journal + ".saved"), await File.ReadAllBytesAsync(journal));
+            var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+            var before = JsonSerializer.Deserialize<OrganizationRecoveryJournal>(await File.ReadAllTextAsync(journal + ".saved"), options)!;
+            var after = JsonSerializer.Deserialize<OrganizationRecoveryJournal>(await File.ReadAllTextAsync(journal), options)!;
+            Assert.Equal("Recovering", after.Status);
+            Assert.True(File.Exists(journal + ".rollback-started"));
+            // Recovery records its intent even when a volume is absent. Only these two header
+            // fields may change; identity, topology, operation ID and every receipt flag must survive.
+            Assert.Equal(JsonSerializer.Serialize(before),
+                JsonSerializer.Serialize(after with { Status = before.Status, UpdatedAt = before.UpdatedAt }));
             Assert.False(Exists(Path.Combine(data, name)));
             Assert.False(Exists(Path.Combine(data, name + "-moved")));
             await RefuseBatch(root, data, sourceThroughMount: false, directory, "offline-target");
