@@ -15,7 +15,7 @@ This release contains the **optional local classification model**, not the DeskN
 bd2464a8b63f195fd1aed579b355b37d3ef6f45f1e796116b041846a7de3f6fc
 ```
 
-In DeskNext, open **Settings → Laya → Install model package**, select the ZIP, wait for verification and installation, then **Save settings** to activate the resulting model folder. Alternatively, extract the complete package and select its directory; keep both `.onnx.data` files beside their graphs. Model installation does not move your classification files.
+In the current DeskNext source build, use **Settings → Laya → Download model** for the cancellable online path, or **Install model package** to select this ZIP offline. Wait for verification and installation, then **Save settings** to activate the resulting model folder. Alternatively, extract the complete package and select its directory; keep both `.onnx.data` files beside their graphs. Model installation does not move your classification files.
 
 ## Included and traceable
 
@@ -39,7 +39,7 @@ See the [project overview](https://github.com/WSXYT/DeskNext#readme), [中文说
 
 - `desknext-laya-multilingual-fp32-v1.zip`：完整模型包，**812,781,615 字节**，约 813 MB / 775 MiB。
 - `SHA256SUMS`：压缩包完整性校验文件，SHA-256 见上方。
-- 在 DeskNext 中打开**设置 → Laya → 安装模型包**，选择 ZIP，等待校验与安装，再点击**保存设置**启用新模型目录。也可完整解压后选择目录；不要拆散图文件与对应的 `.onnx.data` 文件。
+- 在当前 DeskNext 源码构建中，打开**设置 → Laya → 下载模型**使用可取消的在线安装，或通过**安装模型包**离线选择 ZIP。等待校验与安装后，再点击**保存设置**启用新模型目录。也可完整解压后选择目录；不要拆散图文件与对应的 `.onnx.data` 文件。
 - 模型安装不会移动你的分类文件，也不会隐式授权自动整理。
 
 ### 来源与边界

@@ -69,7 +69,7 @@ Windows x64、Linux x64 和 macOS ARM64 已有原生验证记录。其余架构�
 
 ### 可选的智能分类
 
-**本地 Laya：** 获取独立的[多语言 FP32 模型包](https://github.com/WSXYT/DeskNext/releases/tag/model-laya-multilingual-fp32-v1)，约 813 MB / 775 MiB。在设置中选择 Laya，安装模型 ZIP，再保存已校验的模型目录设置。也可选择已有的兼容解压目录。运行时无需 Python 或云端 API 密钥。
+**本地 Laya：** 获取独立的[多语言 FP32 模型包](https://github.com/WSXYT/DeskNext/releases/tag/model-laya-multilingual-fp32-v1)，约 813 MB / 775 MiB。在设置中选择 Laya，点击**下载模型**或离线安装 ZIP，再保存已校验的模型目录设置。服务器支持时，下载中断后可重试续传。也可选择已有的兼容解压目录。运行时无需 Python 或云端 API 密钥。
 
 **Jev：** 在设置中选择 Jev，填写 TypeSafe 密钥，明确允许发送后再请求预览。请求包含文件名、项目类型和分类说明，不包含文件正文或绝对路径；API 使用可能收费。发送许可仅在当前会话生效；Windows 可显式选择将密钥保存在凭据管理器中。
 
