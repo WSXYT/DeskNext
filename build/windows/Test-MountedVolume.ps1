@@ -116,7 +116,7 @@ try {
     $part = Get-OwnedPartition
     if ($part.DriveLetter -ne $letter) {
         Assert-FreeLetter
-        $part | Add-PartitionAccessPath -DriveLetter $letter
+        $part | Add-PartitionAccessPath -AccessPath "${letter}:\"
     }
     Assert-DriveOwnership
     Invoke-Phase 'reattached' 'SameVolumeReturnsAndOriginalReceiptsAuthorizeRecovery'
