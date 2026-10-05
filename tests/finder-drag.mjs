@@ -48,9 +48,10 @@ end run`;
 const visible = `on run argv
   set paths to {}
   tell application "Finder"
-    repeat with w in Finder windows
+    repeat with w in (get Finder windows)
       try
-        set end of paths to POSIX path of (target of w as alias)
+        set targetFolder to get target of (contents of w)
+        set end of paths to POSIX path of (targetFolder as alias)
       on error messageText number errorNumber
         set end of paths to "ERROR " & errorNumber & ": " & messageText
       end try
