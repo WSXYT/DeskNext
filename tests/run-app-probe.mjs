@@ -18,6 +18,9 @@ if (result.Success !== true) throw new Error('Probe did not report Success=true.
 if (args.some(a => a.startsWith('--local-model=')) &&
     (result.LocalClassificationPreviewVerified !== true || result.LocalWorkerReuseVerified !== true))
     throw new Error('Requested local model preview and worker reuse were not verified.');
+if (process.env.DESKNEXT_TEST_FLOW_RUNTIME === '1' &&
+    (result.FlowDefinitionEditorVerified !== true || result.FlowDefinitionPersistenceVerified !== true || result.ManualPromptFlowVerified !== true))
+    throw new Error('Requested native Flow editor, persistence and prompt runtime were not verified.');
 if (modelPackage && result.ModelPackageActivationVerified !== true)
     throw new Error('Requested real model installation, activation and reopened CPU preview were not verified.');
 if (args.some(a => a === '--native-library' || a.startsWith('--native-library=')) &&

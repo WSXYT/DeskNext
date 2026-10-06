@@ -14,12 +14,20 @@ function runWithEnv(env, body, ...args) {
         const fixture = join(root, 'fixture.mjs');
         writeFileSync(fixture, body);
         return spawnSync(process.execPath, [driver, process.execPath, fixture, ...args],
-            { encoding: 'utf8', timeout: 10_000, env: { ...process.env, DESKNEXT_TEST_MODEL_ARCHIVE: '', ...env } });
+            { encoding: 'utf8', timeout: 10_000, env: { ...process.env, DESKNEXT_TEST_MODEL_ARCHIVE: '', DESKNEXT_TEST_FLOW_RUNTIME: '', ...env } });
     } finally { rmSync(root, { recursive: true, force: true }); }
 }
 const report = (value, marker = 'PROBE_RESULT_JSON:') =>
     `console.log(${JSON.stringify(marker)}); console.log(${JSON.stringify(JSON.stringify(value))});`;
 
+test('requested Flow runtime cannot pass with unavailable or incomplete evidence', () => {
+    const env = { DESKNEXT_TEST_FLOW_RUNTIME: '1' };
+    const good = { Success: true, FlowDefinitionEditorVerified: true, FlowDefinitionPersistenceVerified: true, ManualPromptFlowVerified: true };
+    for (const field of ['FlowDefinitionEditorVerified', 'FlowDefinitionPersistenceVerified', 'ManualPromptFlowVerified'])
+        for (const missing of [undefined, false, 'true'])
+            assert.equal(runWithEnv(env, report({ ...good, [field]: missing }), '--headless-smoke').status, 1);
+    assert.equal(runWithEnv(env, report(good), '--headless-smoke').status, 0);
+});
 test('requested real model deployment requires its own literal proof', () => {
     const env = { DESKNEXT_TEST_MODEL_ARCHIVE: 'fixture-only.zip' };
     for (const value of [undefined, false, 'true'])

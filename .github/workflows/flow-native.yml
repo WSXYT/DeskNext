@@ -1,0 +1,101 @@
+name: P5 native Flow definition and prompt integration
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  flow:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            rid: win-x64
+            library: artifacts/flow-native/Release/desknest_pogget.dll
+            executable: DeskNest.App.exe
+          - os: ubuntu-24.04
+            rid: linux-x64
+            library: artifacts/flow-native/libdesknest_pogget.so
+            executable: DeskNest.App
+          - os: macos-15
+            rid: osx-arm64
+            library: artifacts/flow-native/libdesknest_pogget.dylib
+            executable: DeskNest.App
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      TARGET_RID: ${{ matrix.rid }}
+      NATIVE_LIBRARY: ${{ matrix.library }}
+      APP_EXECUTABLE: ${{ matrix.executable }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9
+        with:
+          dotnet-version: 10.0.x
+      - name: Require native macOS ARM64
+        if: runner.os == 'macOS'
+        run: |
+          if ((uname -m) -ne 'arm64') { throw 'Native RID mismatch.' }
+      - name: Use physical Unix temporary paths
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          physical_temp="$(cd "$RUNNER_TEMP" && pwd -P)"
+          echo "TMPDIR=$physical_temp/" >> "$GITHUB_ENV"
+      - name: Build the native runtime once
+        run: |
+          cmake -S native/pogget-bridge -B artifacts/flow-native `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+          if ($LASTEXITCODE -ne 0) { throw 'Native configure failed.' }
+          cmake --build artifacts/flow-native --config Release --parallel 1
+          if ($LASTEXITCODE -ne 0) { throw 'Native build failed.' }
+          $lib = (Resolve-Path $env:NATIVE_LIBRARY).Path
+          "DESKNEXT_FLOW_NATIVE_LIBRARY=$lib" >> $env:GITHUB_ENV
+      - name: Check Flow definitions, persistence and native callback lifetime
+        run: |
+          $filter = 'FullyQualifiedName~ManualFlowDefinitionTests|' + `
+            'FullyQualifiedName~ManualPromptFlowTests'
+          dotnet test tests/DeskNest.Core.Tests -c Release -m:1 `
+            --nodeReuse:false -p:UseSharedCompilation=false --filter $filter `
+            --logger 'trx;LogFileName=flow.trx' `
+            --results-directory artifacts/flow-evidence
+          if ($LASTEXITCODE -ne 0) { throw 'Flow Core tests failed.' }
+          [xml]$trx = Get-Content artifacts/flow-evidence/flow.trx -Raw
+          $counts = $trx.TestRun.ResultSummary.Counters
+          if ([int]$counts.executed -lt 5 -or [int]$counts.failed -ne 0 -or
+              [int]$counts.notExecuted -ne 0) {
+            throw 'Flow tests require executed native evidence, without skips.'
+          }
+      - name: Require specific terminal evidence
+        run: node --test tests/app-probe-driver.test.mjs
+      - name: Publish App with its native Flow component
+        run: |
+          dotnet publish src/DeskNest.App -c Release -r $env:TARGET_RID `
+            --self-contained true -m:1 --disable-build-servers `
+            -p:UseSharedCompilation=false `
+            "-p:PoggetNativeLibrary=$env:DESKNEXT_FLOW_NATIVE_LIBRARY" `
+            -o artifacts/flow-app
+          if ($LASTEXITCODE -ne 0) { throw 'App publish failed.' }
+      - name: Exercise the actual editor and prompt controls
+        env:
+          DESKNEXT_TEST_FLOW_RUNTIME: '1'
+        run: |
+          node tests/run-app-probe.mjs `
+            "artifacts/flow-app/$env:APP_EXECUTABLE" --headless-smoke `
+            2>&1 | Tee-Object artifacts/flow-evidence/app.log
+          if ($LASTEXITCODE -ne 0) { throw 'Flow UI evidence failed.' }
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: flow-evidence-${{ matrix.rid }}
+          path: artifacts/flow-evidence/
+          if-no-files-found: warn
