@@ -207,6 +207,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             if (_disposed) return;
             await StopFolderObservationAsync();
             await SetUIStateAsync(() => Studio?.PreviewClassificationCommand.Cancel());
+            await StopFlowPromptRunAsync();
             await _localPreview.StopAsync();
             _dataDirectory = _store?.DataDirectory ?? customDataDir ?? WorkspaceStore.DefaultDataDirectory();
             await SetUIStateAsync(() =>
@@ -1170,6 +1171,13 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         SelectedTheme = mode;
     }
 
+    private async Task StopFlowPromptRunAsync()
+    {
+        Task drain = Task.CompletedTask;
+        await SetUIStateAsync(() => { drain = Studio?.StopPromptFlowAsync() ?? Task.CompletedTask; });
+        await drain.ConfigureAwait(false);
+    }
+
     public async ValueTask DisposeAsync()
     {
         await _startupGate.WaitAsync().ConfigureAwait(false);
@@ -1185,6 +1193,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
                 Studio?.InstallLocalModelPackageCommand.Cancel();
                 if (Studio is not null) Studio.OnInstallLocalModelPackage = null;
             });
+            await StopFlowPromptRunAsync();
             await _localPreview.DisposeAsync();
             Localizer.LanguageChanged -= OnLanguageChanged;
             Localizer.PropertyChanged -= OnLocalizerPropertyChanged;

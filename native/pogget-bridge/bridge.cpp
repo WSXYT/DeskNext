@@ -153,6 +153,10 @@ int dn_flow_submit(dn_flow* flow, const char* json) {
             flow->runtime.RequestManualRun(std::move(document)) ? 1 : 0;
     } catch (...) { return 0; }
 }
+int dn_flow_busy(dn_flow* flow) {
+    try { return flow ? (flow->runtime.Busy() ? 1 : 0) : -1; }
+    catch (...) { return -1; }
+}
 void dn_flow_cancel(dn_flow* flow) { if (flow) flow->runtime.Cancel(); }
 void dn_flow_destroy(dn_flow* flow) { delete flow; }
 }

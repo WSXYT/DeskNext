@@ -11,5 +11,5 @@
 - Drops catalog in-root; confirmed imports retain undo origins. Outgoing drags: Copy references, never delete sources. Clipboard: UI thread. Never create missing mapped roots/recovery parents.
 - Release singleton subscriptions; space windows borrow workbench. Observation: session→Pending only. Pause/dispose releases watchers; nested sources own subtrees. Resume baselines; explicitly scan missed items. No takeover before S01–S08.
 - CI: storage_only/native_manual_only/linux_drag_only/macos_drag_only/windows_storage_only; physical macOS temps; hosted-only mounts/aliases/shares; terminal JSON/TRX. Skips aren't evidence.
-- Preserve provenance/twelve-locale/F01–F13/inference evidence. Suggestions never move files; Flow definitions disabled/manual/validation-only. Jev consent session-only; saved keys OS-only, never JSON. Python/models: ignored `artifacts/`. Synthetic images don't prove desktop compositing.
+- Preserve provenance/twelve-locale/F01–F13/inference evidence. Suggestions never move files; Flow definitions disabled/manual; explicit prompt-only runs. Jev consent session-only; saved keys OS-only, never JSON. Python/models: ignored `artifacts/`. Synthetic images don't prove desktop compositing.
 <!-- pi-agents-md:end -->

@@ -39,6 +39,8 @@ DN_API int dn_flow_validate(const char* json);
 DN_API dn_flow* dn_flow_create(dn_tip_callback callback, void* context);
 DN_API dn_flow* dn_flow_create_with_executor(dn_tip_callback tip, dn_file_executor executor, void* context);
 DN_API int dn_flow_submit(dn_flow* flow, const char* json);
+// 1=queued/running, 0=idle, -1=invalid/unavailable. Not an execution-success receipt.
+DN_API int dn_flow_busy(dn_flow* flow);
 DN_API void dn_flow_cancel(dn_flow* flow);
 // Destroy waits until callbacks drain: call on a non-callback/non-UI thread.
 DN_API void dn_flow_destroy(dn_flow* flow);

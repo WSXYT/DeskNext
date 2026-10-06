@@ -74,6 +74,7 @@ public sealed class SmokeTestResult
     public bool FolderObservationVerified { get; set; }
     public bool FlowDefinitionEditorVerified { get; set; }
     public bool FlowDefinitionPersistenceVerified { get; set; }
+    public bool ManualPromptFlowVerified { get; set; }
     public bool LocalClassificationPreviewVerified { get; set; }
     public bool LocalWorkerReuseVerified { get; set; }
     public bool ModelPackageActivationVerified { get; set; }
@@ -208,6 +209,26 @@ public static class HeadlessSmokeRunner
                 if (saved.Revision != 1 || studio.FlowNotice != studio.Localizer["Flow.Saved"] || store.Snapshot.Revision != revision || store.Snapshot.Operations.Count != 0)
                     throw new InvalidOperationException("Saving a Flow must persist only a disabled definition.");
                 string before = File.ReadAllText(Path.Combine(root, "flow-definitions.json"));
+                await studio.RunPromptFlowCommand.ExecuteAsync(null);
+                if (studio.FlowNotice != studio.Localizer["Flow.PromptOnly"] || studio.IsFlowPromptOpen)
+                    throw new InvalidOperationException("The prompt runner accepted file steps.");
+                string promptDraft = DeskNest.Core.Flow.ManualFlowDefinitions.Create("manual", "提示", "确认这条提示");
+                studio.FlowJsonDraft = promptDraft;
+                var promptRun = studio.RunPromptFlowCommand.ExecuteAsync(null);
+                await UntilPromptAsync();
+                var acknowledge = view.FindControl<Button>("AcknowledgeFlowPromptButton")!;
+                if (!acknowledge.IsEffectivelyVisible || acknowledge.Command != studio.AcknowledgeFlowPromptCommand || studio.FlowPromptMessage != "确认这条提示")
+                    throw new InvalidOperationException("The native prompt must be shown through the production acknowledgement control.");
+                acknowledge.Command!.Execute(null);
+                await promptRun;
+                if (studio.FlowNotice != studio.Localizer.GetString("Flow.PromptsCompleted", 1) || studio.FlowJsonDraft != promptDraft || studio.IsFlowPromptOpen)
+                    throw new InvalidOperationException("Prompt acknowledgement changed the draft or did not complete.");
+                promptRun = studio.RunPromptFlowCommand.ExecuteAsync(null);
+                await UntilPromptAsync();
+                view.FindControl<Button>("CancelFlowPromptButton")!.Command!.Execute(null);
+                await promptRun;
+                if (studio.FlowNotice != studio.Localizer["Flow.RunCancelled"] || studio.IsFlowPromptOpen)
+                    throw new InvalidOperationException("Prompt cancellation did not release the active prompt.");
                 var invalid = System.Text.Json.Nodes.JsonNode.Parse(saved.Json)!;
                 invalid["enabled"] = true;
                 editor.Text = invalid.ToJsonString();
@@ -215,6 +236,26 @@ public static class HeadlessSmokeRunner
                 await studio.SaveFlowDefinitionCommand.ExecuteAsync(null);
                 if (File.ReadAllText(Path.Combine(root, "flow-definitions.json")) != before)
                     throw new InvalidOperationException("An enabled Flow was allowed into the definition store.");
+                studio.FlowJsonDraft = promptDraft;
+                promptRun = studio.RunPromptFlowCommand.ExecuteAsync(null);
+                await UntilPromptAsync();
+                await owner.DisposeAsync();
+                await promptRun;
+                if (studio.IsFlowPromptOpen || studio.IsFlowBusy || store.Snapshot.Revision != revision ||
+                    File.ReadAllText(Path.Combine(root, "flow-definitions.json")) != before)
+                    throw new InvalidOperationException("Closing the workbench must drain prompt execution without changing saved state.");
+
+                async Task UntilPromptAsync()
+                {
+                    var wait = Stopwatch.StartNew();
+                    while (!studio.IsFlowPromptOpen)
+                    {
+                        if (promptRun.IsCompleted || wait.Elapsed > TimeSpan.FromSeconds(5))
+                            throw new InvalidOperationException("The native prompt did not open: " + studio.FlowNotice);
+                        await Task.Delay(10);
+                    }
+                    Dispatcher.UIThread.RunJobs();
+                }
             }
             finally { window.Close(); }
         }
@@ -857,6 +898,7 @@ public static class HeadlessSmokeRunner
                 var flowCheck = VerifyFlowDefinitionEditorAsync(flowFixture.Path);
                 AwaitOnUIThread(flowCheck, "disabled Flow definition editor", 20);
                 result.FlowDefinitionPersistenceVerified = flowCheck.GetAwaiter().GetResult();
+                result.ManualPromptFlowVerified = result.FlowDefinitionPersistenceVerified;
                 result.FlowDefinitionEditorVerified = true;
             }
             result.ModelPackageActivationVerified = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DESKNEXT_TEST_MODEL_ARCHIVE"));

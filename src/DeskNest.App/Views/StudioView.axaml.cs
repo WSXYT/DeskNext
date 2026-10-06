@@ -61,7 +61,7 @@ public partial class StudioView : UserControl
     {
         if (DataContext is not StudioViewModel studio ||
             studio.IsAddSpaceDialogOpen || studio.IsRenameDialogOpen || studio.IsCreateSpaceFromTriageOpen ||
-            studio.IsDeleteConfirmationDialogOpen || studio.IsPreviewDialogOpen || studio.IsImportConfirmationOpen || studio.IsModelRemovalOpen)
+            studio.IsDeleteConfirmationDialogOpen || studio.IsPreviewDialogOpen || studio.IsImportConfirmationOpen || studio.IsModelRemovalOpen || studio.IsFlowPromptOpen)
             return;
 
         var commandModifier = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
