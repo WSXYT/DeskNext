@@ -2,6 +2,12 @@
 
 P3's user-approved safe manual workflow is accepted; **P4 is not complete**. These previews are read-only: they do not authorize any file move or copy. Manual file operations have their separate P3 evidence.
 
+## Offline quality-scoring entry (2026-10-06)
+
+`tests/Inference.Tests/quality_report.py` now scores explicitly supplied label/prediction files without calling models, collecting files or moving anything. The [format and methodology](quality-evaluation.md) cover input-digest/ID matching, duplicate refusal, separate protocol failures, language/scenario/candidate-count strata, ordinary/special-option metrics, Brier/ECE and exact one-sided 95% automatic-error bounds. Missing responses remain in denominators. Manual confirmations/proposals are not automatic executions; no automatic observations produces an unknown bound, not a zero-error claim.
+
+Four small standard-library unit tests and one CLI format/overwrite-refusal check passed. The generated 500-row **unit arithmetic fixture is synthetic and is not the P4 corpus**. No real quality run was performed. The report always sets `formalAcceptance=false`; human-label independence, execution receipts, mapping and coverage require separate evidence review even when numerical checks pass. Output uses create-new mode and inputs are bounded. This provides a usable scoring format for the still-missing independent dataset, not a substitute for it.
+
 ## Explicit removal of active Windows model data (2026-10-06)
 
 Settings now offers **Remove active model data**, showing a read-only directory/asset list before a separate permanent-removal confirmation. Only application-installed, generated model directories on Windows NTFS with the application-pinned manifest are eligible. File-space overlaps, aliases found through native directory IDs, unverifiable local boundaries, changed directory identity and stale workspace revisions are refused. Non-Windows entry points report unavailability and perform no deletion.
