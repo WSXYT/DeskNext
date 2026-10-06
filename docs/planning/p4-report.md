@@ -2,6 +2,12 @@
 
 P3's user-approved safe manual workflow is accepted; **P4 is not complete**. These previews are read-only: they do not authorize any file move or copy. Manual file operations have their separate P3 evidence.
 
+## Explicit Jev connection self-check (2026-10-06)
+
+Settings now provides **Test Jev connection** and cancellation. It requires the selected Jev draft, a session key and the existing explicit sending permission. The check sends only a built-in filename and three built-in options; it accepts no workspace names, paths, notes or file contents. The same client enforces the pinned model/schema, 45-second deadline, bounded 429 policy and response validation. A reply reports its model version, not classification quality. Changing/clearing the key, revoking permission, switching provider or disposing the workbench cancels the check and invalidates its notice; nothing is saved to workspace metadata.
+
+Twelve-language labels explain the synthetic request and possible API cost. Twelve focused Jev client cases passed, including the fixed request inspected through an in-memory handler. The actual settings button and missing-key/unapproved-send refusal passed the existing checked UI smoke (`jev-connection-ui.log`), with a zero-warning/error App build. **No live Jev request was made** by this verification; the user still needs their own credential and explicit consent for actual service acceptance.
+
 ## Offline quality-scoring entry (2026-10-06)
 
 `tests/Inference.Tests/quality_report.py` now scores explicitly supplied label/prediction files without calling models, collecting files or moving anything. The [format and methodology](quality-evaluation.md) cover input-digest/ID matching, duplicate refusal, separate protocol failures, language/scenario/candidate-count strata, ordinary/special-option metrics, Brier/ECE and exact one-sided 95% automatic-error bounds. Missing responses remain in denominators. Manual confirmations/proposals are not automatic executions; no automatic observations produces an unknown bound, not a zero-error claim.

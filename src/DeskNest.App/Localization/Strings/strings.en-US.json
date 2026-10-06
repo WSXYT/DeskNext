@@ -1,5 +1,9 @@
 {
   "App.Title": "DeskNext",
+  "Classification.TestJev": "Test Jev connection",
+  "Classification.TestJevNotice": "Uses a built-in sample, not workspace files. A session key and sending permission are required; API usage may be charged.",
+  "Classification.TestingJev": "Checking Jev with a built-in sample…",
+  "Classification.JevConnected": "Jev responded using {0}. This does not verify classification quality.",
   "Classification.RemoveModelData": "Remove active model data",
   "Classification.ModelRemovalNotice": "Permanently remove the listed model data after verification. The folder, manifest, licenses, cache and unknown files stay. This has no Undo; the model can be downloaded again. Folder observation is paused—resume it manually.",
   "Classification.ModelRemovalUnavailable": "Removal currently requires an application-installed Windows NTFS model and verifiable local workspace folders. Nothing was removed.",

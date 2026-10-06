@@ -1,5 +1,9 @@
 {
   "App.Title": "DeskNext",
+  "Classification.TestJev": "Jev সংযোগ পরীক্ষা",
+  "Classification.TestJevNotice": "অন্তর্নির্মিত উদাহরণ ব্যবহার করে, কর্মক্ষেত্রের ফাইল নয়। সেশন কী ও পাঠানোর অনুমতি লাগে; API খরচ হতে পারে।",
+  "Classification.TestingJev": "অন্তর্নির্মিত উদাহরণ দিয়ে Jev যাচাই হচ্ছে…",
+  "Classification.JevConnected": "Jev {0} দিয়ে সাড়া দিয়েছে। এতে শ্রেণিবিভাগের মান যাচাই হয় না।",
   "Classification.RemoveModelData": "সক্রিয় মডেলের ডেটা সরান",
   "Classification.ModelRemovalNotice": "যাচাইয়ের পরে তালিকাভুক্ত মডেল ডেটা স্থায়ীভাবে সরবে। ফোল্ডার, ম্যানিফেস্ট, লাইসেন্স, ক্যাশ ও অজানা ফাইল থাকবে। পূর্বাবস্থায় ফেরা যাবে না; মডেল আবার ডাউনলোড করা যাবে। পর্যবেক্ষণ থামবে; নিজে আবার চালু করুন।",
   "Classification.ModelRemovalUnavailable": "অ্যাপ-ইনস্টল করা Windows NTFS মডেল ও যাচাইযোগ্য স্থানীয় কর্মক্ষেত্র ফোল্ডার প্রয়োজন। কিছু সরানো হয়নি।",

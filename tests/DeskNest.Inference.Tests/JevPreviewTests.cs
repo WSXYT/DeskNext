@@ -15,6 +15,24 @@ public sealed class JevPreviewTests
             { [Probe.Insufficient] = 0.05, ["design"] = score, [Probe.Ambiguous] = 0.15 } } } });
 
     [Fact]
+    public async Task ConnectionCheckSendsOnlyItsBuiltInSample()
+    {
+        using var client = new HttpClient(new Handler(async (message, token) =>
+        {
+            using var body = JsonDocument.Parse(await message.Content!.ReadAsStringAsync(token));
+            Assert.Equal("Quarterly report.txt", body.RootElement.GetProperty("state").GetString());
+            var question = body.RootElement.GetProperty("questions").EnumerateObject().Single();
+            Assert.Equal(new[] { "documents", Probe.Ambiguous, Probe.Insufficient },
+                question.Value.GetProperty("criteria").EnumerateObject().Select(p => p.Name).ToArray());
+            string reply = JsonSerializer.Serialize(new { model = JevPreviewClient.Model, answers = new Dictionary<string, object>
+            { [question.Name] = new { type = "choice", choice = "documents", probabilities = new Dictionary<string, double>
+                { ["documents"] = 0.8, [Probe.Ambiguous] = 0.15, [Probe.Insufficient] = 0.05 } } } });
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(reply) };
+        }));
+        Assert.Equal(JevPreviewClient.Model, (await JevPreviewClient.CheckConnectionAsync(client, "fixture-key")).Model);
+    }
+
+    [Fact]
     public async Task ChoiceWireContractMapsProbabilitiesByIdNotResponseOrder()
     {
         using var client = new HttpClient(new Handler(async (message, token) =>

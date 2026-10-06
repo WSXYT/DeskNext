@@ -1,5 +1,9 @@
 {
   "App.Title": "DeskNext",
+  "Classification.TestJev": "Jev 接続をテスト",
+  "Classification.TestJevNotice": "作業ファイルではなく内蔵サンプルを使用します。セッションキーと送信許可が必要で、API 利用料が発生する場合があります。",
+  "Classification.TestingJev": "内蔵サンプルで Jev を確認中…",
+  "Classification.JevConnected": "Jev が {0} で応答しました。分類品質の検証ではありません。",
   "Classification.RemoveModelData": "使用中のモデルデータを削除",
   "Classification.ModelRemovalNotice": "検証後、表示されたモデルデータを完全に削除します。フォルダー、マニフェスト、ライセンス、キャッシュ、その他のファイルは残ります。元に戻せませんが再ダウンロードできます。監視は一時停止するため手動で再開してください。",
   "Classification.ModelRemovalUnavailable": "アプリがインストールした Windows NTFS モデルと、検証可能なローカル作業フォルダーが必要です。何も削除していません。",

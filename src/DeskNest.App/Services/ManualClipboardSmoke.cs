@@ -407,6 +407,12 @@ internal static class ManualClipboardSmoke
             await studio.SaveSettingsAsync();
             var keyInput = view.FindControl<TextBox>("JevSessionKeyInput")!;
             var consent = view.FindControl<CheckBox>("JevSendConsent")!;
+            var testConnection = view.FindControl<Button>("TestJevConnectionButton")!;
+            if (!testConnection.IsEffectivelyVisible || testConnection.Command != studio.CheckJevConnectionCommand)
+                throw new InvalidOperationException("Jev connection testing needs its explicit settings entry.");
+            await studio.CheckJevConnectionCommand.ExecuteAsync(null);
+            if (studio.JevConnectionNotice != studio.Localizer["Classification.JevSetup"])
+                throw new InvalidOperationException("An unapproved Jev connection check was not refused.");
             // Never exercise the default OS credential target: it can hold a user's real key.
             foreach (var action in new[] { ("SaveJevKeyButton", "save"), ("LoadJevKeyButton", "load"), ("DeleteJevKeyButton", "delete") })
             {

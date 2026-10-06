@@ -1,5 +1,9 @@
 {
   "App.Title": "DeskNext",
+  "Classification.TestJev": "Jev-Verbindung testen",
+  "Classification.TestJevNotice": "Verwendet ein integriertes Beispiel, keine Arbeitsdateien. Sitzungsschlüssel und Sendefreigabe sind erforderlich; API-Kosten können anfallen.",
+  "Classification.TestingJev": "Jev wird mit einem Beispiel geprüft…",
+  "Classification.JevConnected": "Jev antwortete mit {0}. Die Klassifizierungsqualität ist damit nicht geprüft.",
   "Classification.RemoveModelData": "Aktive Modelldaten entfernen",
   "Classification.ModelRemovalNotice": "Entfernt die aufgeführten Modelldaten nach Prüfung dauerhaft. Ordner, Manifest, Lizenzen, Cache und unbekannte Dateien bleiben. Nicht rückgängig machbar; erneuter Download ist möglich. Beobachtung wird pausiert; manuell fortsetzen.",
   "Classification.ModelRemovalUnavailable": "Erfordert ein von der App installiertes Windows-NTFS-Modell und prüfbare lokale Arbeitsordner. Nichts wurde entfernt.",

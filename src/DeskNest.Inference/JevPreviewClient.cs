@@ -14,6 +14,15 @@ public static class JevPreviewClient
     public static Task<Result> RunAsync(string apiKey, Probe.Request request, CancellationToken token = default) =>
         RunAsync(DefaultClient, apiKey, request, token);
 
+    public static Task<Result> CheckConnectionAsync(string apiKey, CancellationToken token = default) =>
+        CheckConnectionAsync(DefaultClient, apiKey, token);
+
+    /// <summary>Explicit synthetic request; no workspace metadata is accepted by this entry point.</summary>
+    public static Task<Result> CheckConnectionAsync(HttpClient client, string apiKey, CancellationToken token = default) =>
+        RunAsync(client, apiKey, new Probe.Request(Guid.NewGuid().ToString("N"), 0, "Quarterly report.txt",
+            "Classify the sample filename.", [new("documents", "Written documents and reports."),
+                new(Probe.Ambiguous, "The filename is unclear."), new(Probe.Insufficient, "No category fits.")]), token);
+
     // Retry only an explicit rate-limit refusal, not an ambiguous network/server failure or a malformed answer.
     private static async Task<HttpResponseMessage> SendWithRateLimitRetryAsync(HttpClient client, string key, byte[] body, CancellationToken token)
     {

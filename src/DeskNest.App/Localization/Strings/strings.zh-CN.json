@@ -1,5 +1,9 @@
 {
   "App.Title": "DeskNext",
+  "Classification.TestJev": "测试 Jev 连接",
+  "Classification.TestJevNotice": "仅使用内置样例，不读取工作区文件。需要会话密钥和发送许可；API 使用可能收费。",
+  "Classification.TestingJev": "正在用内置样例检查 Jev…",
+  "Classification.JevConnected": "Jev 已响应，模型为 {0}。这不代表分类质量已验证。",
   "Classification.RemoveModelData": "移除活动模型数据",
   "Classification.ModelRemovalNotice": "核验后永久移除所列模型数据。目录、清单、许可证、缓存和未知文件保留。此操作不可撤销，可重新下载模型。文件夹观察将暂停，请手动恢复。",
   "Classification.ModelRemovalUnavailable": "目前仅支持应用安装的 Windows NTFS 模型，且工作区目录须可本地核验。未移除任何文件。",

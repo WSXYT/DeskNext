@@ -427,12 +427,46 @@ public sealed partial class StudioViewModel : ViewModelBase
 
     [ObservableProperty] private string _jevSessionKey = string.Empty;
     [ObservableProperty] private bool _jevSendConsent;
-    partial void OnJevSessionKeyChanged(string value) { JevCredentialNotice = string.Empty; JevSendConsent = false; PreviewClassificationCommand.Cancel(); }
-    partial void OnJevSendConsentChanged(bool value) { if (!value) PreviewClassificationCommand.Cancel(); }
+    [ObservableProperty] private string _jevConnectionNotice = string.Empty;
+    partial void OnJevSessionKeyChanged(string value)
+    {
+        JevCredentialNotice = string.Empty;
+        JevSendConsent = false;
+        PreviewClassificationCommand.Cancel();
+        CheckJevConnectionCommand.Cancel();
+        JevConnectionNotice = string.Empty;
+    }
+    partial void OnJevSendConsentChanged(bool value)
+    {
+        if (value) return;
+        PreviewClassificationCommand.Cancel();
+        CheckJevConnectionCommand.Cancel();
+        JevConnectionNotice = string.Empty;
+    }
+
+    [RelayCommand(IncludeCancelCommand = true)]
+    private async Task CheckJevConnectionAsync(CancellationToken token)
+    {
+        if (!IsJevPreview || !JevSendConsent || string.IsNullOrWhiteSpace(JevSessionKey))
+        { JevConnectionNotice = Localizer["Classification.JevSetup"]; return; }
+        string key = JevSessionKey;
+        JevConnectionNotice = Localizer["Classification.TestingJev"];
+        try
+        {
+            var result = await DeskNest.Inference.JevPreviewClient.CheckConnectionAsync(key, token);
+            token.ThrowIfCancellationRequested();
+            if (IsJevPreview && JevSendConsent && JevSessionKey == key)
+                JevConnectionNotice = Localizer.GetString("Classification.JevConnected", result.Model);
+        }
+        catch (OperationCanceledException) { JevConnectionNotice = Localizer["Classification.Cancelled"]; }
+        catch (Exception error) { JevConnectionNotice = Localizer.GetString("Files.ActionFailedNotice", error.Message); }
+    }
     [RelayCommand]
     public void ClearJevSession()
     {
         PreviewClassificationCommand.Cancel();
+        CheckJevConnectionCommand.Cancel();
+        JevConnectionNotice = string.Empty;
         JevSessionKey = string.Empty;
         JevSendConsent = false;
         JevCredentialNotice = string.Empty;

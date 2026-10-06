@@ -1,5 +1,9 @@
 {
   "App.Title": "DeskNext",
+  "Classification.TestJev": "اختبار اتصال Jev",
+  "Classification.TestJevNotice": "يستخدم مثالًا مدمجًا لا ملفات مساحة العمل. يتطلب مفتاح الجلسة وإذن الإرسال؛ قد تُفرض رسوم على API.",
+  "Classification.TestingJev": "جارٍ التحقق من Jev بمثال مدمج…",
+  "Classification.JevConnected": "استجاب Jev باستخدام {0}. لا يثبت هذا جودة التصنيف.",
   "Classification.RemoveModelData": "إزالة بيانات النموذج النشط",
   "Classification.ModelRemovalNotice": "تُزال البيانات المدرجة نهائيًا بعد التحقق. يبقى المجلد وملف البيان والتراخيص والذاكرة المؤقتة والملفات غير المعروفة. لا تراجع، ويمكن تنزيل النموذج مجددًا. تتوقف المراقبة مؤقتًا؛ استأنفها يدويًا.",
   "Classification.ModelRemovalUnavailable": "تتطلب الإزالة نموذج Windows NTFS مثبتًا بالتطبيق ومجلدات محلية قابلة للتحقق. لم تُزل أي ملفات.",
