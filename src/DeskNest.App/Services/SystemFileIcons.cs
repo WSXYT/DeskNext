@@ -21,6 +21,10 @@ internal static class SystemFileIcons
     private static Bitmap? Load(string extension, bool directory)
     {
         IntPtr dc = IntPtr.Zero, bitmap = IntPtr.Zero, previous = IntPtr.Zero, icon = IntPtr.Zero;
+        // SHGetFileInfo requires COM on the calling background thread. Balance S_OK/S_FALSE,
+        // but do not uninitialize an apartment owned by someone else (RPC_E_CHANGED_MODE).
+        int com = CoInitializeEx(IntPtr.Zero, 0);
+        if (com < 0 && com != unchecked((int)0x80010106)) return null;
         try
         {
             // USEFILEATTRIBUTES obtains the registered type icon without opening or executing a user file.
@@ -47,6 +51,7 @@ internal static class SystemFileIcons
             if (bitmap != IntPtr.Zero) DeleteObject(bitmap);
             if (dc != IntPtr.Zero) DeleteDC(dc);
             if (icon != IntPtr.Zero) DestroyIcon(icon);
+            if (com >= 0) CoUninitialize();
         }
     }
 
@@ -65,6 +70,8 @@ internal static class SystemFileIcons
         public uint Size; public int Width, Height; public ushort Planes, BitCount;
         public uint Compression, ImageSize; public int XPixels, YPixels; public uint ColorsUsed, ColorsImportant;
     }
+    [DllImport("ole32.dll")] private static extern int CoInitializeEx(IntPtr reserved, uint flags);
+    [DllImport("ole32.dll")] private static extern void CoUninitialize();
     [DllImport("shell32.dll", EntryPoint = "SHGetFileInfoW", CharSet = CharSet.Unicode)]
     private static extern IntPtr SHGetFileInfo(string path, uint attributes, out ShellFileInfo info, uint size, uint flags);
     [DllImport("gdi32.dll")] private static extern IntPtr CreateCompatibleDC(IntPtr dc);
