@@ -13,15 +13,59 @@ public static class ModelPackageDownload
 
     /// <summary>Downloads then uses the same offline installer. Activation remains an explicit settings save.</summary>
     public static async Task<string> InstallAsync(string cacheRoot, IProgress<int>? progress = null, CancellationToken cancellationToken = default,
-        string? destinationRoot = null)
+        string? destinationRoot = null, IReadOnlyList<string>? reusableCacheRoots = null)
     {
         if (destinationRoot is not null)
         {
             if (!Path.IsPathFullyQualified(destinationRoot)) throw new ArgumentException("Model installation requires an absolute destination.");
             LocalModelInstaller.RequirePlainAncestors(destinationRoot);
         }
-        string archive = await DownloadAsync(cacheRoot, new ScaledProgress(progress, 0, 70), cancellationToken).ConfigureAwait(false);
+        var downloadProgress = new ScaledProgress(progress, 0, 70);
+        if (reusableCacheRoots is not null)
+            foreach (string previous in reusableCacheRoots.Distinct(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal))
+                if (await CopyVerifiedCacheAsync(previous, cacheRoot, downloadProgress, cancellationToken).ConfigureAwait(false)) break;
+        string archive = await DownloadAsync(cacheRoot, downloadProgress, cancellationToken).ConfigureAwait(false);
         return await LocalModelInstaller.InstallArchiveAsync(archive, destinationRoot ?? cacheRoot, new ScaledProgress(progress, 70, 30), cancellationToken).ConfigureAwait(false);
+    }
+
+    private static string ArchivePath(string root) => Path.Combine(root, ".model-download-" + LocalModelInstaller.ArchiveSha256 + ".partial");
+
+    /// <summary>Copies only a complete pinned cache. Never overwrites a destination or removes old/partial files.</summary>
+    public static async Task<bool> CopyVerifiedCacheAsync(string sourceRoot, string destinationRoot,
+        IProgress<int>? progress = null, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!Path.IsPathFullyQualified(sourceRoot) || !Path.IsPathFullyQualified(destinationRoot))
+            throw new ArgumentException("Model caches must use absolute filesystem paths.");
+        string sourcePath = ArchivePath(Path.GetFullPath(sourceRoot));
+        string destinationPath = ArchivePath(Path.GetFullPath(destinationRoot));
+        LocalModelInstaller.RequirePlainAncestors(sourcePath);
+        LocalModelInstaller.RequirePlainAncestors(destinationPath);
+        if (File.Exists(destinationPath) || Directory.Exists(destinationPath) || !File.Exists(sourcePath)) return false;
+        await using var source = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read, 131072, FileOptions.Asynchronous);
+        if (source.Length != LocalModelInstaller.ArchiveBytes || !await HasPinnedHashAsync(source, cancellationToken).ConfigureAwait(false)) return false;
+        LocalModelInstaller.RequirePlainAncestors(destinationPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+        await using var destination = new FileStream(destinationPath, FileMode.CreateNew, FileAccess.ReadWrite,
+            FileShare.None, 131072, FileOptions.Asynchronous);
+        source.Position = 0;
+        byte[] buffer = new byte[131072];
+        long written = 0;
+        int reported = -1;
+        while (written < LocalModelInstaller.ArchiveBytes)
+        {
+            int count = await source.ReadAsync(buffer.AsMemory(0, (int)Math.Min(buffer.Length, LocalModelInstaller.ArchiveBytes - written)), cancellationToken).ConfigureAwait(false);
+            if (count == 0) throw new InvalidDataException("The source model cache changed during copying.");
+            await destination.WriteAsync(buffer.AsMemory(0, count), cancellationToken).ConfigureAwait(false);
+            written += count;
+            int percent = (int)(written * 99 / LocalModelInstaller.ArchiveBytes);
+            if (percent != reported) { progress?.Report(percent); reported = percent; }
+        }
+        await destination.FlushAsync(cancellationToken).ConfigureAwait(false);
+        if (!await HasPinnedHashAsync(destination, cancellationToken).ConfigureAwait(false))
+            throw new InvalidDataException("The copied model cache failed verification; both copies are retained.");
+        progress?.Report(100);
+        return true;
     }
 
     private sealed class ScaledProgress(IProgress<int>? target, int start, int range) : IProgress<int>
@@ -39,7 +83,7 @@ public static class ModelPackageDownload
         cancellationToken.ThrowIfCancellationRequested();
         if (!Path.IsPathFullyQualified(cacheRoot)) throw new ArgumentException("Model cache must be an absolute path.", nameof(cacheRoot));
         cacheRoot = Path.GetFullPath(cacheRoot);
-        string path = Path.Combine(cacheRoot, ".model-download-" + LocalModelInstaller.ArchiveSha256 + ".partial");
+        string path = ArchivePath(cacheRoot);
         string etagPath = path + ".etag";
         LocalModelInstaller.RequirePlainAncestors(path);
         LocalModelInstaller.RequirePlainAncestors(etagPath);

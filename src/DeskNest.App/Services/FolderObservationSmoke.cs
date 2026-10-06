@@ -13,6 +13,8 @@ internal static class FolderObservationSmoke
         var first = Directory.CreateDirectory(Path.Combine(root, "first")).FullName;
         var second = Directory.CreateDirectory(Path.Combine(root, "second")).FullName;
         var ignored = Directory.CreateDirectory(Path.Combine(first, "ignored")).FullName;
+        string model = Directory.CreateDirectory(Path.Combine(first, "laya-multilingual-fp32-" + Guid.NewGuid().ToString("N"))).FullName;
+        string modelCache = Directory.CreateDirectory(Path.Combine(first, WorkspaceSettings.ModelDownloadCacheFolderName)).FullName;
         string existing = Path.Combine(first, "existing.txt");
         File.WriteAllText(existing, "baseline");
         string oldFolder = Directory.CreateDirectory(Path.Combine(first, "old-folder")).FullName;
@@ -25,7 +27,7 @@ internal static class FolderObservationSmoke
             Settings = state.Settings with
             {
                 ManagedRoot = Path.Combine(root, "managed"),
-                MonitoredFolders = [first, second], ExcludedFolders = [ignored]
+                MonitoredFolders = [first, second], ExcludedFolders = [ignored], ModelCacheDirectory = model
             }
         });
         await using var vm = new MainWindowViewModel(store);
@@ -56,6 +58,14 @@ internal static class FolderObservationSmoke
                 throw new InvalidOperationException("Starting observation must only establish a baseline: " + studio.FolderObservationNotice);
             File.WriteAllText(existing, "baseline changed");
             File.WriteAllText(Path.Combine(ignored, "skip.txt"), "excluded");
+            string cacheFile = Path.Combine(modelCache, "cached.partial");
+            File.WriteAllText(cacheFile, "model-cache-not-a-review-item");
+            if ((store.Snapshot.Settings with { ModelCacheDirectory = model + Path.DirectorySeparatorChar }).GetModelDownloadCacheDirectory() != modelCache)
+                throw new InvalidOperationException("An activated model must retain its derived download-cache location.");
+            var coordinator = new ManualOrganizationCoordinator(store, new DeskNest.Core.Storage.DesktopOrganizationTransaction(
+                Path.Combine(store.DataDirectory, "organization-recovery.json")));
+            if (await coordinator.RecordObservedPathsAsync([cacheFile]) || store.Snapshot.Revision != revision)
+                throw new InvalidOperationException("The Core observation boundary accepted a model download cache.");
             string[] fresh = [Path.Combine(first, "new.txt"), Path.Combine(second, "other.txt")];
             foreach (var path in fresh)
             {

@@ -209,6 +209,7 @@ public sealed partial class MainWindowViewModel
             OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
     private static string[] ObservationExclusions(WorkspaceState state, string dataDirectory) =>
         state.Settings.ExcludedFolders.Concat(state.Spaces.Select(space => space.Folder))
-            .Concat([dataDirectory, state.Settings.ManagedRoot, state.Settings.ModelCacheDirectory ?? state.Settings.ManagedRoot])
+            .Concat([dataDirectory, state.Settings.ManagedRoot, state.Settings.ModelCacheDirectory ?? state.Settings.ManagedRoot,
+                state.Settings.GetModelDownloadCacheDirectory() ?? state.Settings.ManagedRoot])
             .Select(NormalizeObservationPath).Distinct(ObservationPathComparer).ToArray();
 }

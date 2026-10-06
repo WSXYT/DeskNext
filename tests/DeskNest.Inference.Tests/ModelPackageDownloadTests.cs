@@ -55,6 +55,48 @@ public sealed class ModelPackageDownloadTests(ITestOutputHelper output) : IDispo
         Assert.False(Directory.Exists(_root));
     }
 
+    [Fact]
+    public async Task CacheCopyDoesNotCreateTargetsForMissingPartialOrCancelledSources()
+    {
+        string destination = Path.Combine(_root, "new-cache");
+        string source = Path.Combine(_root, "old-cache");
+        Assert.False(await ModelPackageDownload.CopyVerifiedCacheAsync(source, destination));
+        Directory.CreateDirectory(source);
+        string partial = Path.Combine(source, ".model-download-" + LocalModelInstaller.ArchiveSha256 + ".partial");
+        await File.WriteAllTextAsync(partial, "incomplete");
+        Assert.False(await ModelPackageDownload.CopyVerifiedCacheAsync(source, destination));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => ModelPackageDownload.CopyVerifiedCacheAsync(source, destination,
+            cancellationToken: new CancellationToken(true)));
+        await Assert.ThrowsAsync<ArgumentException>(() => ModelPackageDownload.CopyVerifiedCacheAsync("relative", destination));
+        Assert.False(Directory.Exists(destination));
+        Assert.Equal("incomplete", await File.ReadAllTextAsync(partial));
+    }
+
+    [LocalModelPackageFact]
+    public async Task VerifiedCacheCopiesWithoutNetworkOverwriteOrDeletingOldBytes()
+    {
+        string source = Directory.CreateDirectory(Path.Combine(_root, "old-cache")).FullName;
+        string name = ".model-download-" + LocalModelInstaller.ArchiveSha256 + ".partial";
+        string original = Path.Combine(source, name);
+        File.Copy(Environment.GetEnvironmentVariable("DESKNEXT_TEST_MODEL_ARCHIVE")!, original);
+        string destination = Path.Combine(_root, "new-cache");
+        Assert.True(await ModelPackageDownload.CopyVerifiedCacheAsync(source, destination));
+        using var offline = new HttpClient(new Handler(_ => throw new InvalidOperationException("Migration must permit offline cache reuse.")));
+        Assert.Equal(Path.Combine(destination, name), await ModelPackageDownload.DownloadAsync(offline, destination));
+        Assert.Equal(original, await ModelPackageDownload.DownloadAsync(offline, source));
+        string occupied = Directory.CreateDirectory(Path.Combine(_root, "occupied")).FullName;
+        await File.WriteAllTextAsync(Path.Combine(occupied, name), "preserve existing partial");
+        Assert.False(await ModelPackageDownload.CopyVerifiedCacheAsync(source, occupied));
+        Assert.Equal("preserve existing partial", await File.ReadAllTextAsync(Path.Combine(occupied, name)));
+        using var stop = new CancellationTokenSource();
+        string interrupted = Path.Combine(_root, "interrupted");
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => ModelPackageDownload.CopyVerifiedCacheAsync(source, interrupted,
+            new InterruptDownload(stop), stop.Token));
+        Assert.InRange(new FileInfo(Path.Combine(interrupted, name)).Length, 1, LocalModelInstaller.ArchiveBytes - 1);
+        Assert.Equal(original, await ModelPackageDownload.DownloadAsync(offline, source));
+        output.WriteLine("MODEL_CACHE_RELOCATION_VERIFIED: pinned bytes, offline reuse, retained original, collision refusal and cancellation.");
+    }
+
     [OnlineModelDownloadFact]
     public async Task PublicArtifactCanResumeAfterCancellationAndBeReusedOffline()
     {

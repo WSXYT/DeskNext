@@ -396,7 +396,7 @@
   "Classification.RepairPackage": "Reparar modelo",
   "Classification.RepairPackageNotice": "Instala o modelo multilíngue verificado em uma nova pasta, preservando a anterior. Salve as configurações para trocar.",
   "Classification.InstallLocation": "Local dos novos modelos",
-  "Classification.InstallLocationNotice": "Novas cópias são instaladas aqui; as pastas antigas são mantidas. A observação de pastas é pausada; retome-a manualmente depois.",
+  "Classification.InstallLocationNotice": "Novos modelos e o cache ficam aqui. Downloads antigos completos e verificados são copiados quando disponíveis; os arquivos antigos são mantidos. A observação é pausada; retome-a manualmente depois.",
   "Classification.Hint": "Nota opcional de classificação",
   "Classification.HintNotice": "Até 256 caracteres. Enviada na prévia ao provedor escolhido; não é salva nos metadados do espaço."
 }

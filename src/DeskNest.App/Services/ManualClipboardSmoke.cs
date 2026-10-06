@@ -330,7 +330,15 @@ internal static class ManualClipboardSmoke
                 throw new InvalidOperationException("Invalid model installation must retain the input and active model settings.");
             if (!directory && Environment.GetEnvironmentVariable("DESKNEXT_TEST_MODEL_ARCHIVE") is { Length: > 0 } package)
             {
-                await studio.InstallLocalModelPackageCommand.ExecuteAsync(package);
+                // Exercise the online/repair entry entirely offline by seeding its previous application cache.
+                string previousCache = Directory.CreateDirectory(Path.Combine(store.DataDirectory, "models")).FullName;
+                string archiveName = ".model-download-" + DeskNest.Inference.LocalModelInstaller.ArchiveSha256 + ".partial";
+                string previousArchive = Path.Combine(previousCache, archiveName);
+                File.Copy(package, previousArchive);
+                await studio.InstallLocalModelPackageCommand.ExecuteAsync(null);
+                string copiedArchive = Path.Combine(deploymentRoot, WorkspaceSettings.ModelDownloadCacheFolderName, archiveName);
+                if (!File.Exists(copiedArchive) || new FileInfo(previousArchive).Length != DeskNest.Inference.LocalModelInstaller.ArchiveBytes)
+                    throw new InvalidOperationException("Changing model location must copy the verified cache and retain the original.");
                 string installed = studio.SettingsModelCache;
                 if (installed == bundle || Path.GetDirectoryName(installed) != deploymentRoot || !File.Exists(Path.Combine(installed, "manifest.json")) ||
                     store.Snapshot.Revision != beforeInstall || store.Snapshot.Settings.ModelCacheDirectory != bundle ||

@@ -70,6 +70,20 @@ public sealed record WorkspaceSettings
         value.Length == 7 && value[0] == '#' && value.AsSpan(1).ToArray().All(Uri.IsHexDigit);
     public InferenceProvider Provider { get; init; } = InferenceProvider.Laya;
     public string? ModelCacheDirectory { get; init; }
+    public const string ModelDownloadCacheFolderName = ".desknext-downloads";
+
+    // Derived from the activated version, not extra persisted state or permission to delete it.
+    public string? GetModelInstallationRoot()
+    {
+        const string prefix = "laya-multilingual-fp32-";
+        string path = Path.TrimEndingDirectorySeparator(ModelCacheDirectory ?? string.Empty);
+        string leaf = Path.GetFileName(path);
+        return leaf.StartsWith(prefix, StringComparison.Ordinal) && Guid.TryParseExact(leaf[prefix.Length..], "N", out _)
+            ? Path.GetDirectoryName(path) : null;
+    }
+    public string? GetModelDownloadCacheDirectory() => GetModelInstallationRoot() is { } root
+        ? Path.Combine(root, ModelDownloadCacheFolderName) : null;
+
     public string ManagedRoot { get; init; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "DeskNest", "Spaces");
     public List<string> MonitoredFolders { get; init; } = [];

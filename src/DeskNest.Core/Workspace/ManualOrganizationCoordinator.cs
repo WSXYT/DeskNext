@@ -44,7 +44,8 @@ public sealed class ManualOrganizationCoordinator
             List<PendingFile> SelectNew(WorkspaceState state)
             {
                 var excluded = state.Settings.ExcludedFolders.Concat(state.Spaces.Select(space => space.Folder))
-                    .Concat([_store.DataDirectory, state.Settings.ManagedRoot, state.Settings.ModelCacheDirectory ?? state.Settings.ManagedRoot]);
+                    .Concat([_store.DataDirectory, state.Settings.ManagedRoot, state.Settings.ModelCacheDirectory ?? state.Settings.ManagedRoot,
+                        state.Settings.GetModelDownloadCacheDirectory() ?? state.Settings.ManagedRoot]);
                 var additions = new List<PendingFile>();
                 foreach (string input in paths)
                 {
