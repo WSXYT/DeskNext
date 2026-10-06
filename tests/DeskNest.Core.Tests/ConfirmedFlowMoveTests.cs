@@ -9,6 +9,57 @@ namespace DeskNest.Core.Tests;
 public sealed class ConfirmedFlowMoveTests
 {
     [FlowNativeFact]
+    public async Task DirectoryFlowPreservesTopologyRefusesSelfNestingAndChecksUndo()
+    {
+        string root = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "DeskNext-flow-directory-" + Guid.NewGuid().ToString("N"))).FullName;
+        try
+        {
+            string fromRoot = Directory.CreateDirectory(Path.Combine(root, "from")).FullName;
+            string toRoot = Directory.CreateDirectory(Path.Combine(root, "to")).FullName;
+            string source = Directory.CreateDirectory(Path.Combine(fromRoot, "Project")).FullName;
+            Directory.CreateDirectory(Path.Combine(source, "empty"));
+            File.WriteAllText(Path.Combine(source, "item.txt"), "original");
+            var from = new WorkspaceSpace(Guid.NewGuid(), "from", "", SpaceStorageMode.Managed, fromRoot);
+            var to = new WorkspaceSpace(Guid.NewGuid(), "to", "", SpaceStorageMode.Managed, toRoot);
+            var file = new WorkspaceFile(Guid.NewGuid(), from.Id, "Project", source, true);
+            await using var store = await WorkspaceStore.OpenAsync(Path.Combine(root, "state"));
+            await store.UpdateAsync(s => s with { Spaces = [from, to], Files = [file] });
+            var coordinator = new ManualOrganizationCoordinator(store, new DesktopOrganizationTransaction(Path.Combine(store.DataDirectory, "organization-recovery.json")));
+            var host = new ConfirmedFlowMoves(store, coordinator);
+            var document = JsonNode.Parse(ManualFlowDefinitions.Create("directory", "", "unused"))!;
+            document["actions"]![0]!["type"] = "pogget.action.file.move";
+            document["actions"]![0]!["parameters"] = new JsonObject { ["source"] = source + Path.DirectorySeparatorChar, ["destinationDirectory"] = toRoot + Path.DirectorySeparatorChar };
+            string json = document.ToJsonString(), target = Path.Combine(toRoot, "Project");
+            string library = Environment.GetEnvironmentVariable("DESKNEXT_FLOW_NATIVE_LIBRARY")!;
+            Task<string> Move(FlowMove m, CancellationToken t) => host.ExecuteAsync(m, (_, _) => Task.FromResult(true), t);
+            Assert.Equal(1, await ManualFlowRunner.RunAsync(json, (_, _) => Task.FromResult(true), nativeLibraryPath: library, executeMove: Move, validateMove: host.Validate));
+            Assert.False(Directory.Exists(source));
+            Assert.True(Directory.Exists(Path.Combine(target, "empty")));
+            var operation = Assert.Single(store.Snapshot.Operations);
+            Assert.Equal(2, operation.OriginalDirectoryNativeIds!.Count);
+            Assert.Single(operation.OriginalDirectoryManifest!);
+            await coordinator.UndoOperationAsync(operation.Id);
+            Assert.True(Directory.Exists(Path.Combine(source, "empty")));
+            Assert.Equal("original", File.ReadAllText(Path.Combine(source, "item.txt")));
+            Assert.False(Directory.Exists(target));
+
+            string nested = Directory.CreateDirectory(Path.Combine(source, "nested")).FullName;
+            await store.UpdateAsync(s => s with { Spaces = [from, to with { Folder = nested }] });
+            long revision = store.Snapshot.Revision;
+            Assert.Throws<InvalidDataException>(() => host.Validate(new FlowMove(source, Path.Combine(nested, "Project"))));
+            Assert.Equal(revision, store.Snapshot.Revision);
+            Assert.Empty(Directory.GetFileSystemEntries(nested));
+            await store.UpdateAsync(s => s with { Spaces = [from, to] });
+            Assert.Equal(1, await ManualFlowRunner.RunAsync(json, (_, _) => Task.FromResult(true), nativeLibraryPath: library, executeMove: Move, validateMove: host.Validate));
+            File.WriteAllText(Path.Combine(target, "item.txt"), "changed");
+            await Assert.ThrowsAsync<IOException>(() => coordinator.UndoOperationAsync(store.Snapshot.Operations.Last().Id));
+            Assert.False(Directory.Exists(source));
+            Assert.Equal("changed", File.ReadAllText(Path.Combine(target, "item.txt")));
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [FlowNativeFact]
     public async Task NativeMovesRequireCurrentConfirmationAndRetainNormalUndo()
     {
         string root = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "DeskNext-flow-move-" + Guid.NewGuid().ToString("N"))).FullName;

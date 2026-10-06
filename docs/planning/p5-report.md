@@ -1,5 +1,11 @@
 # P5 folder observation and Flow — partial implementation
 
+## Ordinary-directory move extension (2026-10-06)
+
+The same individually confirmed move path now accepts cataloged ordinary directories as well as files. Only the native Move node's ordinary-object type check changed; the coordinator still captures and verifies the full directory manifest/native root and child IDs, commits metadata and owns undo. A lexical self-nesting refusal runs before confirmation; the existing Core/native ancestry checks remain authoritative at execution. Trailing source/target separators are normalized only in the transient submission so native `filename()` cannot produce an empty leaf; the user's draft stays unchanged.
+
+Two targeted native Flow-move cases pass locally, including empty-directory/receipt preservation, self-nesting refusal and tamper-refusing undo. The existing UI workflow now exercises both file and directory confirmation, cancellation, move/undo, stale revision and close-draining paths. `artifacts/p5-flow-tests/directory-move-ui.log` reports terminal Success/ConfirmedFlowMoveVerified and dictionary parity true (23,587 ms for the compound smoke); App/Release bridge builds succeed. A test-edit omission initially failed compilation and was fixed before this result. Active editor diagnostics still disagree with the compiling C++20/C# source and were not used to weaken it. The earlier three-platform run below predates this small extension; no full CI, P3 or installer matrix was repeated. Other Flow actions, bindings and automatic triggers stay closed.
+
 ## Individually confirmed catalog-file moves (2026-10-06)
 
 Manual Flow runs now accept literal prompts plus **regular-file moves from the catalog into an existing, uniquely identified space folder**. `ConfirmedFlowMoves` resolves the catalog subject and target, reuses the coordinator's source-boundary check, and displays exact read-only source/destination paths for each move. Confirmation captures the workspace revision; only `ManualOrganizationCoordinator.MoveFileAsync` performs the operation and its existing journal/commit/undo protocol. The native runner only requests it. Directory, map, rename, read-text, control, binding and automatic-trigger execution remain refused.

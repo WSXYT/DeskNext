@@ -912,8 +912,9 @@ namespace PoggetCore::Flow {
                     }
                     std::error_code error;
                     const auto sourceStatus = std::filesystem::symlink_status(source, error);
-                    if (error || sourceStatus.type() != std::filesystem::file_type::regular) {
-                        failMove(L"source is not a regular file: " + source.wstring());
+                    if (error || (sourceStatus.type() != std::filesystem::file_type::regular &&
+                        sourceStatus.type() != std::filesystem::file_type::directory)) {
+                        failMove(L"source is not an ordinary file or directory: " + source.wstring());
                         continue;
                     }
                     const auto directoryStatus = std::filesystem::symlink_status(directory, error);

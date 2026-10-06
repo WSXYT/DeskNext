@@ -267,15 +267,19 @@ public static class HeadlessSmokeRunner
         return true;
     }
 
-    private static async Task VerifyConfirmedFlowMoveAsync(string root)
+    private static async Task VerifyConfirmedFlowMoveAsync(string root, bool directory)
     {
         string from = Directory.CreateDirectory(Path.Combine(root, "source")).FullName;
         string to = Directory.CreateDirectory(Path.Combine(root, "target")).FullName;
-        string source = Path.Combine(from, "流水.txt"), target = Path.Combine(to, "流水.txt");
-        File.WriteAllText(source, "flow fixture");
+        string name = directory ? "工程" : "流水.txt";
+        string source = Path.Combine(from, name), target = Path.Combine(to, name);
+        string Content(string item) => directory ? Path.Combine(item, "item.txt") : item;
+        bool Exists(string item) => directory ? Directory.Exists(item) : File.Exists(item);
+        if (directory) Directory.CreateDirectory(Path.Combine(source, "empty"));
+        File.WriteAllText(Content(source), "flow fixture");
         var sourceSpace = new WorkspaceSpace(Guid.NewGuid(), "source", "", SpaceStorageMode.Managed, from);
         var targetSpace = new WorkspaceSpace(Guid.NewGuid(), "target", "", SpaceStorageMode.Managed, to);
-        var file = new WorkspaceFile(Guid.NewGuid(), sourceSpace.Id, "流水.txt", source, false);
+        var file = new WorkspaceFile(Guid.NewGuid(), sourceSpace.Id, name, source, directory);
         await using var store = await WorkspaceStore.OpenAsync(Path.Combine(root, "state"));
         await store.UpdateAsync(s => s with { OnboardingComplete = true, OnboardingStep = 5, Spaces = [sourceSpace, targetSpace], Files = [file] });
         await using var owner = new MainWindowViewModel(store, ownsStore: false);
@@ -288,7 +292,7 @@ public static class HeadlessSmokeRunner
             studio.SelectedTabIndex = 6;
             var document = System.Text.Json.Nodes.JsonNode.Parse(DeskNest.Core.Flow.ManualFlowDefinitions.Create("move", "", "unused"))!;
             document["actions"]![0]!["type"] = "pogget.action.file.move";
-            document["actions"]![0]!["parameters"] = new System.Text.Json.Nodes.JsonObject { ["source"] = source, ["destinationDirectory"] = to };
+            document["actions"]![0]!["parameters"] = new System.Text.Json.Nodes.JsonObject { ["source"] = source + (directory ? Path.DirectorySeparatorChar.ToString() : ""), ["destinationDirectory"] = to };
             studio.FlowJsonDraft = document.ToJsonString();
             Dispatcher.UIThread.RunJobs();
             var view = window.GetVisualDescendants().OfType<StudioView>().Single();
@@ -300,11 +304,11 @@ public static class HeadlessSmokeRunner
             var sourceInput = view.FindControl<TextBox>("FlowMoveSourceInput")!;
             var destinationInput = view.FindControl<TextBox>("FlowMoveDestinationInput")!;
             if (!sourceInput.IsReadOnly || !sourceInput.IsEffectivelyVisible || sourceInput.FlowDirection != FlowDirection.LeftToRight ||
-                sourceInput.Text != source || destinationInput.Text != target || store.Snapshot.Revision != revision || !File.Exists(source))
+                sourceInput.Text != source || destinationInput.Text != target || store.Snapshot.Revision != revision || !Exists(source))
                 throw new InvalidOperationException("Flow moves must show exact read-only paths before any mutation.");
             view.FindControl<Button>("CancelFlowPromptButton")!.Command!.Execute(null);
             await run;
-            if (!File.Exists(source) || File.Exists(target) || store.Snapshot.Revision != revision)
+            if (!Exists(source) || Exists(target) || store.Snapshot.Revision != revision)
                 throw new InvalidOperationException("Cancelling a Flow review must not move or save metadata.");
             run = studio.RunManualFlowCommand.ExecuteAsync(null);
             await ReviewAsync();
@@ -312,17 +316,19 @@ public static class HeadlessSmokeRunner
             await run;
             Dispatcher.UIThread.RunJobs();
             var operation = store.Snapshot.Operations.Single();
-            if (operation.Status != ProposedOperationStatus.Completed || File.Exists(source) || File.ReadAllText(target) != "flow fixture")
+            if (operation.Status != ProposedOperationStatus.Completed || Exists(source) || File.ReadAllText(Content(target)) != "flow fixture")
                 throw new InvalidOperationException("Confirmed Flow move did not use the journaled coordinator.");
             await studio.ExecuteUndoManualMoveCommand.ExecuteAsync(operation.Id);
-            if (File.ReadAllText(source) != "flow fixture" || File.Exists(target))
+            if (File.ReadAllText(Content(source)) != "flow fixture" || Exists(target))
                 throw new InvalidOperationException("Flow move must retain normal identity-checked undo.");
+            if (directory && (!Directory.Exists(Path.Combine(source, "empty")) || operation.OriginalDirectoryNativeIds?.Count != 2))
+                throw new InvalidOperationException("Directory Flow must preserve empty topology and native root/child receipts.");
             run = studio.RunManualFlowCommand.ExecuteAsync(null);
             await ReviewAsync();
             await store.UpdateAsync(s => s);
             studio.AcknowledgeFlowPromptCommand.Execute(null);
             await run;
-            if (!File.Exists(source) || File.Exists(target) || store.Snapshot.Operations.Count != 1)
+            if (!Exists(source) || Exists(target) || store.Snapshot.Operations.Count != 1)
                 throw new InvalidOperationException("A stale Flow confirmation was allowed to move a file.");
             run = studio.RunManualFlowCommand.ExecuteAsync(null);
             await ReviewAsync();
@@ -330,7 +336,7 @@ public static class HeadlessSmokeRunner
             await run;
             var closing = Stopwatch.StartNew();
             while (window.IsVisible && closing.Elapsed < TimeSpan.FromSeconds(5)) await Task.Delay(10);
-            if (window.IsVisible || studio.IsFlowBusy || !File.Exists(source) || File.Exists(target))
+            if (window.IsVisible || studio.IsFlowBusy || !Exists(source) || Exists(target))
                 throw new InvalidOperationException("Window close must cancel and drain a pending Flow before closing.");
 
             async Task ReviewAsync()
@@ -984,8 +990,11 @@ public static class HeadlessSmokeRunner
             }
             if (result.FlowDefinitionPersistenceVerified)
             {
-                using var moveFixture = new TempTestDir();
-                AwaitOnUIThread(VerifyConfirmedFlowMoveAsync(moveFixture.Path), "confirmed native Flow move", 20);
+                foreach (bool directory in new[] { false, true })
+                {
+                    using var moveFixture = new TempTestDir();
+                    AwaitOnUIThread(VerifyConfirmedFlowMoveAsync(moveFixture.Path, directory), $"confirmed native Flow move ({directory})", 20);
+                }
                 result.ConfirmedFlowMoveVerified = true;
             }
             result.ModelPackageActivationVerified = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DESKNEXT_TEST_MODEL_ARCHIVE"));

@@ -72,7 +72,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Flow Core tests failed.' }
           [xml]$trx = Get-Content artifacts/flow-evidence/flow.trx -Raw
           $counts = $trx.TestRun.ResultSummary.Counters
-          if ([int]$counts.executed -lt 6 -or [int]$counts.failed -ne 0 -or
+          if ([int]$counts.executed -lt 7 -or [int]$counts.failed -ne 0 -or
               [int]$counts.notExecuted -ne 0) {
             throw 'Flow tests require executed native evidence, without skips.'
           }

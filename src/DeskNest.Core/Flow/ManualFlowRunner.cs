@@ -44,7 +44,12 @@ public static class ManualFlowRunner
                 if (!Path.IsPathFullyQualified(source) || !Path.IsPathFullyQualified(directory) ||
                     !string.IsNullOrEmpty(parameters?["destinationContainerId"]?.GetValue<string>()) || source.Contains("${") || directory.Contains("${"))
                     throw new NotSupportedException("Move runs require literal absolute source and destination-folder paths.");
-                var request = new FlowMove(Path.GetFullPath(source), Path.Combine(Path.GetFullPath(directory), Path.GetFileName(source)));
+                source = Path.TrimEndingDirectorySeparator(Path.GetFullPath(source));
+                directory = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory));
+                // Native filename() treats a trailing separator as an empty leaf; normalize only the transient submission.
+                parameters!["source"] = source;
+                parameters["destinationDirectory"] = directory;
+                var request = new FlowMove(source, Path.Combine(directory, Path.GetFileName(source)));
                 expected.Add((null, request));
             }
         }
