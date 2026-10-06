@@ -359,6 +359,15 @@ internal static class ManualClipboardSmoke
                         store.Snapshot.Revision != beforePreview || File.ReadAllText(contentPath) != "clipboard fixture")
                         throw new InvalidOperationException("The installed model failed the reopened CPU preview: " + reopened.FileActionNotice);
                     reopened.ClosePreviewDialog();
+                    int? workerId = reopenedViewModel.LocalWorkerProcessId;
+                    await reopened.PreviewClassificationCommand.ExecuteAsync(reopened.AllSpaces.SelectMany(s => s.Files).Single(f => f.Id == fileId));
+                    if (workerId is null || reopenedViewModel.LocalWorkerProcessId != workerId || !reopened.IsPreviewDialogOpen ||
+                        store.Snapshot.Revision != beforePreview)
+                        throw new InvalidOperationException("The reopened model must reuse its worker without changing metadata.");
+                    reopened.ClosePreviewDialog();
+                    await reopenedViewModel.DisposeAsync();
+                    if (reopenedViewModel.LocalWorkerProcessId is not null || reopenedViewModel.LocalWorkerShutdownError is not null)
+                        throw new InvalidOperationException("The reused CPU worker did not exit cleanly: " + reopenedViewModel.LocalWorkerShutdownError);
                     Console.WriteLine("MODEL_PACKAGE_REOPENED_CPU_PREVIEW_VERIFIED: true");
                 }
                 studio.SettingsModelCache = bundle;
@@ -542,7 +551,7 @@ internal static class ManualClipboardSmoke
             using (var customIcon = FileIcon.LoadCustom(wallpaper))
                 if (customIcon.PixelSize.Width != 64) throw new InvalidOperationException("Custom icon decoding must remain bounded.");
             if (OperatingSystem.IsWindows() && await SystemFileIcons.GetAsync("fixture.txt", false) is null)
-                throw new InvalidOperationException("Windows must provide a registered file-type icon.");
+                throw new InvalidOperationException("Windows must provide a registered file-type icon. Native stage: " + SystemFileIcons.FailureFor(".txt"));
             await floating.ApplyIconSelectionAsync(fileId, false, null);
             await floating.ApplyIconSelectionAsync(source.Id, true, null);
             await floating.SetFileViewAsync(SpaceFileView.List);

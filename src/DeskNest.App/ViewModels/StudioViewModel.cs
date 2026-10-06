@@ -734,6 +734,7 @@ public sealed partial class StudioViewModel : ViewModelBase
 
     partial void OnSettingsModelCacheChanged(string value)
     {
+        PreviewClassificationCommand.Cancel();
         VerifyLocalModelCommand.Cancel();
         InstallLocalModelPackageCommand.Cancel();
         ModelVerificationNotice = string.Empty;

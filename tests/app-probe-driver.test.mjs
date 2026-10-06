@@ -26,6 +26,10 @@ test('requested real model deployment requires its own literal proof', () => {
         assert.equal(runWithEnv(env, report({ Success: true, ModelPackageActivationVerified: value }), '--headless-smoke').status, 1);
     assert.equal(runWithEnv(env, report({ Success: true, ModelPackageActivationVerified: true }), '--headless-smoke').status, 0);
 });
+test('local model preview requires real reuse evidence', () => {
+    assert.equal(run(report({ Success: true, LocalClassificationPreviewVerified: true }), '--local-model=fixture').status, 1);
+    assert.equal(run(report({ Success: true, LocalClassificationPreviewVerified: true, LocalWorkerReuseVerified: true }), '--local-model=fixture').status, 0);
+});
 test('zero exit without terminal evidence is a failure', () => {
     const result = run('console.log("started only");');
     assert.equal(result.status, 1);

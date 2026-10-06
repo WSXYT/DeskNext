@@ -73,6 +73,7 @@ public sealed class SmokeTestResult
     public bool ManagedClipboardWorkflowVerified { get; set; }
     public bool FolderObservationVerified { get; set; }
     public bool LocalClassificationPreviewVerified { get; set; }
+    public bool LocalWorkerReuseVerified { get; set; }
     public bool ModelPackageActivationVerified { get; set; }
     public bool WorkspaceFileCallbacksInvoked { get; set; }
     public bool WorkspaceFileManagedVsMappedVerified { get; set; }
@@ -540,6 +541,8 @@ public static class HeadlessSmokeRunner
             !studio.PreviewContent.Contains(space.Name) || store.Snapshot.Revision != revision ||
             store.Snapshot.Operations.Count != 0 || File.ReadAllText(path) != "Fixture content must remain untouched.")
             throw new InvalidOperationException("Local preview failed or changed files/metadata: " + studio.FileActionNotice);
+        int? worker = main.LocalWorkerProcessId;
+        if (worker is null) throw new InvalidOperationException("An interactive preview must keep its reusable worker.");
         Console.WriteLine("LOCAL_CLASSIFICATION_PREVIEW: " + JsonSerializer.Serialize(studio.PreviewContent));
         studio.ClosePreviewDialog();
         studio.SelectedTabIndex = 1;
@@ -564,6 +567,7 @@ public static class HeadlessSmokeRunner
             if (!button.IsEffectivelyVisible || button.Command != studio.PreviewClassificationCommand || button.CommandParameter != pendingView)
                 throw new InvalidOperationException("Pending preview must target the actual review row.");
             await studio.PreviewClassificationCommand.ExecuteAsync(pendingView);
+            if (main.LocalWorkerProcessId != worker) throw new InvalidOperationException("Consecutive previews did not reuse the same worker.");
             if (!studio.IsPreviewDialogOpen || pendingView.ClassificationTarget?.Id != space.Id || pendingView.TargetSpace is not null ||
                 store.Snapshot.Revision != revision || store.Snapshot.Operations.Count != 0 ||
                 File.ReadAllText(pendingPath) != "Pending fixture must stay outside the space.")
@@ -613,6 +617,10 @@ public static class HeadlessSmokeRunner
         if (File.ReadAllText(pendingPath) != "Pending fixture must stay outside the space." ||
             store.Snapshot.Operations.Single(op => op.Id == operation.Id).Status != ProposedOperationStatus.Undone)
             throw new InvalidOperationException("Model-assisted import undo did not restore the original source.");
+        await main.DisposeAsync();
+        if (main.LocalWorkerProcessId is not null || main.LocalWorkerShutdownError is not null)
+            throw new InvalidOperationException("Workbench disposal did not close its CPU worker cleanly: " + main.LocalWorkerShutdownError);
+        Console.WriteLine("LOCAL_WORKER_REUSE_VERIFIED: shared file/pending worker, correct cancellation recovery, disposed with owner.");
         Console.WriteLine("MODEL_SUGGESTION_MANUAL_IMPORT_UNDO_VERIFIED: true");
     }
 
@@ -732,6 +740,7 @@ public static class HeadlessSmokeRunner
                 using var modelFixture = new TempTestDir();
                 AwaitOnUIThread(VerifyLocalClassificationPreviewAsync(modelFixture.Path, localModel), "local CPU classification preview", 150);
                 result.LocalClassificationPreviewVerified = true;
+                result.LocalWorkerReuseVerified = true;
             }
             result.HeadlessInitialized = (Application.Current != null);
             Console.WriteLine($"  ✓ Avalonia Application.Current active: {result.HeadlessInitialized}");

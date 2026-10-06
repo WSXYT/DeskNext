@@ -145,39 +145,69 @@ public static class Probe
 
     public static Result Run(Request request, string directory, Tensors? fixture = null)
     {
-        VerifyModel(directory);
-        using var configDoc = JsonDocument.Parse(File.ReadAllText(AssetPath(directory, "rl_agent_config.json")));
-        Tensors tensors;
-        if (fixture is null)
+        using var model = new CpuModel(directory);
+        return model.Run(request, fixture);
+    }
+
+    private sealed class CpuModel(string directory) : IDisposable
+    {
+        private string? _manifestHash;
+        private JsonDocument? _config;
+        private Tokenizer? _tokenizer;
+        private InferenceSession? _encoder, _head;
+
+        public Result Run(Request request, Tensors? fixture = null)
         {
-            using var tokenizer = Tokenizer.FromFile(AssetPath(directory, "tokenizer.json"));
-            tensors = Encode(request, tokenizer, configDoc.RootElement, directory);
+            Validate(request);
+            string hash = ModelManifestHash(directory);
+            if (_manifestHash is not null && !hash.Equals(_manifestHash, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("A changed model requires a new worker.");
+            // Reuse native resources, not authorization: retained sessions still require verified assets per request.
+            VerifyModel(directory);
+            if (!ModelManifestHash(directory).Equals(hash, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("Model manifest changed during verification.");
+            _manifestHash = hash;
+            var configDoc = _config ??= JsonDocument.Parse(File.ReadAllText(AssetPath(directory, "rl_agent_config.json")));
+            Tensors tensors;
+            if (fixture is null)
+            {
+                var tokenizer = _tokenizer ??= Tokenizer.FromFile(AssetPath(directory, "tokenizer.json"));
+                tensors = Encode(request, tokenizer, configDoc.RootElement, directory);
+            }
+            else tensors = fixture;
+            Validate(request);
+            int n = tensors.InputIds.Length, l = tensors.InputIds[0].Length, k = tensors.MarkerPos[0].Length;
+            if (n != 1 || k != request.Candidates.Length || tensors.AttentionMask[0].Length != l || tensors.MarkerMask[0].Length != k ||
+                tensors.Qtype.Length != 1 || tensors.Qtype[0] != 0 || tensors.InputIds[0].Any(x => x < 0) ||
+                tensors.AttentionMask[0].Any(x => x != 0 && x != 1) ||
+                tensors.MarkerPos[0].Any(x => x < 0 || x >= l) || tensors.MarkerMask[0].Any(x => !x))
+                throw new InvalidDataException("Invalid input tensors");
+            var encoder = _encoder ??= new InferenceSession(AssetPath(directory, "encoder.onnx"));
+            var head = _head ??= new InferenceSession(AssetPath(directory, "head.onnx"));
+            using var ids = OrtValue.CreateTensorValueFromMemory(tensors.InputIds[0], [1, l]);
+            using var attention = OrtValue.CreateTensorValueFromMemory(tensors.AttentionMask[0], [1, l]);
+            using var runOptions = new RunOptions();
+            using var encoded = encoder.Run(runOptions, new Dictionary<string, OrtValue> { ["input_ids"] = ids, ["attention_mask"] = attention }, ["last_hidden_state"]);
+            var hidden = encoded.First().GetTensorDataAsSpan<float>().ToArray();
+            long dimension = hidden.Length / l;
+            using var h = OrtValue.CreateTensorValueFromMemory(hidden, [1, l, dimension]);
+            using var positions = OrtValue.CreateTensorValueFromMemory(tensors.MarkerPos[0], [1, k]);
+            using var masks = OrtValue.CreateTensorValueFromMemory(tensors.MarkerMask[0], [1, k]);
+            using var qtype = OrtValue.CreateTensorValueFromMemory(tensors.Qtype, [1, 1]);
+            using var outputs = head.Run(runOptions, new Dictionary<string, OrtValue> {
+                ["hidden_states"] = h, ["marker_pos"] = positions, ["marker_mask"] = masks,
+                ["qtype"] = qtype, ["attention_mask"] = attention }, ["logits", "act_logits"]);
+            return Decide(request, tensors, outputs.First().GetTensorDataAsSpan<float>().ToArray(),
+                outputs.Skip(1).First().GetTensorDataAsSpan<float>().ToArray(), configDoc.RootElement);
         }
-        else tensors = fixture;
-        Validate(request);
-        int n = tensors.InputIds.Length, l = tensors.InputIds[0].Length, k = tensors.MarkerPos[0].Length;
-        if (n != 1 || k != request.Candidates.Length || tensors.AttentionMask[0].Length != l || tensors.MarkerMask[0].Length != k ||
-            tensors.Qtype.Length != 1 || tensors.Qtype[0] != 0 || tensors.InputIds[0].Any(x => x < 0) ||
-            tensors.AttentionMask[0].Any(x => x != 0 && x != 1) ||
-            tensors.MarkerPos[0].Any(x => x < 0 || x >= l) || tensors.MarkerMask[0].Any(x => !x))
-            throw new InvalidDataException("Invalid input tensors");
-        using var encoder = new InferenceSession(AssetPath(directory, "encoder.onnx"));
-        using var head = new InferenceSession(AssetPath(directory, "head.onnx"));
-        using var ids = OrtValue.CreateTensorValueFromMemory(tensors.InputIds[0], [1, l]);
-        using var attention = OrtValue.CreateTensorValueFromMemory(tensors.AttentionMask[0], [1, l]);
-        using var runOptions = new RunOptions();
-        using var encoded = encoder.Run(runOptions, new Dictionary<string, OrtValue> { ["input_ids"] = ids, ["attention_mask"] = attention }, ["last_hidden_state"]);
-        var hidden = encoded.First().GetTensorDataAsSpan<float>().ToArray();
-        long dimension = hidden.Length / l;
-        using var h = OrtValue.CreateTensorValueFromMemory(hidden, [1, l, dimension]);
-        using var positions = OrtValue.CreateTensorValueFromMemory(tensors.MarkerPos[0], [1, k]);
-        using var masks = OrtValue.CreateTensorValueFromMemory(tensors.MarkerMask[0], [1, k]);
-        using var qtype = OrtValue.CreateTensorValueFromMemory(tensors.Qtype, [1, 1]);
-        using var outputs = head.Run(runOptions, new Dictionary<string, OrtValue> {
-            ["hidden_states"] = h, ["marker_pos"] = positions, ["marker_mask"] = masks,
-            ["qtype"] = qtype, ["attention_mask"] = attention }, ["logits", "act_logits"]);
-        return Decide(request, tensors, outputs.First().GetTensorDataAsSpan<float>().ToArray(),
-            outputs.Skip(1).First().GetTensorDataAsSpan<float>().ToArray(), configDoc.RootElement);
+
+        public void Dispose()
+        {
+            _head?.Dispose();
+            _encoder?.Dispose();
+            _tokenizer?.Dispose();
+            _config?.Dispose();
+        }
     }
 
     public static string ModelManifestHash(string directory)
@@ -189,6 +219,7 @@ public static class Probe
     // Legacy raw frames remain available for P1 tensor/oracle tools; the application uses versioned frames.
     public static void Worker(string directory, Stream input, Stream output, bool versioned = false)
     {
+        using var model = new CpuModel(directory); // Lazy: malformed frames never load a model.
         Span<byte> header = stackalloc byte[4];
         while (true)
         {
@@ -215,7 +246,7 @@ public static class Probe
                     throw new InvalidDataException("Worker model manifest does not match the requested bundle.");
             }
             else request = JsonSerializer.Deserialize<Request>(data, Json) ?? throw new InvalidDataException("Null request");
-            var result = Run(request, directory);
+            var result = model.Run(request);
             if (versioned && !ModelManifestHash(directory).Equals(modelHash, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException("Model manifest changed while the worker was running.");
             byte[] response = versioned

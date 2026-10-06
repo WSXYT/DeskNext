@@ -7,7 +7,7 @@ namespace DeskNest.Inference;
 /// <summary>One CPU preview through the existing framed worker; no file-operation authority.</summary>
 public static class LocalPreviewClient
 {
-    // ponytail: cold-start one worker per preview; consider reuse only after measuring the latency.
+    // One-shot loading/diagnostic checks require a clean process exit. Interactive previews use LocalPreviewSession.
     private const int MaximumFrame = 1024 * 1024;
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
@@ -26,52 +26,28 @@ public static class LocalPreviewClient
     public static async Task<Probe.Result> RunAsync(ProcessStartInfo start, string modelDirectory,
         Probe.Request request, CancellationToken cancellationToken = default)
     {
-        Probe.Validate(request);
-        cancellationToken.ThrowIfCancellationRequested();
-        if (!Path.IsPathFullyQualified(modelDirectory) || !Directory.Exists(modelDirectory))
-            throw new DirectoryNotFoundException("Choose an existing local model bundle directory.");
-        byte[] payload = JsonSerializer.SerializeToUtf8Bytes(request, Json);
-        if (payload.Length > MaximumFrame) throw new InvalidDataException("Request frame too large.");
-        string expectedModelHash = Probe.ModelManifestHash(modelDirectory);
-        payload = JsonSerializer.SerializeToUtf8Bytes(new Probe.WorkerRequest(Probe.WorkerProtocolVersion, expectedModelHash, request), Json);
-        if (payload.Length > MaximumFrame) throw new InvalidDataException("Request frame too large.");
-        start.UseShellExecute = false;
-        start.CreateNoWindow = true;
-        start.RedirectStandardInput = start.RedirectStandardOutput = start.RedirectStandardError = true;
-        // Keep the recognized verb: older two-argument hosts refuse the extra protocol argument
-        // instead of interpreting an unknown verb as a request to open the normal GUI.
-        start.ArgumentList.Add("--inference-worker");
-        start.ArgumentList.Add(modelDirectory);
-        start.ArgumentList.Add("--protocol=1");
+        byte[] payload = PrepareRequest(modelDirectory, request, cancellationToken, out string expectedModelHash);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromMinutes(2));
         var token = timeout.Token;
-        using var process = Process.Start(start) ?? throw new IOException("Cannot start the local CPU worker.");
+        using var process = StartWorker(start, modelDirectory);
         Task<string> errors = ReadErrorsAsync(process.StandardError, token);
         try
         {
-            byte[] header = new byte[4];
-            BinaryPrimitives.WriteInt32LittleEndian(header, payload.Length);
-            await process.StandardInput.BaseStream.WriteAsync(header, token).ConfigureAwait(false);
-            await process.StandardInput.BaseStream.WriteAsync(payload, token).ConfigureAwait(false);
-            process.StandardInput.Close(); // One request; EOF makes the existing worker exit normally.
-            try { await process.StandardOutput.BaseStream.ReadExactlyAsync(header, token).ConfigureAwait(false); }
+            await WriteRequestAsync(process, payload, token).ConfigureAwait(false);
+            process.StandardInput.Close(); // A one-shot check additionally requires EOF and clean exit.
+            Probe.WorkerReply reply;
+            try { reply = await ReadReplyAsync(process, token).ConfigureAwait(false); }
             catch (EndOfStreamException)
             {
                 await process.WaitForExitAsync(token).ConfigureAwait(false);
                 throw new InvalidDataException("Local model could not produce a result: " + await errors.ConfigureAwait(false));
             }
-            int length = BinaryPrimitives.ReadInt32LittleEndian(header);
-            if (length is < 1 or > MaximumFrame) throw new InvalidDataException("Invalid worker response size.");
-            byte[] response = new byte[length];
-            await process.StandardOutput.BaseStream.ReadExactlyAsync(response, token).ConfigureAwait(false);
             if (await process.StandardOutput.BaseStream.ReadAsync(new byte[1], token).ConfigureAwait(false) != 0)
                 throw new InvalidDataException("Unexpected trailing worker output.");
             await process.WaitForExitAsync(token).ConfigureAwait(false);
             string error = await errors.ConfigureAwait(false);
             if (process.ExitCode != 0) throw new IOException("Local CPU worker failed: " + error);
-            var reply = JsonSerializer.Deserialize<Probe.WorkerReply>(response, Json)
-                ?? throw new InvalidDataException("Empty worker reply.");
             ValidateReply(request, expectedModelHash, reply);
             if (!Probe.ModelManifestHash(modelDirectory).Equals(expectedModelHash, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException("Selected model changed before the result could be accepted.");
@@ -86,12 +62,59 @@ public static class LocalPreviewClient
             if (!process.HasExited)
             {
                 try { process.Kill(entireProcessTree: true); }
-                catch (InvalidOperationException) { } // Exited between the check and Kill.
+                catch (InvalidOperationException) { }
                 await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
             }
             try { await errors.ConfigureAwait(false); }
             catch (OperationCanceledException) { }
         }
+    }
+
+    internal static byte[] PrepareRequest(string modelDirectory, Probe.Request request, CancellationToken cancellationToken, out string expectedModelHash)
+    {
+        Probe.Validate(request);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!Path.IsPathFullyQualified(modelDirectory) || !Directory.Exists(modelDirectory))
+            throw new DirectoryNotFoundException("Choose an existing local model bundle directory.");
+        byte[] payload = JsonSerializer.SerializeToUtf8Bytes(request, Json);
+        if (payload.Length > MaximumFrame) throw new InvalidDataException("Request frame too large.");
+        expectedModelHash = Probe.ModelManifestHash(modelDirectory);
+        payload = JsonSerializer.SerializeToUtf8Bytes(new Probe.WorkerRequest(Probe.WorkerProtocolVersion, expectedModelHash, request), Json);
+        if (payload.Length > MaximumFrame) throw new InvalidDataException("Request frame too large.");
+        return payload;
+    }
+
+    internal static Process StartWorker(ProcessStartInfo start, string modelDirectory)
+    {
+        start.UseShellExecute = false;
+        start.CreateNoWindow = true;
+        start.RedirectStandardInput = start.RedirectStandardOutput = start.RedirectStandardError = true;
+        // Keep the recognized verb: older two-argument hosts refuse the extra protocol argument
+        // instead of interpreting an unknown verb as a request to open the normal GUI.
+        start.ArgumentList.Add("--inference-worker");
+        start.ArgumentList.Add(modelDirectory);
+        start.ArgumentList.Add("--protocol=1");
+        return Process.Start(start) ?? throw new IOException("Cannot start the local CPU worker.");
+    }
+
+    internal static async Task WriteRequestAsync(Process process, byte[] payload, CancellationToken token)
+    {
+        byte[] header = new byte[4];
+        BinaryPrimitives.WriteInt32LittleEndian(header, payload.Length);
+        await process.StandardInput.BaseStream.WriteAsync(header, token).ConfigureAwait(false);
+        await process.StandardInput.BaseStream.WriteAsync(payload, token).ConfigureAwait(false);
+        await process.StandardInput.BaseStream.FlushAsync(token).ConfigureAwait(false);
+    }
+
+    internal static async Task<Probe.WorkerReply> ReadReplyAsync(Process process, CancellationToken token)
+    {
+        byte[] header = new byte[4];
+        await process.StandardOutput.BaseStream.ReadExactlyAsync(header, token).ConfigureAwait(false);
+        int length = BinaryPrimitives.ReadInt32LittleEndian(header);
+        if (length is < 1 or > MaximumFrame) throw new InvalidDataException("Invalid worker response size.");
+        byte[] response = new byte[length];
+        await process.StandardOutput.BaseStream.ReadExactlyAsync(response, token).ConfigureAwait(false);
+        return JsonSerializer.Deserialize<Probe.WorkerReply>(response, Json) ?? throw new InvalidDataException("Empty worker reply.");
     }
 
     public static void ValidateReply(Probe.Request request, string expectedModelHash, Probe.WorkerReply reply)
@@ -117,7 +140,7 @@ public static class LocalPreviewClient
             throw new InvalidDataException("Worker choice does not match its probabilities.");
     }
 
-    private static async Task<string> ReadErrorsAsync(StreamReader reader, CancellationToken token)
+    internal static async Task<string> ReadErrorsAsync(StreamReader reader, CancellationToken token)
     {
         char[] prefix = new char[4096];
         int count = await reader.ReadBlockAsync(prefix.AsMemory(), token).ConfigureAwait(false);

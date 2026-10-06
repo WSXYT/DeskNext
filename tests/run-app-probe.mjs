@@ -15,6 +15,9 @@ const sections = (child.stdout ?? '').split(marker);
 if (sections.length !== 2) throw new Error(`Expected exactly one terminal ${marker}`);
 const result = JSON.parse(sections[1].trim());
 if (result.Success !== true) throw new Error('Probe did not report Success=true.');
+if (args.some(a => a.startsWith('--local-model=')) &&
+    (result.LocalClassificationPreviewVerified !== true || result.LocalWorkerReuseVerified !== true))
+    throw new Error('Requested local model preview and worker reuse were not verified.');
 if (modelPackage && result.ModelPackageActivationVerified !== true)
     throw new Error('Requested real model installation, activation and reopened CPU preview were not verified.');
 if (args.some(a => a === '--native-library' || a.startsWith('--native-library=')) &&

@@ -31,6 +31,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     private bool _ownsStore;
     private bool _disposed;
     private readonly System.Threading.SemaphoreSlim _startupGate = new(1, 1);
+    private readonly DeskNest.Inference.LocalPreviewSession _localPreview = new(CreateLocalWorkerStart);
+    internal int? LocalWorkerProcessId => _localPreview.WorkerProcessId;
+    internal string? LocalWorkerShutdownError => _localPreview.LastShutdownError;
     private readonly Func<Func<WorkspaceState, WorkspaceState>, Task<WorkspaceState>>? _stateUpdater;
     private string? _dataDirectory;
 
@@ -203,6 +206,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         {
             if (_disposed) return;
             await StopFolderObservationAsync();
+            await SetUIStateAsync(() => Studio?.PreviewClassificationCommand.Cancel());
+            await _localPreview.StopAsync();
             _dataDirectory = _store?.DataDirectory ?? customDataDir ?? WorkspaceStore.DefaultDataDirectory();
             await SetUIStateAsync(() =>
             {
@@ -354,6 +359,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             string[] previousCaches = [_store.Snapshot.Settings.GetModelDownloadCacheDirectory() ?? legacyCache, legacyCache];
             if (!Path.IsPathFullyQualified(destination)) throw new ArgumentException(Localizer["Validation.ValidAbsolutePathRequired"]);
             token.ThrowIfCancellationRequested();
+            studio.PreviewClassificationCommand.Cancel();
+            await _localPreview.StopAsync();
             // Do not observe a custom destination's staging files as new user documents.
             await StopFolderObservationAsync();
             return await Task.Run(async () =>
@@ -463,7 +470,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         }
         else
         {
-            var result = await DeskNest.Inference.LocalPreviewClient.RunAsync(CreateLocalWorkerStart(), directory!, request, token);
+            var result = await _localPreview.RunAsync(directory!, request, token);
             probabilities = result.Probabilities;
             choice = result.Choice;
         }
@@ -1137,6 +1144,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
                 Studio?.InstallLocalModelPackageCommand.Cancel();
                 if (Studio is not null) Studio.OnInstallLocalModelPackage = null;
             });
+            await _localPreview.DisposeAsync();
             Localizer.LanguageChanged -= OnLanguageChanged;
             Localizer.PropertyChanged -= OnLocalizerPropertyChanged;
             ThemeMgr.ThemeChanged -= OnThemeChanged;
