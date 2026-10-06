@@ -1543,7 +1543,9 @@ public static class HeadlessSmokeRunner
                 File.WriteAllText(testDropFile, "sample drop content");
 
                 var topLevel = TopLevel.GetTopLevel(window);
-                var storageItem = Task.Run(async () => await topLevel!.StorageProvider.TryGetFileFromPathAsync(new Uri(Path.GetFullPath(testDropFile)))).GetAwaiter().GetResult();
+                var storageTask = topLevel!.StorageProvider.TryGetFileFromPathAsync(new Uri(Path.GetFullPath(testDropFile)));
+                AwaitOnUIThread(storageTask, "space drop storage item");
+                var storageItem = storageTask.GetAwaiter().GetResult();
                 if (storageItem == null)
                     throw new InvalidOperationException($"Failed to obtain IStorageItem for test file '{testDropFile}' via StorageProvider.");
 
@@ -1628,7 +1630,9 @@ public static class HeadlessSmokeRunner
                 Directory.CreateDirectory(dropFolder);
                 var secondDropFile = Path.Combine(dropFolder, "drag_test_metadata.txt");
                 File.WriteAllText(secondDropFile, "metadata enrollment test content");
-                var secondStorageItem = Task.Run(async () => await topLevel!.StorageProvider.TryGetFileFromPathAsync(new Uri(Path.GetFullPath(secondDropFile)))).GetAwaiter().GetResult();
+                var secondStorageTask = topLevel!.StorageProvider.TryGetFileFromPathAsync(new Uri(Path.GetFullPath(secondDropFile)));
+                AwaitOnUIThread(secondStorageTask, "second space drop storage item");
+                var secondStorageItem = secondStorageTask.GetAwaiter().GetResult();
                 var secondFileData = new DataTransfer();
                 secondFileData.Add(DataTransferItem.CreateFile(secondStorageItem!));
 
@@ -1692,7 +1696,9 @@ public static class HeadlessSmokeRunner
                 // Test capsule Drop with default triage enrollment
                 var capsuleTriageFile = Path.Combine(oobeDir.Path, "capsule_triage_test.txt");
                 File.WriteAllText(capsuleTriageFile, "triage drop test");
-                var capStorageItem = Task.Run(async () => await topLevel!.StorageProvider.TryGetFileFromPathAsync(new Uri(Path.GetFullPath(capsuleTriageFile)))).GetAwaiter().GetResult();
+                var capsuleStorageTask = topLevel!.StorageProvider.TryGetFileFromPathAsync(new Uri(Path.GetFullPath(capsuleTriageFile)));
+                AwaitOnUIThread(capsuleStorageTask, "capsule drop storage item");
+                var capStorageItem = capsuleStorageTask.GetAwaiter().GetResult();
                 var capTriageData = new DataTransfer();
                 capTriageData.Add(DataTransferItem.CreateFile(capStorageItem!));
 
