@@ -1,5 +1,10 @@
 {
   "App.Title": "DeskNext",
+  "Classification.RemoveModelData": "Eliminar datos del modelo activo",
+  "Classification.ModelRemovalNotice": "Elimina permanentemente los datos indicados tras verificarlos. Se conservan carpeta, manifiesto, licencias, caché y archivos desconocidos. No se puede deshacer; puedes descargar el modelo otra vez. La observación se pausa; reanúdala manualmente.",
+  "Classification.ModelRemovalUnavailable": "Requiere un modelo Windows NTFS instalado por la aplicación y carpetas locales verificables. No se eliminó nada.",
+  "Classification.CheckingRemoval": "Comprobando los requisitos de eliminación…",
+  "Classification.ModelRemoved": "Se eliminaron {0} archivos del modelo y se desactivó la selección. Se conservaron los demás archivos y cachés.",
   "SpaceView.Options": "Vista e icono",
   "SpaceView.List": "Lista",
   "SpaceView.Grid": "Cuadrícula",

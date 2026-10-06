@@ -1,5 +1,10 @@
 {
   "App.Title": "DeskNext",
+  "Classification.RemoveModelData": "সক্রিয় মডেলের ডেটা সরান",
+  "Classification.ModelRemovalNotice": "যাচাইয়ের পরে তালিকাভুক্ত মডেল ডেটা স্থায়ীভাবে সরবে। ফোল্ডার, ম্যানিফেস্ট, লাইসেন্স, ক্যাশ ও অজানা ফাইল থাকবে। পূর্বাবস্থায় ফেরা যাবে না; মডেল আবার ডাউনলোড করা যাবে। পর্যবেক্ষণ থামবে; নিজে আবার চালু করুন।",
+  "Classification.ModelRemovalUnavailable": "অ্যাপ-ইনস্টল করা Windows NTFS মডেল ও যাচাইযোগ্য স্থানীয় কর্মক্ষেত্র ফোল্ডার প্রয়োজন। কিছু সরানো হয়নি।",
+  "Classification.CheckingRemoval": "মডেল সরানোর শর্ত যাচাই হচ্ছে…",
+  "Classification.ModelRemoved": "মডেলের {0}টি ডেটা ফাইল সরেছে এবং নির্বাচন নিষ্ক্রিয় হয়েছে। অন্য ফাইল ও ক্যাশ রাখা হয়েছে।",
   "SpaceView.Options": "দৃশ্য ও আইকন",
   "SpaceView.List": "তালিকা",
   "SpaceView.Grid": "গ্রিড",

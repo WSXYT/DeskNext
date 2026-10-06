@@ -346,6 +346,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
 
     private void AttachStudioExecutors(StudioViewModel studio)
     {
+        studio.OnPrepareModelRemoval = OperatingSystem.IsWindows() ? PrepareModelRemovalAsync : null;
+        studio.OnRemoveModelData = OperatingSystem.IsWindows() ? RemoveModelDataAsync : null;
         if (string.IsNullOrEmpty(studio.ModelInstallRoot) && _store is not null)
         {
             studio.ModelInstallRoot = _store.Snapshot.Settings.GetModelInstallationRoot() ?? Path.Combine(_store.DataDirectory, "models");
@@ -396,6 +398,30 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             RefreshObservationStatus();
             studio.OnImportPending = ExecuteImportPendingAsync;
         }
+    }
+
+    private Task<ModelAssetRemovalPlan> PrepareModelRemovalAsync()
+    {
+        if (_disposed || _store is null) throw new ObjectDisposedException(nameof(MainWindowViewModel));
+        var snapshot = _store.Snapshot;
+        return Task.Run(() => ModelAssetRemoval.Prepare(snapshot, DeskNest.Inference.LocalModelInstaller.ManifestSha256));
+    }
+
+    private async Task<int> RemoveModelDataAsync(ModelAssetRemovalPlan plan)
+    {
+        if (_disposed || _store is null) throw new ObjectDisposedException(nameof(MainWindowViewModel));
+        var store = _store;
+        Studio?.PreviewClassificationCommand.Cancel();
+        Studio?.VerifyLocalModelCommand.Cancel();
+        Studio?.InstallLocalModelPackageCommand.Cancel();
+        foreach (var task in new[] { Studio?.PreviewClassificationCommand.ExecutionTask, Studio?.VerifyLocalModelCommand.ExecutionTask,
+            Studio?.InstallLocalModelPackageCommand.ExecutionTask })
+            if (task is not null) { try { await task; } catch (OperationCanceledException) { } }
+        await _localPreview.StopAsync();
+        await StopFolderObservationAsync();
+        var coordinator = _manualCoordinator ?? throw new InvalidOperationException("Manual organization is not initialized.");
+        try { return await coordinator.RemoveModelAssetsAsync(plan, DeskNest.Inference.LocalModelInstaller.ManifestSha256); }
+        finally { if (!_disposed) await SetUIStateAsync(() => ApplySnapshot(store.Snapshot)); }
     }
 
     private async Task ExecuteImportPendingAsync(Guid pendingId, Guid targetSpaceId, long revision)

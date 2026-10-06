@@ -75,6 +75,7 @@ public sealed class SmokeTestResult
     public bool LocalClassificationPreviewVerified { get; set; }
     public bool LocalWorkerReuseVerified { get; set; }
     public bool ModelPackageActivationVerified { get; set; }
+    public bool ModelDataRemovalVerified { get; set; }
     public bool? WindowsSystemIconsAvailable { get; set; }
     public bool WorkspaceFileCallbacksInvoked { get; set; }
     public bool WorkspaceFileManagedVsMappedVerified { get; set; }
@@ -746,6 +747,7 @@ public static class HeadlessSmokeRunner
             }
             result.ManagedClipboardWorkflowVerified = true;
             result.ModelPackageActivationVerified = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DESKNEXT_TEST_MODEL_ARCHIVE"));
+            result.ModelDataRemovalVerified = OperatingSystem.IsWindows() && result.ModelPackageActivationVerified;
             using (var observationFixture = new TempTestDir())
                 AwaitOnUIThread(FolderObservationSmoke.VerifyAsync(observationFixture.Path), "folder observation", 20);
             result.FolderObservationVerified = true;

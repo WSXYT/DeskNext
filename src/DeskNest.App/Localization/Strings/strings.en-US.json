@@ -1,5 +1,10 @@
 {
   "App.Title": "DeskNext",
+  "Classification.RemoveModelData": "Remove active model data",
+  "Classification.ModelRemovalNotice": "Permanently remove the listed model data after verification. The folder, manifest, licenses, cache and unknown files stay. This has no Undo; the model can be downloaded again. Folder observation is paused—resume it manually.",
+  "Classification.ModelRemovalUnavailable": "Removal currently requires an application-installed Windows NTFS model and verifiable local workspace folders. Nothing was removed.",
+  "Classification.CheckingRemoval": "Checking model removal eligibility…",
+  "Classification.ModelRemoved": "Removed {0} model data file(s) and disabled the model selection. Other files and caches were kept.",
   "SpaceView.Options": "View and icon",
   "SpaceView.List": "List",
   "SpaceView.Grid": "Grid",

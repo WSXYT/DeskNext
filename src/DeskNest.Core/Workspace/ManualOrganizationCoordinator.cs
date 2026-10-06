@@ -33,6 +33,26 @@ public sealed class ManualOrganizationCoordinator
         _copyJournal = new CopyRecoveryJournal(store.DataDirectory);
     }
 
+    /// <summary>Explicit pinned model-data removal, serialized with workspace/file activity; no recursive directory deletion.</summary>
+    public async Task<int> RemoveModelAssetsAsync(ModelAssetRemovalPlan plan, string trustedManifestSha256, CancellationToken token = default)
+    {
+        await _gate.WaitAsync(token).ConfigureAwait(false);
+        try
+        {
+            if (_transaction.HasRecoveryJournal || _copyJournal.Exists)
+                throw new InvalidOperationException("Resolve retained file recovery evidence before removing model data.");
+            int removed = 0;
+            await Task.Run(() => _store.UpdateAsync(state =>
+            {
+                removed = ModelAssetRemoval.Remove(state, plan, trustedManifestSha256, token);
+                return state with { Settings = state.Settings with { ModelCacheDirectory = null } };
+            }, token), token).ConfigureAwait(false);
+            await _store.CheckpointRecoveryBackupAsync().ConfigureAwait(false);
+            return removed;
+        }
+        finally { _gate.Release(); }
+    }
+
     /// <summary>Record observed paths for review only, after any active file transaction finishes.</summary>
     public async Task<bool> RecordObservedPathsAsync(IReadOnlyList<string> paths, CancellationToken token = default)
     {

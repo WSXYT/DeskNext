@@ -1,5 +1,10 @@
 {
   "App.Title": "DeskNext",
+  "Classification.RemoveModelData": "移除活动模型数据",
+  "Classification.ModelRemovalNotice": "核验后永久移除所列模型数据。目录、清单、许可证、缓存和未知文件保留。此操作不可撤销，可重新下载模型。文件夹观察将暂停，请手动恢复。",
+  "Classification.ModelRemovalUnavailable": "目前仅支持应用安装的 Windows NTFS 模型，且工作区目录须可本地核验。未移除任何文件。",
+  "Classification.CheckingRemoval": "正在核对模型移除条件…",
+  "Classification.ModelRemoved": "已移除 {0} 个模型数据文件并停用模型选择。其他文件和缓存已保留。",
   "SpaceView.Options": "排列与图标",
   "SpaceView.List": "列表",
   "SpaceView.Grid": "网格",

@@ -370,6 +370,32 @@ internal static class ManualClipboardSmoke
                         throw new InvalidOperationException("The reused CPU worker did not exit cleanly: " + reopenedViewModel.LocalWorkerShutdownError);
                     Console.WriteLine("MODEL_PACKAGE_REOPENED_CPU_PREVIEW_VERIFIED: true");
                 }
+                if (OperatingSystem.IsWindows())
+                {
+                    long beforeRemoval = store.Snapshot.Revision;
+                    int modelRemovalHistoryCount = store.Snapshot.Operations.Count;
+                    string note = Path.Combine(installed, "keep-model-note.txt");
+                    await File.WriteAllTextAsync(note, "keep this unknown file");
+                    var removeButton = view.FindControl<Button>("RemoveModelDataButton")!;
+                    if (!removeButton.IsEffectivelyVisible || removeButton.Command != studio.OpenModelRemovalCommand)
+                        throw new InvalidOperationException("Model removal must have a real explicit UI entry.");
+                    await studio.OpenModelRemovalCommand.ExecuteAsync(null);
+                    Dispatcher.UIThread.RunJobs();
+                    if (!studio.IsModelRemovalOpen || !view.FindControl<Border>("ModelRemovalOverlay")!.IsEffectivelyVisible ||
+                        studio.ModelRemovalDirectory != installed || store.Snapshot.Revision != beforeRemoval)
+                        throw new InvalidOperationException("Model removal must first show an unchanged, identity-bound plan.");
+                    studio.CloseModelRemoval();
+                    if (!File.Exists(Path.Combine(installed, "encoder.onnx")) || store.Snapshot.Revision != beforeRemoval)
+                        throw new InvalidOperationException("Cancelling model removal changed data or settings.");
+                    await studio.OpenModelRemovalCommand.ExecuteAsync(null);
+                    await studio.ConfirmModelRemovalCommand.ExecuteAsync(null);
+                    if (studio.IsModelRemovalOpen || store.Snapshot.Settings.ModelCacheDirectory is not null ||
+                        store.Snapshot.Operations.Count != modelRemovalHistoryCount || File.Exists(Path.Combine(installed, "encoder.onnx")) ||
+                        !File.Exists(Path.Combine(installed, "manifest.json")) || File.ReadAllText(note) != "keep this unknown file" ||
+                        !File.Exists(copiedArchive) || File.ReadAllText(contentPath) != "clipboard fixture")
+                        throw new InvalidOperationException("Confirmed removal did not preserve non-model files: " + studio.ModelRemovalError);
+                    Console.WriteLine("MODEL_DATA_REMOVAL_VERIFIED: pinned files removed; manifest, unknown files, cache and workspace content kept.");
+                }
                 studio.SettingsModelCache = bundle;
                 await studio.SaveSettingsAsync();
                 Console.WriteLine("MODEL_PACKAGE_UI_ACTIVATION_VERIFIED: true");

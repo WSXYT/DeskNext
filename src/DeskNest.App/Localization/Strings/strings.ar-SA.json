@@ -1,5 +1,10 @@
 {
   "App.Title": "DeskNext",
+  "Classification.RemoveModelData": "إزالة بيانات النموذج النشط",
+  "Classification.ModelRemovalNotice": "تُزال البيانات المدرجة نهائيًا بعد التحقق. يبقى المجلد وملف البيان والتراخيص والذاكرة المؤقتة والملفات غير المعروفة. لا تراجع، ويمكن تنزيل النموذج مجددًا. تتوقف المراقبة مؤقتًا؛ استأنفها يدويًا.",
+  "Classification.ModelRemovalUnavailable": "تتطلب الإزالة نموذج Windows NTFS مثبتًا بالتطبيق ومجلدات محلية قابلة للتحقق. لم تُزل أي ملفات.",
+  "Classification.CheckingRemoval": "جارٍ التحقق من شروط إزالة النموذج…",
+  "Classification.ModelRemoved": "أُزيل {0} من ملفات النموذج وأُلغي اختياره. حُفظت الملفات الأخرى والذاكرة المؤقتة.",
   "SpaceView.Options": "العرض والأيقونة",
   "SpaceView.List": "قائمة",
   "SpaceView.Grid": "شبكة",

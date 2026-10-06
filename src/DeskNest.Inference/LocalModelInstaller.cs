@@ -8,7 +8,7 @@ public static class LocalModelInstaller
 {
     public const long ArchiveBytes = 812781615;
     public const string ArchiveSha256 = "bd2464a8b63f195fd1aed579b355b37d3ef6f45f1e796116b041846a7de3f6fc";
-    private const string ManifestSha256 = "3a65f3fb45166e0e7e2c044802740712ae48770cc26a11a715984d7b3aa81f52";
+    public const string ManifestSha256 = "3a65f3fb45166e0e7e2c044802740712ae48770cc26a11a715984d7b3aa81f52";
     private const long MaximumExpandedBytes = 2L * 1024 * 1024 * 1024;
     private static readonly string[] Names = ["encoder.onnx", "encoder.onnx.data", "head.onnx", "head.onnx.data",
         "rl_agent_config.json", "tokenizer.json", "manifest.json", "LICENSE-Laya.txt", "NOTICE.md", "export-strict.patch"];
