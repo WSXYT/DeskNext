@@ -1,5 +1,12 @@
 {
   "App.Title": "DeskNext",
+  "Flow.RunHistory": "Historial de esta sesión",
+  "Flow.SessionOnly": "Conserva solo las últimas 20 ejecuciones de esta sesión. Los pasos completados aparecen al terminar. Los movimientos persistentes y deshacer siguen en el historial de operaciones.",
+  "Flow.LogRunning": "En ejecución",
+  "Flow.LogCompleted": "Completado",
+  "Flow.LogCancelled": "Cancelado",
+  "Flow.LogFailed": "Fallido",
+  "Flow.CompletedStep": "Paso {0} completado — {1}",
   "Flow.Import": "Importar definición…",
   "Flow.Export": "Exportar a carpeta…",
   "Flow.Imported": "Importada como borrador nuevo desactivado. Revíselo y guárdelo explícitamente.",

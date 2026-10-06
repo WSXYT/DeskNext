@@ -8,13 +8,16 @@ namespace DeskNest.Core.Flow;
 
 public sealed record FlowPrompt(string Title, string Message);
 public sealed record FlowMove(string SourcePath, string DestinationPath);
+// Observational only: not a persisted receipt and never authority to undo or repeat a move.
+public sealed record FlowStepCompletion(int Sequence, string NodeId, bool IsMove);
 
 /// <summary>Explicit literal prompts and optionally host-confirmed moves. No automatic trigger or native file mutation.</summary>
 public static class ManualFlowRunner
 {
     public static Task<int> RunAsync(string json, Func<FlowPrompt, CancellationToken, Task<bool>> showPrompt,
         CancellationToken token = default, string? nativeLibraryPath = null,
-        Func<FlowMove, CancellationToken, Task<string>>? executeMove = null, Action<FlowMove>? validateMove = null)
+        Func<FlowMove, CancellationToken, Task<string>>? executeMove = null, Action<FlowMove>? validateMove = null,
+        Action<FlowStepCompletion>? stepCompleted = null)
     {
         ArgumentNullException.ThrowIfNull(showPrompt);
         token.ThrowIfCancellationRequested();
@@ -22,7 +25,7 @@ public static class ManualFlowRunner
         var document = JsonNode.Parse(json)!.AsObject();
         if (document["trigger"]?["enabled"]?.GetValue<bool>() == false || document["actions"] is not JsonArray actions || actions.Count is < 1 or > 100)
             throw new InvalidDataException("Prompt runs require an enabled manual trigger and 1–100 prompt steps.");
-        var expected = new List<(FlowPrompt? Prompt, FlowMove? Move)>();
+        var expected = new List<(string Id, FlowPrompt? Prompt, FlowMove? Move)>();
         foreach (var item in actions)
         {
             if (item is not JsonObject) throw new InvalidDataException("A Flow action must be an object.");
@@ -34,9 +37,10 @@ public static class ManualFlowRunner
                 if (item[field] is { } value && (value is not JsonObject map || map.Count != 0))
                     throw new NotSupportedException("Prompt runs do not support bindings, aliases or branches.");
             if (item["enabled"]?.GetValue<bool>() == false) continue;
+            string id = item["id"]?.GetValue<string>() ?? throw new InvalidDataException("Flow step has no ID.");
             var parameters = item["parameters"];
             if (!moveStep)
-                expected.Add((new(parameters?["title"]?.GetValue<string>() ?? "", parameters?["message"]?.GetValue<string>() ?? ""), null));
+                expected.Add((id, new(parameters?["title"]?.GetValue<string>() ?? "", parameters?["message"]?.GetValue<string>() ?? ""), null));
             else
             {
                 string source = parameters?["source"]?.GetValue<string>() ?? "";
@@ -50,7 +54,7 @@ public static class ManualFlowRunner
                 parameters!["source"] = source;
                 parameters["destinationDirectory"] = directory;
                 var request = new FlowMove(source, Path.Combine(directory, Path.GetFileName(source)));
-                expected.Add((null, request));
+                expected.Add((id, null, request));
             }
         }
         if (expected.Count == 0) throw new InvalidDataException("There are no enabled prompt steps.");
@@ -73,6 +77,11 @@ public static class ManualFlowRunner
             Control? cancel = null, destroy = null;
             Exception? callbackError = null;
             int seen = 0, accepted = 0, declined = 0;
+            void ReportCompleted(int index)
+            {
+                try { stepCompleted?.Invoke(new(index + 1, expected[index].Id, expected[index].Move is not null)); }
+                catch { /* An observational sink must not change the result of an already-acknowledged step. */ }
+            }
             try
             {
                 T Export<T>(string name) where T : Delegate => Marshal.GetDelegateForFunctionPointer<T>(NativeLibrary.GetExport(library, name));
@@ -93,6 +102,7 @@ public static class ManualFlowRunner
                         if (!showPrompt(prompt, token).WaitAsync(token).GetAwaiter().GetResult())
                         { Interlocked.Exchange(ref declined, 1); return -1; }
                         Interlocked.Increment(ref accepted);
+                        ReportCompleted(index);
                         return 1;
                     }
                     catch (OperationCanceledException) { Interlocked.Exchange(ref declined, 1); return -1; }
@@ -118,6 +128,7 @@ public static class ManualFlowRunner
                             if (bytes.Length > capacity) throw new InvalidDataException("Host move receipt exceeds the native buffer; inspect operation history.");
                             Marshal.Copy(bytes, 0, actualPath, bytes.Length);
                             Interlocked.Increment(ref accepted);
+                            ReportCompleted(index);
                             return 1;
                         }
                         catch (OperationCanceledException) { Interlocked.Exchange(ref declined, 1); return -1; }

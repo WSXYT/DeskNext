@@ -107,13 +107,14 @@ public sealed class ConfirmedFlowMoveTests
             using var cancel = new CancellationTokenSource();
             var committed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var observed = new List<FlowStepCompletion>();
             var run = ManualFlowRunner.RunAsync(json, Show, cancel.Token, library, async (m, t) =>
             {
                 string actual = await Move(m, t);
                 committed.TrySetResult();
                 await release.Task;
                 return actual;
-            }, host.Validate);
+            }, host.Validate, observed.Add);
             try
             {
                 await committed.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -122,6 +123,7 @@ public sealed class ConfirmedFlowMoveTests
             }
             finally { release.TrySetResult(); }
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run.WaitAsync(TimeSpan.FromSeconds(5)));
+            Assert.Equal(new FlowStepCompletion(1, "move", true), Assert.Single(observed));
             Assert.Equal(0, prompts);
             Assert.Equal("retain", File.ReadAllText(destination));
             var completed = store.Snapshot.Operations.Last();

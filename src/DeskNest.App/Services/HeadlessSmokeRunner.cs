@@ -256,12 +256,14 @@ public static class HeadlessSmokeRunner
                 importedId = await VerifyFlowTransferAsync(store, studio, view, root);
                 string before = File.ReadAllText(Path.Combine(root, "flow-definitions.json"));
                 await studio.RunManualFlowCommand.ExecuteAsync(null);
-                if (studio.FlowNotice != studio.Localizer["Flow.PromptOnly"] || studio.IsFlowPromptOpen)
+                if (studio.FlowRuns.Single().Outcome != FlowRunOutcome.Failed || studio.FlowRuns[0].CompletedSteps.Count != 0 ||
+                    studio.FlowNotice != studio.Localizer["Flow.PromptOnly"] || studio.IsFlowPromptOpen)
                     throw new InvalidOperationException("The prompt runner accepted file steps.");
                 string promptDraft = DeskNest.Core.Flow.ManualFlowDefinitions.Create("manual", "提示", "确认这条提示");
                 studio.FlowJsonDraft = promptDraft;
                 var promptRun = studio.RunManualFlowCommand.ExecuteAsync(null);
                 await UntilPromptAsync();
+                if (studio.FlowRuns[0].Outcome != FlowRunOutcome.Running) throw new InvalidOperationException("Active Flow must be shown as running.");
                 var acknowledge = view.FindControl<Button>("AcknowledgeFlowPromptButton")!;
                 if (!acknowledge.IsEffectivelyVisible || acknowledge.Command != studio.AcknowledgeFlowPromptCommand || studio.FlowPromptMessage != "确认这条提示")
                     throw new InvalidOperationException("The native prompt must be shown through the production acknowledgement control.");
@@ -269,12 +271,28 @@ public static class HeadlessSmokeRunner
                 await promptRun;
                 if (studio.FlowNotice != studio.Localizer.GetString("Flow.RunCompleted", 1) || studio.FlowJsonDraft != promptDraft || studio.IsFlowPromptOpen)
                     throw new InvalidOperationException("Prompt acknowledgement changed the draft or did not complete.");
+                var finishedRun = studio.FlowRuns[0];
+                if (finishedRun.Outcome != FlowRunOutcome.Completed || finishedRun.CompletedSteps.Count != 1 || finishedRun.CompletedSteps[0].IsMove)
+                    throw new InvalidOperationException("A completed prompt must retain its observed step in the session record.");
                 promptRun = studio.RunManualFlowCommand.ExecuteAsync(null);
                 await UntilPromptAsync();
                 view.FindControl<Button>("CancelFlowPromptButton")!.Command!.Execute(null);
                 await promptRun;
                 if (studio.FlowNotice != studio.Localizer["Flow.RunCancelled"] || studio.IsFlowPromptOpen)
                     throw new InvalidOperationException("Prompt cancellation did not release the active prompt.");
+                if (studio.FlowRuns[0].Outcome != FlowRunOutcome.Cancelled || studio.FlowRuns[0].CompletedSteps.Count != 0)
+                    throw new InvalidOperationException("A declined prompt must not be recorded as completed.");
+                view.FindControl<CheckBox>("FlowRunHistoryToggle")!.IsChecked = true;
+                Dispatcher.UIThread.RunJobs();
+                var runsList = view.FindControl<ListBox>("FlowRunsList")!;
+                runsList.SelectedItem = finishedRun;
+                Dispatcher.UIThread.RunJobs();
+                if (!runsList.IsEffectivelyVisible || studio.SelectedFlowRun != finishedRun ||
+                    view.FindControl<TextBlock>("FlowRunNotice")!.Text != finishedRun.Notice ||
+                    view.FindControl<TextBlock>("FlowRunSteps")!.Text != finishedRun.StepsText || string.IsNullOrEmpty(finishedRun.StepsText))
+                    throw new InvalidOperationException("Session history must show the selected real run outcome and its completed steps.");
+                view.FindControl<CheckBox>("FlowRunHistoryToggle")!.IsChecked = false;
+                Dispatcher.UIThread.RunJobs();
                 var invalid = System.Text.Json.Nodes.JsonNode.Parse(saved.Json)!;
                 invalid["enabled"] = true;
                 editor.Text = invalid.ToJsonString();
@@ -282,6 +300,11 @@ public static class HeadlessSmokeRunner
                 await studio.SaveFlowDefinitionCommand.ExecuteAsync(null);
                 if (File.ReadAllText(Path.Combine(root, "flow-definitions.json")) != before)
                     throw new InvalidOperationException("An enabled Flow was allowed into the definition store.");
+                studio.FlowJsonDraft = "{";
+                for (int i = 0; i < 21; i++) await studio.RunManualFlowCommand.ExecuteAsync(null);
+                if (studio.FlowRuns.Count != 20 || studio.FlowRuns.Contains(finishedRun) ||
+                    studio.FlowRuns.Any(r => r.Outcome != FlowRunOutcome.Failed || r.CompletedSteps.Count != 0))
+                    throw new InvalidOperationException("The session log must retain only the latest twenty runs, including preflight failures.");
                 studio.FlowJsonDraft = promptDraft;
                 promptRun = studio.RunManualFlowCommand.ExecuteAsync(null);
                 await UntilPromptAsync();
@@ -306,6 +329,8 @@ public static class HeadlessSmokeRunner
             finally { window.Close(); }
         }
         await using var reopened = await WorkspaceStore.OpenAsync(root);
+        await using var reopenedOwner = new MainWindowViewModel(reopened, ownsStore: false);
+        if (reopenedOwner.Studio!.FlowRuns.Count != 0) throw new InvalidOperationException("Flow session records must not persist across workbench owners.");
         var definitions = await new DeskNest.Core.Flow.ManualFlowStore(reopened).LoadAsync();
         if (definitions.Count != 2 || !definitions.Any(d => d.Id == savedId && d.Revision == 1) || !definitions.Any(d => d.Id == importedId && d.Revision == 1))
             throw new InvalidOperationException("Saved Flow definition did not survive reopening the workbench store.");
@@ -392,6 +417,8 @@ public static class HeadlessSmokeRunner
             var operation = store.Snapshot.Operations.Single();
             if (operation.Status != ProposedOperationStatus.Completed || Exists(source) || File.ReadAllText(Content(target)) != "flow fixture")
                 throw new InvalidOperationException("Confirmed Flow move did not use the journaled coordinator.");
+            if (studio.FlowRuns[0].Outcome != FlowRunOutcome.Completed || studio.FlowRuns[0].CompletedSteps.Count != 1 || !studio.FlowRuns[0].CompletedSteps[0].IsMove)
+                throw new InvalidOperationException("A committed Flow move must appear as an observed completed step.");
             await studio.ExecuteUndoManualMoveCommand.ExecuteAsync(operation.Id);
             if (File.ReadAllText(Content(source)) != "flow fixture" || Exists(target))
                 throw new InvalidOperationException("Flow move must retain normal identity-checked undo.");

@@ -1,5 +1,12 @@
 {
   "App.Title": "DeskNext",
+  "Flow.RunHistory": "Session run history",
+  "Flow.SessionOnly": "Keeps the latest 20 runs in this workbench session only. Step details appear after the run stops. Persistent moves and undo remain in Operation History.",
+  "Flow.LogRunning": "Running",
+  "Flow.LogCompleted": "Completed",
+  "Flow.LogCancelled": "Cancelled",
+  "Flow.LogFailed": "Failed",
+  "Flow.CompletedStep": "Step {0} completed — {1}",
   "Flow.Import": "Import definition…",
   "Flow.Export": "Export to folder…",
   "Flow.Imported": "Imported as a new disabled draft. Review it, then save explicitly.",

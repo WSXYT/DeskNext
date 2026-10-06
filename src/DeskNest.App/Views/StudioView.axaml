@@ -1208,10 +1208,13 @@
 
             <!-- Stored definitions remain disabled; running always requires explicit review. -->
             <Grid IsVisible="{Binding IsFlowTab}" RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="24,18">
-                <TextBlock Text="{Binding Localizer[Flow.Title]}" FontSize="20" FontWeight="SemiBold"/>
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <TextBlock Text="{Binding Localizer[Flow.Title]}" FontSize="20" FontWeight="SemiBold"/>
+                    <CheckBox Name="FlowRunHistoryToggle" Grid.Column="1" Content="{Binding Localizer[Flow.RunHistory]}" IsChecked="{Binding IsFlowHistoryVisible}"/>
+                </Grid>
                 <TextBlock Grid.Row="1" Text="{Binding Localizer[Flow.Notice]}" TextWrapping="Wrap" Margin="0,8,0,16"
                            Foreground="{DynamicResource TextSecondaryBrush}"/>
-                <WrapPanel Grid.Row="2" IsEnabled="{Binding !IsFlowBusy}" Margin="0,0,0,12">
+                <WrapPanel Grid.Row="2" IsVisible="{Binding !IsFlowHistoryVisible}" IsEnabled="{Binding !IsFlowBusy}" Margin="0,0,0,12">
                     <Button Content="{Binding Localizer[Flow.New]}" Command="{Binding NewFlowDefinitionCommand}" Margin="0,0,8,0"/>
                     <Button Content="{Binding Localizer[Flow.Reload]}" Command="{Binding LoadFlowDefinitionsCommand}" Margin="0,0,8,0"/>
                     <Button Name="ValidateFlowButton" Content="{Binding Localizer[Flow.Validate]}" Command="{Binding ValidateFlowDefinitionCommand}" Margin="0,0,8,0"/>
@@ -1220,7 +1223,7 @@
                     <Button Name="ImportFlowButton" Content="{Binding Localizer[Flow.Import]}" Click="OnFlowTransferClick" Tag="import" Margin="0,0,8,0"/>
                     <Button Name="ExportFlowButton" Content="{Binding Localizer[Flow.Export]}" Click="OnFlowTransferClick" Tag="export"/>
                 </WrapPanel>
-                <Grid Grid.Row="3" ColumnDefinitions="180,*" ColumnSpacing="12" IsEnabled="{Binding !IsFlowBusy}">
+                <Grid Grid.Row="3" ColumnDefinitions="180,*" ColumnSpacing="12" IsVisible="{Binding !IsFlowHistoryVisible}" IsEnabled="{Binding !IsFlowBusy}">
                     <ListBox ItemsSource="{Binding FlowDefinitions}" SelectedItem="{Binding SelectedFlowDefinition}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="flow:ManualFlowDefinition">
@@ -1290,7 +1293,24 @@
                         </Grid>
                     </Grid>
                 </Grid>
-                <StackPanel Grid.Row="4" Spacing="6" Margin="0,12,0,0">
+                <Grid Grid.Row="3" RowDefinitions="Auto,*" ColumnDefinitions="*,*" ColumnSpacing="16" IsVisible="{Binding IsFlowHistoryVisible}">
+                    <TextBlock Grid.ColumnSpan="2" Text="{Binding Localizer[Flow.SessionOnly]}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                    <ListBox Name="FlowRunsList" Grid.Row="1" ItemsSource="{Binding FlowRuns}" SelectedItem="{Binding SelectedFlowRun}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:FlowRunItemViewModel">
+                                <TextBlock Text="{Binding Summary}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Summary}"/>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <ScrollViewer Grid.Row="1" Grid.Column="1" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="{Binding SelectedFlowRun.Summary}" TextWrapping="Wrap" FontWeight="SemiBold"/>
+                            <TextBlock Name="FlowRunNotice" Text="{Binding SelectedFlowRun.Notice}" TextWrapping="Wrap"/>
+                            <TextBlock Name="FlowRunSteps" Text="{Binding SelectedFlowRun.StepsText}" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+                <StackPanel Grid.Row="4" Spacing="6" Margin="0,12,0,0" IsVisible="{Binding !IsFlowHistoryVisible}">
                     <TextBlock Text="{Binding Localizer[Flow.TransferHint]}" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     <TextBlock Text="{Binding FlowNotice}" TextWrapping="Wrap"/>
                     <TextBox Name="FlowExportPathInput" IsVisible="{Binding HasFlowExportPath}" Text="{Binding FlowExportPath, Mode=OneWay}" IsReadOnly="True"

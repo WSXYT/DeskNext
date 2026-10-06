@@ -1,5 +1,12 @@
 {
   "App.Title": "DeskNext",
+  "Flow.RunHistory": "セッションの実行履歴",
+  "Flow.SessionOnly": "このワークベンチのセッションで最近の20回のみ保持します。停止後に完了した手順を表示します。移動の永続的な記録と取り消しは操作履歴にあります。",
+  "Flow.LogRunning": "実行中",
+  "Flow.LogCompleted": "完了",
+  "Flow.LogCancelled": "キャンセル",
+  "Flow.LogFailed": "失敗",
+  "Flow.CompletedStep": "手順 {0} 完了 — {1}",
   "Flow.Import": "定義をインポート…",
   "Flow.Export": "フォルダーにエクスポート…",
   "Flow.Imported": "新しい無効な下書きとしてインポートしました。内容を確認してから保存してください。",

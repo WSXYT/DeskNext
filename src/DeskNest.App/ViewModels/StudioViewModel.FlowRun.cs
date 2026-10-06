@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -20,16 +22,27 @@ public sealed partial class StudioViewModel
     public string FlowPromptActionText => Localizer[IsFlowMoveConfirmation ? "Files.ActionMoveToSpace" : "Flow.Continue"];
     private TaskCompletionSource<bool>? _flowPromptDecision;
     private Task<int>? _promptRuntimeTask;
+    public ObservableCollection<FlowRunItemViewModel> FlowRuns { get; } = [];
+    [ObservableProperty] private bool _isFlowHistoryVisible;
+    [ObservableProperty] private FlowRunItemViewModel? _selectedFlowRun;
 
     [RelayCommand(IncludeCancelCommand = true)]
     public async Task RunManualFlowAsync(CancellationToken token)
     {
         if (IsFlowBusy) return;
         string draft = FlowJsonDraft;
+        var record = new FlowRunItemViewModel { Name = Localizer["Flow.Title"] };
+        var completedSteps = new ConcurrentQueue<FlowStepCompletion>();
+        var outcome = FlowRunOutcome.Failed;
+        FlowRuns.Insert(0, record);
+        while (FlowRuns.Count > 20) FlowRuns.RemoveAt(FlowRuns.Count - 1);
+        SelectedFlowRun = record;
         IsFlowBusy = true;
         FlowNotice = Localizer["Flow.RunningManual"];
         try
         {
+            record.Name = ManualFlowDefinitions.Read(draft).Name;
+            record.RefreshLanguage();
             var validation = await Task.Run(() => ManualFlowDefinitions.Validate(draft), token);
             if (validation != FlowDefinitionValidation.Valid)
             {
@@ -37,17 +50,20 @@ public sealed partial class StudioViewModel
                 return;
             }
             _promptRuntimeTask = ManualFlowRunner.RunAsync(draft, (prompt, t) => ShowFlowPromptAsync(prompt, t), token,
-                executeMove: OnExecuteFlowMove, validateMove: OnValidateFlowMove);
+                executeMove: OnExecuteFlowMove, validateMove: OnValidateFlowMove, stepCompleted: completedSteps.Enqueue);
             int completed = await _promptRuntimeTask;
             FlowNotice = Localizer.GetString("Flow.RunCompleted", completed);
+            outcome = FlowRunOutcome.Completed;
         }
-        catch (OperationCanceledException) { FlowNotice = Localizer["Flow.RunCancelled"]; }
+        catch (OperationCanceledException) { outcome = FlowRunOutcome.Cancelled; FlowNotice = Localizer["Flow.RunCancelled"]; }
         catch (NotSupportedException) { FlowNotice = Localizer["Flow.PromptOnly"]; }
         catch (Exception error) when (error is DllNotFoundException or EntryPointNotFoundException or BadImageFormatException)
         { FlowNotice = Localizer["Flow.NativeUnavailable"]; }
         catch (Exception error) { FlowNotice = Localizer.GetString("Flow.RunFailed", error.Message); }
         finally
         {
+            // The runtime has drained all native callbacks before we snapshot even a cancelled run.
+            record.Finish(outcome, completedSteps, FlowNotice);
             _promptRuntimeTask = null;
             _flowPromptDecision?.TrySetResult(false);
             _flowPromptDecision = null;

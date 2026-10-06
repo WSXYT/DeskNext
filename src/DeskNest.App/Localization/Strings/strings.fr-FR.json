@@ -1,5 +1,12 @@
 {
   "App.Title": "DeskNext",
+  "Flow.RunHistory": "Historique de la session",
+  "Flow.SessionOnly": "Conserve les 20 dernières exécutions de cette session. Les étapes terminées apparaissent à l’arrêt. Les déplacements persistants et leur annulation restent dans l’historique des opérations.",
+  "Flow.LogRunning": "En cours",
+  "Flow.LogCompleted": "Terminée",
+  "Flow.LogCancelled": "Annulée",
+  "Flow.LogFailed": "Échec",
+  "Flow.CompletedStep": "Étape {0} terminée — {1}",
   "Flow.Import": "Importer une définition…",
   "Flow.Export": "Exporter dans un dossier…",
   "Flow.Imported": "Importée comme nouveau brouillon désactivé. Vérifiez-le puis enregistrez explicitement.",

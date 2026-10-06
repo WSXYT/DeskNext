@@ -38,8 +38,12 @@ public sealed class ManualPromptFlowTests
         document["actions"]!.AsArray().Add(second);
         string json = document.ToJsonString();
         var messages = new List<string>();
-        Assert.Equal(2, await ManualPromptFlowRunner.RunAsync(json, (prompt, _) =>
-        { messages.Add(prompt.Message); return Task.FromResult(true); }, nativeLibraryPath: library));
+        var observed = new List<FlowStepCompletion>();
+        Assert.Equal(2, await ManualFlowRunner.RunAsync(json, (prompt, _) =>
+        { messages.Add(prompt.Message); return Task.FromResult(true); }, nativeLibraryPath: library, stepCompleted: observed.Add));
+        Assert.Equal(new[] { new FlowStepCompletion(1, "step-1", false), new FlowStepCompletion(2, "second", false) }, observed);
+        Assert.Equal(2, await ManualFlowRunner.RunAsync(json, (_, _) => Task.FromResult(true), nativeLibraryPath: library,
+            stepCompleted: _ => throw new InvalidOperationException("observational sink failed")));
         Assert.Equal(new[] { "你好 — مرحبا", "second message" }, messages);
         Assert.False(JsonNode.Parse(json)!["enabled"]!.GetValue<bool>());
         int declinedCalls = 0;

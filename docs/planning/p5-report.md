@@ -1,5 +1,13 @@
 # P5 folder observation and Flow — partial implementation
 
+## Bounded session run history (2026-10-06)
+
+The Flow page now has a **Session run history** switch with the latest 20 runs for the current workbench only. It shows name, local start time, running/completed/cancelled/failed status, the outcome notice and acknowledged steps after the run drains. Each record retains at most 100 step observations; it contains no copy of prompt text or source/destination paths. Notices can still include diagnostic paths. Closing/reopening the workbench starts an empty list. Durable movement and undo authority remain in the existing Operation History and transaction receipts.
+
+`ManualFlowRunner` emits completion observations only after a prompt was accepted or a host move returned its verified destination. The observer never grants execution authority, and an observer exception cannot change an already-completed step. A cancelled run retains a move completed before its host callback drained. No runtime ABI, file protocol or execution permissions changed.
+
+Four related native Core cases passed (`flow-session-records.trx`), covering ordered observations, observer failure isolation and a committed move retained across cancellation. App Release build: zero warnings/errors. The existing UI workflow checks actual history selection/detail bindings, success/cancel/preflight-failure records, the 20-record cap and empty history in a reopened owner; `session-history-ui.log` reports terminal Success/editor/persistence/confirmed-move/parity true, 28,108 ms for the compound smoke. Twelve locales have 473 matching keys. No full Core suite, CI or package repeat; this is session diagnostics, not a durable Flow scheduler or full P5 completion.
+
 ## Import/export of disabled manual definitions (2026-10-06)
 
 The editor now offers **Import definition** (local JSON file picker) and **Export to folder** (local folder picker). Import reads at most 1 MiB of strict UTF-8 (optional BOM), assigns a new definition ID/revision zero, disables it and validates the manual trigger plus complete native schema before replacing the draft. Node IDs, bindings and extensions remain intact. Automatic-trigger definitions and unavailable native validation are refused; failures/cancellation leave the prior draft/catalog unchanged. Imported definitions are not saved or run until separate explicit actions.

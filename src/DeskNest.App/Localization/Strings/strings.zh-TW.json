@@ -1,5 +1,12 @@
 {
   "App.Title": "DeskNext",
+  "Flow.RunHistory": "本次工作階段執行記錄",
+  "Flow.SessionOnly": "僅保留此工作台工作階段最近 20 次執行，停止後顯示已完成步驟。持久移動記錄與復原仍在操作歷史中。",
+  "Flow.LogRunning": "執行中",
+  "Flow.LogCompleted": "已完成",
+  "Flow.LogCancelled": "已取消",
+  "Flow.LogFailed": "失敗",
+  "Flow.CompletedStep": "步驟 {0} 已完成 — {1}",
   "Flow.Import": "匯入定義…",
   "Flow.Export": "匯出至資料夾…",
   "Flow.Imported": "已匯入為新的停用草稿。請審閱後明確儲存。",
