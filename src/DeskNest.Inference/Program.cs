@@ -2,9 +2,10 @@ using System.Text.Json;
 using DeskNest.Inference;
 using Tokenizers.HuggingFace.Tokenizer;
 
-if (args.Length != 2 || args[0] is not ("--inference-worker" or "--tensor-probe" or "--encode-probe"))
+bool versioned = args.Length == 3 && args[0] == "--inference-worker" && args[2] == "--protocol=1";
+if (!versioned && (args.Length != 2 || args[0] is not ("--inference-worker" or "--tensor-probe" or "--encode-probe")))
 {
-    Console.Error.WriteLine("Usage: DeskNest.Inference (--inference-worker|--tensor-probe|--encode-probe) MODEL_DIRECTORY");
+    Console.Error.WriteLine("Usage: DeskNest.Inference (--inference-worker|--tensor-probe|--encode-probe) MODEL_DIRECTORY [--protocol=1 for worker]");
     return 2;
 }
 try
@@ -12,7 +13,8 @@ try
     // Release after the sessions, before native-library static destruction (ORT #24579).
     using var environment = args[0] == "--encode-probe" ? null : Microsoft.ML.OnnxRuntime.OrtEnv.Instance();
     if (args[0] == "--inference-worker")
-        Probe.Worker(args[1], Console.OpenStandardInput(), Console.OpenStandardOutput());
+        Probe.Worker(args[1], Console.OpenStandardInput(), Console.OpenStandardOutput(),
+            versioned: versioned);
     else
     {
         using var document = JsonDocument.Parse(Console.OpenStandardInput());

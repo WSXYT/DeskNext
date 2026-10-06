@@ -57,6 +57,13 @@ public sealed class ProbeTests
         var request = Request();
         var result = Probe.Decide(request, Tensors(), [3, 1, 0], [1, 0], config.RootElement);
         LocalPreviewClient.ValidateResult(request, result);
+        string modelHash = new string('A', 64);
+        var reply = new Probe.WorkerReply(Probe.WorkerProtocolVersion, modelHash, result);
+        LocalPreviewClient.ValidateReply(request, modelHash, reply);
+        Assert.Throws<InvalidDataException>(() => LocalPreviewClient.ValidateReply(request, modelHash, reply with { ProtocolVersion = 0 }));
+        Assert.Throws<InvalidDataException>(() => LocalPreviewClient.ValidateReply(request, modelHash, reply with { ModelManifestSha256 = new string('B', 64) }));
+        Assert.Throws<InvalidDataException>(() => LocalPreviewClient.ValidateReply(request, modelHash, reply with { Result = null! }));
+        Assert.Throws<InvalidDataException>(() => LocalPreviewClient.ValidateReply(request, modelHash, reply with { Result = result with { Revision = 8 } }));
         Assert.Throws<InvalidDataException>(() => LocalPreviewClient.ValidateResult(request, result with { Revision = 8 }));
         Assert.Throws<InvalidDataException>(() => LocalPreviewClient.ValidateResult(request, result with { Choice = Probe.Ambiguous }));
         Assert.Throws<InvalidDataException>(() => LocalPreviewClient.ValidateResult(request, result with { Probabilities = [double.NaN, 0, 0] }));
@@ -71,6 +78,36 @@ public sealed class ProbeTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => LocalPreviewClient.RunAsync(start, Path.GetTempPath(),
             Request(), new CancellationToken(true)));
         Assert.ThrowsAny<OperationCanceledException>(() => Probe.VerifyModel("missing-model", new CancellationToken(true)));
+    }
+
+    [Fact]
+    public void VersionedWorkerRejectsProtocolAndModelMismatchWithoutInference()
+    {
+        void Refuses(Probe.WorkerRequest envelope, string directory)
+        {
+            byte[] data = JsonSerializer.SerializeToUtf8Bytes(envelope, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            using var input = new MemoryStream();
+            var header = new byte[4];
+            BinaryPrimitives.WriteInt32LittleEndian(header, data.Length);
+            input.Write(header);
+            input.Write(data);
+            input.Position = 0;
+            using var output = new MemoryStream();
+            Assert.Throws<InvalidDataException>(() => Probe.Worker(directory, input, output, versioned: true));
+            Assert.Empty(output.ToArray());
+        }
+        var valid = new Probe.WorkerRequest(Probe.WorkerProtocolVersion, new string('0', 64), Request());
+        Refuses(valid with { ProtocolVersion = 2 }, "missing-model");
+        Refuses(valid with { ModelManifestSha256 = "invalid" }, "missing-model");
+        Refuses(valid with { Request = null! }, "missing-model");
+        string root = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "DeskNext-worker-version-" + Guid.NewGuid().ToString("N"))).FullName;
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "manifest.json"), "{}");
+            // This is not an inference model: mismatched identity must stop before model parsing/loading.
+            Refuses(valid, root);
+        }
+        finally { Directory.Delete(root, recursive: true); }
     }
 
     [Fact]

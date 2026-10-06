@@ -17,13 +17,15 @@ public static class Program
         // Dispatch before Avalonia, workspace ownership, or any desktop service is initialized.
         if (args.Length > 0 && args[0] == "--inference-worker")
         {
-            if (args.Length != 2) return 2;
+            bool versioned = args.Length == 3 && args[2] == "--protocol=1";
+            if (args.Length != 2 && !versioned) return 2;
             try
             {
                 // Own the process-global environment until all worker sessions have closed.
                 // Explicit release avoids ORT 1.22 macOS static logger teardown (#24579).
                 using var environment = Microsoft.ML.OnnxRuntime.OrtEnv.Instance();
-                DeskNest.Inference.Probe.Worker(args[1], Console.OpenStandardInput(), Console.OpenStandardOutput());
+                DeskNest.Inference.Probe.Worker(args[1], Console.OpenStandardInput(), Console.OpenStandardOutput(),
+                    versioned: versioned);
                 return 0;
             }
             catch (Exception error)

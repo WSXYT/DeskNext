@@ -1,6 +1,14 @@
-# P4 classification previews — partial implementation
+# P4 model deployment and assisted classification — in progress
 
 P3's user-approved safe manual workflow is accepted; **P4 is not complete**. These previews are read-only: they do not authorize any file move or copy. Manual file operations have their separate P3 evidence.
+
+## Versioned local worker identity (2026-10-06)
+
+Production local previews/loading checks now invoke `--inference-worker <bundle> --protocol=1`. The recognized worker verb is retained: an older two-argument host refuses the extra argument instead of treating an unknown verb as a request to open its regular GUI. Both current executable entry points refuse unsupported protocol arguments before initializing the UI. The legacy two-argument raw protocol remains for P1 tensor/oracle tools; the application never silently falls back to it.
+
+The existing length-bounded frame carries `{protocolVersion, modelManifestSha256, request}` and returns `{protocolVersion, modelManifestSha256, result}`. Unsupported versions, absent identity and model mismatch are refused before inference. The manifest fingerprint is compared before/after worker execution and again on the client; it binds the selected bundle's declared graph/tokenizer/config hashes. Existing full asset verification, request/revision/probability checks, cancellation, exit-code checking and limits remain. This is compatibility/identity checking, **not** publisher authentication or an atomic filesystem snapshot of externally mutable model files.
+
+Seven focused `ProbeTests` passed (`artifacts/p4-installer-tests/worker-v1.trx`); App Release build has zero warnings/errors. The existing real-package workflow passed installation/loading, saved activation and reopened CPU preview through the versioned client (`model-worker-v1-final.log`, terminal Success/ModelPackageActivationVerified true). Direct invocations of the old published host with `--protocol=1` and the current host with `--protocol=99` returned code 2 with no stdout. No inference math was changed and no full P3 suite, package or CI rerun was added for this protocol increment. The Unix deployment runs below predate this envelope change. Active LSP still reports stale missing members although compilation/tests succeed. The generic process-start analyzer warning was reviewed: application callers select the current executable (or its assembly under dotnet), the client disables the shell and uses separate argument-list entries; file names/notes travel only in framed stdin, not an OS command.
 
 ## Public Windows development preview
 
@@ -126,6 +134,26 @@ Settings > Laya now offers **Verify model files** and cancellation before reques
 
 Relevant checks only: Inference tests **12/12**, App Release build **zero warnings/errors**, twelve-locale parity. The existing checked smoke with the actual pinned ONNX bundle passed (`artifacts/p3-publication-tests/headless-model-verification.log`, terminal Success/LocalClassificationPreviewVerified true, 29471 ms), covering real verification, cancellation, draft invalidation and subsequent classification. The ordinary settings workflow checks that an incomplete manifest reports failure without changing model files or workspace revision. LSP still reports stale missing overload/settings members despite clean compiled checks. No full Core suite, CI or package rerun; this does not close deployment or P4.
 
-## Still open
+## Current completion boundary
 
-Live Jev and installed/cross-platform credential-store acceptance; publisher-signed deployment, activation/load readiness, repair/migration/uninstall; cross-platform offline/online installer acceptance; production worker negotiation and model identity; broader lifecycle/error handling; unattended classification; independent quality data and full A–D installed-path acceptance; GPU and per-platform runtime evidence. No P4 gate is marked passed by this preview.
+The historical preview sections above do not override the newer deployment evidence.
+
+| Capability | Current state / remaining work |
+| --- | --- |
+| Local installation and activation | Public resumable download and offline ZIP; exact verification, CPU loading, explicit save, reopened model location, and non-destructive repair implemented. Windows exercised; native Unix deployment results recorded separately below. |
+| Installed worker equivalence | Windows installed A–D passes three fixed cases plus a separate model-assisted confirmation/import/undo fixture. This is not the full quality corpus or every tensor/candidate boundary. |
+| Assisted classification | Both providers, optional transient notes, special-result review, target drafting and new-category selection implemented. Every physical import requires confirmation. |
+| Model lifecycle | Fresh-directory repair and copy-and-switch relocation implemented. Archive-cache relocation, permanent model removal and retained staging cleanup remain unfinished. |
+| Jev | Protocol, explicit consent, bounded 429 retries and optional Windows credential storage implemented. No live API call yet; other platforms remain session-only. |
+| Independent quality | At least 500 independently human-labeled, deduplicated held-out file-classification cases still required. No qualifying dataset has been supplied. The inspected upstream Feishu contribution explicitly contains only 64 AI-assisted synthetic workplace cases and is not a substitute. No human labels, API calls or passing quality metrics are fabricated. |
+| Runtime and release | Production local frames now negotiate version 1 and the selected manifest digest; raw P1 diagnostics remain separate. Remaining deployment failures, signatures, broader RID/clean-machine evidence and GPU variants remain open. CPU readiness does not authorize unverified acceleration or unattended moves. |
+
+The data/API questions received no selection. No private data or credentials were collected and no cloud requests were made. P4 remains incomplete; automatic moving and unverified GPU variants remain disabled.
+
+## Native Unix CPU deployment checkpoint (2026-10-06)
+
+A dedicated, manually dispatched `.github/workflows/inference-cpu.yml` checks only the P4 model deployment path, not the P3 disk/drag/install matrix. It self-contained-publishes the application, obtains the fixed public ZIP, then uses the production installer and actual App-hosted CPU worker through the existing opt-in UI fixture. Saving activation and reopening another workspace view model must produce another real preview without modifying the sample file or workspace revision. This is a view-model reload, not an OS restart. The driver requires literal `ModelPackageActivationVerified=true` as well as terminal success; the package fixture has an explicit 180-second driver budget because it includes extraction and two cold worker loads, not a latency benchmark. Eight driver rejection/acceptance tests pass.
+
+Run [37399018503](https://github.com/WSXYT/DeskNext/actions/runs/37399018503) at `8ef3ad8` passed Linux x64: real installation, activation and reopened CPU preview, terminal success, complete smoke 24,881 ms. macOS ARM64 failed: the worker produced output but exited abnormally with `libc++abi … mutex lock failed: Invalid argument`. The client correctly refused readiness. A passing Linux job is not a macOS pass.
+
+The symptom matches upstream ONNX Runtime [#24579](https://github.com/microsoft/onnxruntime/issues/24579): the process-global environment can outlive the static logger mutex during native teardown. The pinned C# `OrtEnv` is a `SafeHandle` singleton whose explicit release calls `OrtReleaseEnv`. Both executable entry points now hold it until sessions have disposed, then release it before returning from Main. No dependency upgrade, numerical change, forced-success exit or suppressed error was used. Windows real-package smoke still passes. The macOS-only follow-up [37400417419](https://github.com/WSXYT/DeskNext/actions/runs/37400417419) at `7c83862` passed the same real-package installation, CPU loading, saved activation and reopened preview with terminal success and `ModelPackageActivationVerified=true`. This is a concrete lifecycle correction followed by native revalidation, not an unexplained successful retry. The Linux baseline is the earlier `8ef3ad8` job, not a claim that Linux reran at `7c83862`. Logs/artifacts are retained under `artifacts/p4-installer-tests/`, including the original failure. Neither run establishes macOS/Linux OS installer/signing, GPU, classifier quality or an OS-restart scenario.

@@ -6,11 +6,12 @@ using Tokenizers.HuggingFace.Tokenizer;
 
 namespace DeskNest.Inference;
 
-// P1 CPU-only diagnostic process. It has no filesystem operation API and is not a sandbox.
+// Shared CPU engine and framed worker. No filesystem-operation authority; this is not a sandbox.
 public static class Probe
 {
     public const string Ambiguous = "filename-ambiguous";
     public const string Insufficient = "categories-insufficient";
+    public const int WorkerProtocolVersion = 1;
     private const int MaxFrame = 1024 * 1024;
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
@@ -28,6 +29,8 @@ public static class Probe
 
     public sealed record Candidate(string Id, string? Description);
     public sealed record Request(string RequestId, long Revision, string State, string Instructions, Candidate[] Candidates);
+    public sealed record WorkerRequest(int ProtocolVersion, string ModelManifestSha256, Request Request);
+    public sealed record WorkerReply(int ProtocolVersion, string ModelManifestSha256, Result Result);
     public sealed record Tensors(long[][] InputIds, long[][] AttentionMask, long[][] MarkerPos, bool[][] MarkerMask, long[] Qtype);
     public sealed record Result(string RequestId, long Revision, Tensors Tensors, float[] Logits, double[] Probabilities,
         string Choice, string? BestReal, string Action, double Confidence, double AnswerConfidence, double ActProbability, double Temperature);
@@ -177,7 +180,14 @@ public static class Probe
             outputs.Skip(1).First().GetTensorDataAsSpan<float>().ToArray(), configDoc.RootElement);
     }
 
-    public static void Worker(string directory, Stream input, Stream output)
+    public static string ModelManifestHash(string directory)
+    {
+        using var manifest = File.OpenRead(AssetPath(directory, "manifest.json"));
+        return Convert.ToHexString(SHA256.HashData(manifest));
+    }
+
+    // Legacy raw frames remain available for P1 tensor/oracle tools; the application uses versioned frames.
+    public static void Worker(string directory, Stream input, Stream output, bool versioned = false)
     {
         Span<byte> header = stackalloc byte[4];
         while (true)
@@ -188,8 +198,29 @@ public static class Probe
             if (length < 1 || length > MaxFrame) throw new InvalidDataException("Invalid frame size");
             byte[] data = new byte[length];
             input.ReadExactly(data);
-            var request = JsonSerializer.Deserialize<Request>(data, Json) ?? throw new InvalidDataException("Null request");
-            byte[] response = JsonSerializer.SerializeToUtf8Bytes(Run(request, directory), Json);
+            Request request;
+            string? modelHash = null;
+            if (versioned)
+            {
+                var envelope = JsonSerializer.Deserialize<WorkerRequest>(data, Json);
+                if (envelope is null || envelope.ProtocolVersion != WorkerProtocolVersion)
+                    throw new InvalidDataException("Unsupported worker protocol version.");
+                if (envelope.Request is null || envelope.ModelManifestSha256 is not { Length: 64 } expectedHash ||
+                    expectedHash.Any(c => !Uri.IsHexDigit(c)))
+                    throw new InvalidDataException("Incomplete worker request identity.");
+                request = envelope.Request;
+                Validate(request);
+                modelHash = ModelManifestHash(directory);
+                if (!modelHash.Equals(expectedHash, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException("Worker model manifest does not match the requested bundle.");
+            }
+            else request = JsonSerializer.Deserialize<Request>(data, Json) ?? throw new InvalidDataException("Null request");
+            var result = Run(request, directory);
+            if (versioned && !ModelManifestHash(directory).Equals(modelHash, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("Model manifest changed while the worker was running.");
+            byte[] response = versioned
+                ? JsonSerializer.SerializeToUtf8Bytes(new WorkerReply(WorkerProtocolVersion, modelHash!, result), Json)
+                : JsonSerializer.SerializeToUtf8Bytes(result, Json);
             if (response.Length > MaxFrame) throw new InvalidDataException("Response frame too large");
             BinaryPrimitives.WriteInt32LittleEndian(header, response.Length);
             output.Write(header);

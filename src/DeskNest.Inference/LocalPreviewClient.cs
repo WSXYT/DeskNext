@@ -32,11 +32,17 @@ public static class LocalPreviewClient
             throw new DirectoryNotFoundException("Choose an existing local model bundle directory.");
         byte[] payload = JsonSerializer.SerializeToUtf8Bytes(request, Json);
         if (payload.Length > MaximumFrame) throw new InvalidDataException("Request frame too large.");
+        string expectedModelHash = Probe.ModelManifestHash(modelDirectory);
+        payload = JsonSerializer.SerializeToUtf8Bytes(new Probe.WorkerRequest(Probe.WorkerProtocolVersion, expectedModelHash, request), Json);
+        if (payload.Length > MaximumFrame) throw new InvalidDataException("Request frame too large.");
         start.UseShellExecute = false;
         start.CreateNoWindow = true;
         start.RedirectStandardInput = start.RedirectStandardOutput = start.RedirectStandardError = true;
+        // Keep the recognized verb: older two-argument hosts refuse the extra protocol argument
+        // instead of interpreting an unknown verb as a request to open the normal GUI.
         start.ArgumentList.Add("--inference-worker");
         start.ArgumentList.Add(modelDirectory);
+        start.ArgumentList.Add("--protocol=1");
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromMinutes(2));
         var token = timeout.Token;
@@ -64,10 +70,12 @@ public static class LocalPreviewClient
             await process.WaitForExitAsync(token).ConfigureAwait(false);
             string error = await errors.ConfigureAwait(false);
             if (process.ExitCode != 0) throw new IOException("Local CPU worker failed: " + error);
-            var result = JsonSerializer.Deserialize<Probe.Result>(response, Json)
-                ?? throw new InvalidDataException("Empty worker result.");
-            ValidateResult(request, result);
-            return result;
+            var reply = JsonSerializer.Deserialize<Probe.WorkerReply>(response, Json)
+                ?? throw new InvalidDataException("Empty worker reply.");
+            ValidateReply(request, expectedModelHash, reply);
+            if (!Probe.ModelManifestHash(modelDirectory).Equals(expectedModelHash, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("Selected model changed before the result could be accepted.");
+            return reply.Result;
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -84,6 +92,15 @@ public static class LocalPreviewClient
             try { await errors.ConfigureAwait(false); }
             catch (OperationCanceledException) { }
         }
+    }
+
+    public static void ValidateReply(Probe.Request request, string expectedModelHash, Probe.WorkerReply reply)
+    {
+        if (expectedModelHash is not { Length: 64 } || expectedModelHash.Any(c => !Uri.IsHexDigit(c)) ||
+            reply.ProtocolVersion != Probe.WorkerProtocolVersion || reply.Result is null ||
+            !string.Equals(reply.ModelManifestSha256, expectedModelHash, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Worker protocol or model identity does not match this preview.");
+        ValidateResult(request, reply.Result);
     }
 
     public static void ValidateResult(Probe.Request request, Probe.Result result)
