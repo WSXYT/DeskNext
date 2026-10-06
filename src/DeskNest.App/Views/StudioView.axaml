@@ -5,6 +5,7 @@
              xmlns:loc="using:DeskNest.App.Localization"
              xmlns:th="using:DeskNest.App.Themes"
              xmlns:core="using:DeskNest.Core.Workspace"
+             xmlns:flow="using:DeskNest.Core.Flow"
              x:Class="DeskNest.App.Views.StudioView"
              x:DataType="vm:StudioViewModel"
              KeyDown="OnWorkspaceKeyDown"
@@ -39,6 +40,15 @@
                         <Grid ColumnDefinitions="20,*" ColumnSpacing="12">
                             <PathIcon Data="{StaticResource IconSearch}" Width="16" Height="16"/>
                             <TextBlock Grid.Column="1" Text="{Binding Localizer[Search.Workspace]}" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </Grid>
+                    </Button>
+                    <Button Name="FlowDefinitionsButton" Classes="StudioNavTab NavRail" Classes.Active="{Binding IsFlowTab}"
+                            Command="{Binding SelectTabCommand}" CommandParameter="6"
+                            ToolTip.Tip="{Binding Localizer[Flow.Title]}" AutomationProperties.Name="{Binding Localizer[Flow.Title]}">
+                        <Grid ColumnDefinitions="20,*" ColumnSpacing="12">
+                            <PathIcon Data="{StaticResource IconSort}" Width="16" Height="16"/>
+                            <TextBlock Grid.Column="1" Text="{Binding Localizer[Flow.Title]}" VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis"/>
                         </Grid>
                     </Button>
@@ -1194,6 +1204,33 @@
                             Command="{Binding RevealSearchResultCommand}" CommandParameter="{Binding SelectedWorkspaceResult}"
                             IsEnabled="{Binding HasSelectedWorkspaceResult}"/>
                 </Grid>
+            </Grid>
+
+            <!-- Disabled definitions only: no runtime or automatic execution entry. -->
+            <Grid IsVisible="{Binding IsFlowTab}" RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="24,18">
+                <TextBlock Text="{Binding Localizer[Flow.Title]}" FontSize="20" FontWeight="SemiBold"/>
+                <TextBlock Grid.Row="1" Text="{Binding Localizer[Flow.Notice]}" TextWrapping="Wrap" Margin="0,8,0,16"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+                <WrapPanel Grid.Row="2" IsEnabled="{Binding !IsFlowBusy}" Margin="0,0,0,12">
+                    <Button Content="{Binding Localizer[Flow.New]}" Command="{Binding NewFlowDefinitionCommand}" Margin="0,0,8,0"/>
+                    <Button Content="{Binding Localizer[Flow.Reload]}" Command="{Binding LoadFlowDefinitionsCommand}" Margin="0,0,8,0"/>
+                    <Button Name="ValidateFlowButton" Content="{Binding Localizer[Flow.Validate]}" Command="{Binding ValidateFlowDefinitionCommand}" Margin="0,0,8,0"/>
+                    <Button Name="SaveFlowButton" Content="{Binding Localizer[Action.Save]}" Command="{Binding SaveFlowDefinitionCommand}"/>
+                </WrapPanel>
+                <Grid Grid.Row="3" ColumnDefinitions="180,*" ColumnSpacing="12" IsEnabled="{Binding !IsFlowBusy}">
+                    <ListBox ItemsSource="{Binding FlowDefinitions}" SelectedItem="{Binding SelectedFlowDefinition}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="flow:ManualFlowDefinition">
+                                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <TextBox Name="FlowJsonEditor" Grid.Column="1" Text="{Binding FlowJsonDraft}" AcceptsReturn="True" AcceptsTab="True"
+                             MaxLength="1048576" TextWrapping="NoWrap" FontFamily="Consolas, Menlo, monospace" FontSize="13"
+                             FlowDirection="LeftToRight" ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto" AutomationProperties.Name="{Binding Localizer[Flow.Editor]}"/>
+                </Grid>
+                <TextBlock Grid.Row="4" Text="{Binding FlowNotice}" TextWrapping="Wrap" Margin="0,12,0,0"/>
             </Grid>
 
             <!-- ================= TAB 4: SYSTEM PROBE & DIAGNOSTICS ================= -->

@@ -54,6 +54,8 @@ public sealed partial class StudioViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsSettingsTab));
         OnPropertyChanged(nameof(IsProbeTab));
         OnPropertyChanged(nameof(IsWorkspaceSearchTab));
+        OnPropertyChanged(nameof(IsFlowTab));
+        if (value == 6 && !_flowsLoaded) _ = LoadFlowDefinitionsAsync();
     }
 
     // ==========================================

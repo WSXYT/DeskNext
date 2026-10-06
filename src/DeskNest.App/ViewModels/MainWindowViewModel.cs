@@ -346,6 +346,16 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
 
     private void AttachStudioExecutors(StudioViewModel studio)
     {
+        studio.OnLoadFlowDefinitions = async () =>
+        {
+            if (_disposed || _store is null) throw new ObjectDisposedException(nameof(MainWindowViewModel));
+            return await new DeskNest.Core.Flow.ManualFlowStore(_store).LoadAsync();
+        };
+        studio.OnSaveFlowDefinition = async (id, json) =>
+        {
+            if (_disposed || _store is null) throw new ObjectDisposedException(nameof(MainWindowViewModel));
+            return await new DeskNest.Core.Flow.ManualFlowStore(_store).SaveAsync(id, json);
+        };
         studio.OnPrepareModelRemoval = OperatingSystem.IsWindows() ? PrepareModelRemovalAsync : null;
         studio.OnRemoveModelData = OperatingSystem.IsWindows() ? RemoveModelDataAsync : null;
         if (string.IsNullOrEmpty(studio.ModelInstallRoot) && _store is not null)

@@ -2,7 +2,8 @@ param(
     [string]$Version = '0.3.0-dev',
     [string]$OutputRoot,
     [switch]$SkipBuild,
-    [switch]$IncludeRecoveryProbe
+    [switch]$IncludeRecoveryProbe,
+    [string]$PoggetNativeLibrary
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -18,10 +19,21 @@ $archive = Join-Path $OutputRoot ('DeskNest-' + $Version + '-win-x64-unsigned.zi
 if ((Test-Path -LiteralPath $manifestPath) -or (Test-Path -LiteralPath $archive)) {
     throw 'Manifest or archive already exists; refusing to change an existing package.'
 }
+$nativeArgs = @()
+if ($PoggetNativeLibrary) {
+    $PoggetNativeLibrary = [IO.Path]::GetFullPath($PoggetNativeLibrary)
+    if (!(Test-Path -LiteralPath $PoggetNativeLibrary -PathType Leaf) -or
+        [IO.Path]::GetFileName($PoggetNativeLibrary) -ne 'desknest_pogget.dll' -or
+        ((Get-Item -LiteralPath $PoggetNativeLibrary).Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+        throw 'Supply a compiled, non-linked Windows desknest_pogget.dll.'
+    }
+    $nativeArgs = @('-p:PoggetNativeLibrary=' + $PoggetNativeLibrary)
+    if ($SkipBuild) { throw 'Native library selection requires a fresh build, not SkipBuild.' }
+}
 if (!$SkipBuild) {
     if (Test-Path -LiteralPath $bundle) { throw 'Output already exists. Use a fresh version or output directory.' }
     New-Item -ItemType Directory -Path $payload -Force | Out-Null
-    & dotnet publish (Join-Path $repository 'src\DeskNest.App\DeskNest.App.csproj') -c Release -r win-x64 --self-contained true -m:1 --disable-build-servers -p:UseSharedCompilation=false -o $payload
+    & dotnet publish (Join-Path $repository 'src\DeskNest.App\DeskNest.App.csproj') -c Release -r win-x64 --self-contained true -m:1 --disable-build-servers -p:UseSharedCompilation=false @nativeArgs -o $payload
     if ($LASTEXITCODE -ne 0) { throw 'UI publish failed.' }
     & dotnet publish (Join-Path $repository 'src\DeskNest.Inference\DeskNest.Inference.csproj') -c Release -r win-x64 --self-contained true -m:1 --disable-build-servers -p:UseSharedCompilation=false -o (Join-Path $payload 'worker\cpu')
     if ($LASTEXITCODE -ne 0) { throw 'Inference worker publish failed.' }

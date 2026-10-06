@@ -12,6 +12,13 @@
     </EmbeddedResource>
   </ItemGroup>
 
+  <Target Name="CheckPoggetNativeLibrary" BeforeTargets="PrepareForBuild" Condition="'$(PoggetNativeLibrary)' != ''">
+    <Error Condition="!Exists('$(PoggetNativeLibrary)')" Text="The explicitly selected Pogget native library does not exist." />
+  </Target>
+  <ItemGroup Condition="'$(PoggetNativeLibrary)' != '' And Exists('$(PoggetNativeLibrary)')">
+    <None Include="$(PoggetNativeLibrary)" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" Version="12.1.3" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.3" />

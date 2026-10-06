@@ -21,6 +21,34 @@ public sealed class ManualFlowDefinitionTests
     }
 
     [FlowNativeFact]
+    public async Task DefinitionStorageRetainsRevisionsAndRefusesCorruptReset()
+    {
+        string root = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "DeskNext-flow-store-" + Guid.NewGuid().ToString("N"))).FullName;
+        try
+        {
+            await using var workspace = await DeskNest.Core.Workspace.WorkspaceStore.OpenAsync(root);
+            var store = new ManualFlowStore(workspace, Environment.GetEnvironmentVariable("DESKNEXT_FLOW_NATIVE_LIBRARY"));
+            Assert.Empty(await store.LoadAsync());
+            string draft = ManualFlowDefinitions.Create("流程", "title", "message");
+            var incoming = ManualFlowDefinitions.Read(draft);
+            var saved = await store.SaveAsync(incoming.Id, draft);
+            Assert.Equal(1, saved.Revision);
+            Assert.Equal(saved, Assert.Single(await store.LoadAsync()));
+            Assert.Equal(0, workspace.Snapshot.Revision);
+            await Assert.ThrowsAsync<InvalidDataException>(() => store.SaveAsync(incoming.Id, draft));
+            await store.SaveAsync(saved.Id, saved.Json);
+            string path = Path.Combine(root, "flow-definitions.json");
+            File.WriteAllText(path, "{");
+            File.WriteAllText(path + ".bak", "{");
+            await Assert.ThrowsAsync<InvalidDataException>(() => store.LoadAsync());
+            Assert.True(File.Exists(path + ".recovery-required"));
+            await Assert.ThrowsAsync<InvalidDataException>(() => store.SaveAsync(incoming.Id, draft));
+            Assert.NotEmpty(Directory.GetFiles(root, "*.corrupt-*"));
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [FlowNativeFact]
     public void RealNativeValidatorChecksModulesWithoutExecutingThem()
     {
         string library = Environment.GetEnvironmentVariable("DESKNEXT_FLOW_NATIVE_LIBRARY")!;

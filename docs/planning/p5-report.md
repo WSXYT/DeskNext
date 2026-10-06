@@ -1,12 +1,22 @@
 # P5 folder observation and Flow — partial implementation
 
+## Saved manual-Flow definitions (2026-10-06)
+
+The sidebar **Flow definitions** entry now provides an advanced JSON draft editor: new, reload, native validation and save. It reuses the upstream format, not a second node validator. Definitions remain `enabled=false` with a manual trigger; there is deliberately no Run button, automatic trigger or file executor. This is not yet the planned visual sequential editor.
+
+`ManualFlowStore` holds at most 100 definitions in the separate, bounded `flow-definitions.json` catalog under the owned workspace directory. It uses the existing organization gate and `ResilientJsonStore`, checks the selected ID and revision, increments only the definition revision, and preserves a recovery marker after double corruption rather than resetting to an empty catalog. Editing definitions does not alter workspace revision, classification settings or file-operation history. Reload/new/selection replace the current draft, as stated in the UI.
+
+Validation requires the compiled native bridge beside the app. Source builds may pass `-p:PoggetNativeLibrary=<absolute-library-path>`; Windows packaging accepts the corresponding `-PoggetNativeLibrary` parameter. No path from definition JSON selects native code. Without the component the editor reports it unavailable and save refuses. Existing public preview assets are unchanged and do not acquire this module retroactively.
+
+Bounded evidence: three relevant Core checks passed (`artifacts/p5-flow-tests/flow-storage.trx`); a fresh Windows Release bridge and App build succeeded; the existing checked headless workflow reports `Success=true`, `FlowDefinitionEditorVerified=true`, `FlowDefinitionPersistenceVerified=true`, and twelve-locale parity (422 keys) in `flow-editor.log`. It drives the real editor commands, saves/reopens a definition and refuses an enabled draft without changing saved bytes. No full P3 suite, three-OS CI or installer cycle was repeated. Unix UI/native-module packaging, visual step editing, runtime integration and scheduling remain unaccepted.
+
 ## Independent manual-Flow foundation (2026-10-06)
 
 P4's quality/live-service gates remain unpassed. This is independent definition/validation work permitted by PLAN.md, not P4 completion or automatic execution enablement.
 
 `ManualFlowDefinitions` emits the existing `pogget.flow` schema with a manual trigger and **enabled=false**. Its bounded reader rejects enabled/automatic definitions and NUL-bearing strings; the native `dn_flow_validate` remains the authority for module parameters and dataflow. The wrapper loads only the application-directory bridge by default (an explicit developer path is separate from JSON), distinguishes invalid definitions from unavailable native support, and never creates a Flow runtime or executor.
 
-Two focused Core checks passed with the explicitly supplied compiled Windows bridge (`artifacts/p5-flow-tests/flow-definition-final.trx`), including Unicode prompt validation, rejected unknown modules and a valid move definition whose source/destination stayed untouched. Without the native-library fixture the native test is explicitly skipped, not counted as native evidence. This does not establish native packaging, a completed editor, persistence, host-executor integration, schedules or full P5 acceptance. Those remain in task 58 / the broader P5 ledger.
+Two focused Core checks passed with the explicitly supplied compiled Windows bridge (`artifacts/p5-flow-tests/flow-definition-final.trx`), including Unicode prompt validation, rejected unknown modules and a valid move definition whose source/destination stayed untouched. Without the native-library fixture the native test is explicitly skipped, not counted as native evidence. This earlier foundation checkpoint did not establish an editor or persistence; the later saved-definition increment above supplies those bounded capabilities. Host-executor integration, schedules and full P5 acceptance remain open.
 
 ## Explicit observation session (2026-10-03)
 
@@ -45,4 +55,4 @@ App build: zero warnings/errors. The existing workflow verifies the actual contr
 
 ## Still open
 
-Durable per-source pause/health semantics, capsule/extension bindings, complete rescan reconciliation, durable event attribution, all overflow/257/1000-event guarantees, native root-replacement policy, aggregate multi-source resource limits and 24-hour testing, and Flow editor/scheduling/unified execution remain open. Observation is **not** automatic organization and cannot authorize file moves. P3/P5 and the full F05 row remain incomplete.
+Durable per-source pause/health semantics, capsule/extension bindings, complete rescan reconciliation, durable event attribution, all overflow/257/1000-event guarantees, native root-replacement policy, aggregate multi-source resource limits and 24-hour testing, and visual sequential Flow editing/scheduling/unified execution remain open. Observation is **not** automatic organization and cannot authorize file moves. P5 and the full F05 row remain incomplete; the accepted P3 manual scope is unchanged.

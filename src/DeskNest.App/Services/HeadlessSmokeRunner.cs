@@ -72,6 +72,8 @@ public sealed class SmokeTestResult
     public bool WorkspaceViewModelLifetimeVerified { get; set; }
     public bool ManagedClipboardWorkflowVerified { get; set; }
     public bool FolderObservationVerified { get; set; }
+    public bool FlowDefinitionEditorVerified { get; set; }
+    public bool FlowDefinitionPersistenceVerified { get; set; }
     public bool LocalClassificationPreviewVerified { get; set; }
     public bool LocalWorkerReuseVerified { get; set; }
     public bool ModelPackageActivationVerified { get; set; }
@@ -117,6 +119,61 @@ public static class HeadlessSmokeRunner
         }
         Dispatcher.UIThread.RunJobs();
         task.GetAwaiter().GetResult();
+    }
+
+    private static async Task<bool> VerifyFlowDefinitionEditorAsync(string root)
+    {
+        Guid savedId;
+        await using (var store = await WorkspaceStore.OpenAsync(root))
+        {
+            await store.UpdateAsync(s => s with { OnboardingComplete = true, OnboardingStep = 5 });
+            await using var owner = new MainWindowViewModel(store, ownsStore: false);
+            var studio = owner.Studio!;
+            var view = new StudioView { DataContext = studio };
+            var window = new Window { Width = 1280, Height = 720, Content = view };
+            window.Show();
+            try
+            {
+                await studio.LoadFlowDefinitionsCommand.ExecuteAsync(null);
+                studio.SelectedTabIndex = 6;
+                Dispatcher.UIThread.RunJobs();
+                var editor = view.FindControl<TextBox>("FlowJsonEditor")!;
+                if (!editor.IsEffectivelyVisible || editor.FlowDirection != FlowDirection.LeftToRight ||
+                    view.FindControl<Button>("SaveFlowButton")?.Command != studio.SaveFlowDefinitionCommand)
+                    throw new InvalidOperationException("Flow editor must expose the production save command and LTR JSON.");
+                long revision = store.Snapshot.Revision;
+                await studio.ValidateFlowDefinitionCommand.ExecuteAsync(null);
+                if (studio.FlowNotice == studio.Localizer["Flow.NativeUnavailable"])
+                {
+                    await studio.SaveFlowDefinitionCommand.ExecuteAsync(null);
+                    if (File.Exists(DeskNest.Core.Flow.ManualFlowDefinitions.DefaultLibraryPath) ||
+                        File.Exists(Path.Combine(root, "flow-definitions.json")))
+                        throw new InvalidOperationException("An installed native component must work, and unavailable validation must not save.");
+                    return false;
+                }
+                if (studio.FlowNotice != studio.Localizer["Flow.Valid"])
+                    throw new InvalidOperationException("Native Flow definition validation failed: " + studio.FlowNotice);
+                await studio.SaveFlowDefinitionCommand.ExecuteAsync(null);
+                var saved = studio.FlowDefinitions.Single();
+                savedId = saved.Id;
+                if (saved.Revision != 1 || studio.FlowNotice != studio.Localizer["Flow.Saved"] || store.Snapshot.Revision != revision || store.Snapshot.Operations.Count != 0)
+                    throw new InvalidOperationException("Saving a Flow must persist only a disabled definition.");
+                string before = File.ReadAllText(Path.Combine(root, "flow-definitions.json"));
+                var invalid = System.Text.Json.Nodes.JsonNode.Parse(saved.Json)!;
+                invalid["enabled"] = true;
+                editor.Text = invalid.ToJsonString();
+                Dispatcher.UIThread.RunJobs();
+                await studio.SaveFlowDefinitionCommand.ExecuteAsync(null);
+                if (File.ReadAllText(Path.Combine(root, "flow-definitions.json")) != before)
+                    throw new InvalidOperationException("An enabled Flow was allowed into the definition store.");
+            }
+            finally { window.Close(); }
+        }
+        await using var reopened = await WorkspaceStore.OpenAsync(root);
+        var definitions = await new DeskNest.Core.Flow.ManualFlowStore(reopened).LoadAsync();
+        if (definitions.Count != 1 || definitions[0].Id != savedId || definitions[0].Revision != 1)
+            throw new InvalidOperationException("Saved Flow definition did not survive reopening the workbench store.");
+        return true;
     }
 
     private static void VerifyStartupRecoveryRetry()
@@ -746,6 +803,13 @@ public static class HeadlessSmokeRunner
                     timeoutSeconds: string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DESKNEXT_TEST_MODEL_ARCHIVE")) ? 20 : 120);
             }
             result.ManagedClipboardWorkflowVerified = true;
+            using (var flowFixture = new TempTestDir())
+            {
+                var flowCheck = VerifyFlowDefinitionEditorAsync(flowFixture.Path);
+                AwaitOnUIThread(flowCheck, "disabled Flow definition editor", 20);
+                result.FlowDefinitionPersistenceVerified = flowCheck.GetAwaiter().GetResult();
+                result.FlowDefinitionEditorVerified = true;
+            }
             result.ModelPackageActivationVerified = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DESKNEXT_TEST_MODEL_ARCHIVE"));
             result.ModelDataRemovalVerified = OperatingSystem.IsWindows() && result.ModelPackageActivationVerified;
             using (var observationFixture = new TempTestDir())
