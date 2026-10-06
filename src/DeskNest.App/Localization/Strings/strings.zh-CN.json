@@ -1,5 +1,9 @@
 {
   "App.Title": "DeskNext",
+  "Flow.SourceSpace": "来源空间",
+  "Flow.SourceItem": "已登记项目",
+  "Flow.TargetSpace": "目标空间",
+  "Flow.UseSelection": "将选择填入草稿",
   "Flow.RunManual": "运行并逐步确认",
   "Flow.RunningManual": "手动 Flow 步骤",
   "Flow.MoveConfirmation": "确认移动项目",

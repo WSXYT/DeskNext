@@ -1,5 +1,9 @@
 {
   "App.Title": "DeskNext",
+  "Flow.SourceSpace": "Source space",
+  "Flow.SourceItem": "Cataloged item",
+  "Flow.TargetSpace": "Target space",
+  "Flow.UseSelection": "Apply selection to draft",
   "Flow.RunManual": "Run reviewed Flow",
   "Flow.RunningManual": "Manual Flow step",
   "Flow.MoveConfirmation": "Confirm move",

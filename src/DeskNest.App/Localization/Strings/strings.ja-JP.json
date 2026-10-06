@@ -1,5 +1,9 @@
 {
   "App.Title": "DeskNext",
+  "Flow.SourceSpace": "元のスペース",
+  "Flow.SourceItem": "登録済み項目",
+  "Flow.TargetSpace": "移動先スペース",
+  "Flow.UseSelection": "選択を下書きに適用",
   "Flow.RunManual": "確認しながら実行",
   "Flow.RunningManual": "手動 Flow の手順",
   "Flow.MoveConfirmation": "移動を確認",

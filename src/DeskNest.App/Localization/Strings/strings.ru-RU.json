@@ -1,5 +1,9 @@
 {
   "App.Title": "DeskNext",
+  "Flow.SourceSpace": "Исходное пространство",
+  "Flow.SourceItem": "Элемент каталога",
+  "Flow.TargetSpace": "Целевое пространство",
+  "Flow.UseSelection": "Применить выбор к черновику",
   "Flow.RunManual": "Выполнить с подтверждением",
   "Flow.RunningManual": "Ручной шаг Flow",
   "Flow.MoveConfirmation": "Подтвердить перемещение",

@@ -1,5 +1,9 @@
 {
   "App.Title": "DeskNext",
+  "Flow.SourceSpace": "উৎস স্পেস",
+  "Flow.SourceItem": "ক্যাটালগের আইটেম",
+  "Flow.TargetSpace": "গন্তব্য স্পেস",
+  "Flow.UseSelection": "খসড়ায় নির্বাচন প্রয়োগ করুন",
   "Flow.RunManual": "নিশ্চিত করে চালান",
   "Flow.RunningManual": "ম্যানুয়াল Flow ধাপ",
   "Flow.MoveConfirmation": "সরানো নিশ্চিত করুন",

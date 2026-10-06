@@ -987,6 +987,7 @@ public sealed partial class StudioViewModel : ViewModelBase
         CapsuleIconPath = state.Settings.CapsuleIconPath;
         OnPropertyChanged(nameof(CapsuleIconPath));
         var observationTargetDraft = ObservationTargetSpace?.Id;
+        var flowPickerSelection = (FlowSourceSpace?.Id, FlowSourceFile?.Id, FlowTargetSpace?.Id);
         var prevSpaceId = SelectedSpace?.Id;
         var prevPendingId = SelectedPendingItem?.Id;
         var prevFileId = SelectedFile?.Id;
@@ -1111,6 +1112,7 @@ public sealed partial class StudioViewModel : ViewModelBase
         OnPropertyChanged(nameof(MappedSpacesCountText));
         RefreshObservationTargets(state, observationTargetDraft);
         RefreshWorkspaceSearch();
+        RefreshFlowMovePickers(flowPickerSelection);
     }
 
     // ==========================================

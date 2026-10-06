@@ -1,5 +1,11 @@
 # P5 folder observation and Flow — partial implementation
 
+## Catalog pickers for move drafts (2026-10-06)
+
+Move-step forms now reuse the current space and file/directory view models for source-space, source-item and target-space pickers. **Apply selection to draft** fills only the literal source/destination folder and clears the alternative container-ID field; it does not save, inspect contents or execute. Manual path and advanced-JSON editing remain available. Snapshot refresh rebinds selected IDs without rewriting the draft, and execution still performs the separate revision-bound confirmation.
+
+App Release build: zero warnings/errors. The existing file/directory Flow UI workflow verifies the actual pickers and apply command, draft-only selection, ID/opaque-extension preservation, no workspace revision or file changes from applying, and selection retention across a snapshot refresh before the usual confirm/move/undo checks. `artifacts/p5-flow-tests/move-pickers-ui.log`: terminal Success/ConfirmedFlowMoveVerified/parity true, 27,694 ms for the compound smoke. No Core protocol, new dependency, full test/CI/installer cycle or expanded execution authority was added.
+
 ## Ordinary-directory move extension (2026-10-06)
 
 The same individually confirmed move path now accepts cataloged ordinary directories as well as files. Only the native Move node's ordinary-object type check changed; the coordinator still captures and verifies the full directory manifest/native root and child IDs, commits metadata and owns undo. A lexical self-nesting refusal runs before confirmation; the existing Core/native ancestry checks remain authoritative at execution. Trailing source/target separators are normalized only in the transient submission so native `filename()` cannot produce an empty leaf; the user's draft stays unchanged.

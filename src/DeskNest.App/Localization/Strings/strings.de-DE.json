@@ -1,5 +1,9 @@
 {
   "App.Title": "DeskNext",
+  "Flow.SourceSpace": "Quellbereich",
+  "Flow.SourceItem": "Katalogisierter Eintrag",
+  "Flow.TargetSpace": "Zielbereich",
+  "Flow.UseSelection": "Auswahl in Entwurf übernehmen",
   "Flow.RunManual": "Flow mit Bestätigung starten",
   "Flow.RunningManual": "Manueller Flow-Schritt",
   "Flow.MoveConfirmation": "Verschiebung bestätigen",

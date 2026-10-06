@@ -53,6 +53,78 @@ public sealed partial class StudioViewModel
     [ObservableProperty] private FlowStepType? _newFlowStepType;
     [ObservableProperty] private FlowStepItem? _selectedFlowStep;
     [ObservableProperty] private string _flowNameEditor = string.Empty;
+    [ObservableProperty] private SpaceItemViewModel? _flowSourceSpace;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanApplyFlowMoveSelection))]
+    private WorkspaceFileItemViewModel? _flowSourceFile;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanApplyFlowMoveSelection))]
+    private SpaceItemViewModel? _flowTargetSpace;
+    private bool _syncingFlowMovePickers;
+    public bool IsFlowMoveStep => SelectedFlowStep?.Type == "pogget.action.file.move";
+    public IEnumerable<WorkspaceFileItemViewModel> FlowSourceFiles => FlowSourceSpace?.Files.Where(f => !f.IsInTrash) ?? [];
+    public bool CanApplyFlowMoveSelection => IsFlowMoveStep && FlowSourceFile is { } file && FlowTargetSpace is { } target && file.SpaceId != target.Id;
+
+    partial void OnFlowSourceSpaceChanged(SpaceItemViewModel? value)
+    {
+        if (!_syncingFlowMovePickers) FlowSourceFile = null;
+        OnPropertyChanged(nameof(FlowSourceFiles));
+    }
+
+    private void RefreshFlowMovePickers((Guid? SourceSpace, Guid? SourceFile, Guid? TargetSpace)? selection = null)
+    {
+        var sourceSpaceId = selection?.SourceSpace;
+        var sourceFileId = selection?.SourceFile;
+        var targetSpaceId = selection?.TargetSpace;
+        if (selection is null && IsFlowMoveStep)
+        {
+            string? source = FlowParameters.FirstOrDefault(p => p.Key == "source")?.Value;
+            string? target = FlowParameters.FirstOrDefault(p => p.Key == "destinationDirectory")?.Value;
+            var match = string.IsNullOrWhiteSpace(source) ? null : AllSpaces.SelectMany(s => s.Files).FirstOrDefault(f => !f.IsInTrash && PickerPathMatches(f.Path, source));
+            sourceSpaceId = match?.SpaceId;
+            sourceFileId = match?.Id;
+            targetSpaceId = AllSpaces.FirstOrDefault(s => PickerPathMatches(s.Folder, target))?.Id;
+        }
+        _syncingFlowMovePickers = true;
+        try
+        {
+            FlowSourceSpace = IsFlowMoveStep ? AllSpaces.FirstOrDefault(s => s.Id == sourceSpaceId) : null;
+            FlowSourceFile = FlowSourceSpace?.Files.FirstOrDefault(f => f.Id == sourceFileId && !f.IsInTrash);
+            FlowTargetSpace = IsFlowMoveStep ? AllSpaces.FirstOrDefault(s => s.Id == targetSpaceId) : null;
+        }
+        finally { _syncingFlowMovePickers = false; }
+        OnPropertyChanged(nameof(IsFlowMoveStep));
+        OnPropertyChanged(nameof(CanApplyFlowMoveSelection));
+    }
+
+    private static bool PickerPathMatches(string path, string? draft)
+    {
+        if (string.IsNullOrWhiteSpace(draft) || !Path.IsPathFullyQualified(draft)) return false;
+        try
+        {
+            return string.Equals(Path.TrimEndingDirectorySeparator(Path.GetFullPath(path)), Path.TrimEndingDirectorySeparator(Path.GetFullPath(draft)),
+                OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+        }
+        catch (Exception error) when (error is ArgumentException or NotSupportedException or IOException) { return false; }
+    }
+
+    [RelayCommand]
+    public void ApplyFlowMoveSelection()
+    {
+        if (IsFlowBusy || !CanApplyFlowMoveSelection) return;
+        var source = AllSpaces.FirstOrDefault(s => s.Id == FlowSourceSpace?.Id)?.Files.FirstOrDefault(f => f.Id == FlowSourceFile?.Id && !f.IsInTrash);
+        var target = AllSpaces.FirstOrDefault(s => s.Id == FlowTargetSpace?.Id);
+        if (source is null || target is null || source.SpaceId == target.Id) return;
+        _syncingFlowMovePickers = true;
+        try
+        {
+            FlowParameters.Single(p => p.Key == "source").Value = source.Path;
+            FlowParameters.Single(p => p.Key == "destinationDirectory").Value = target.Folder;
+            FlowParameters.Single(p => p.Key == "destinationContainerId").Value = string.Empty;
+        }
+        finally { _syncingFlowMovePickers = false; }
+        RefreshFlowMovePickers();
+    }
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsFlowStepsView))]
     private bool _isFlowCodeView;
@@ -91,11 +163,13 @@ public sealed partial class StudioViewModel
                     parameters[key] = key == "maximumBytes" && long.TryParse(edited, NumberStyles.Integer, CultureInfo.InvariantCulture, out long bytes)
                         ? JsonValue.Create(bytes) : JsonValue.Create(edited);
                     WriteFlowJson();
+                    if (!_syncingFlowMovePickers && (key is "source" or "destinationDirectory" or "destinationContainerId")) RefreshFlowMovePickers();
                 }));
             }
         }
         OnPropertyChanged(nameof(HasFlowStepSelection));
         OnPropertyChanged(nameof(FlowStepNeedsCode));
+        RefreshFlowMovePickers();
     }
 
     private static string[] ParameterKeys(string type) => type switch

@@ -1,5 +1,9 @@
 {
   "App.Title": "DeskNext",
+  "Flow.SourceSpace": "مساحة المصدر",
+  "Flow.SourceItem": "عنصر مفهرس",
+  "Flow.TargetSpace": "مساحة الوجهة",
+  "Flow.UseSelection": "تطبيق الاختيار على المسودة",
   "Flow.RunManual": "تشغيل مع التأكيد",
   "Flow.RunningManual": "خطوة Flow يدوية",
   "Flow.MoveConfirmation": "تأكيد النقل",

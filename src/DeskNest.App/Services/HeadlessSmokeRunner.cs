@@ -292,12 +292,41 @@ public static class HeadlessSmokeRunner
             studio.SelectedTabIndex = 6;
             var document = System.Text.Json.Nodes.JsonNode.Parse(DeskNest.Core.Flow.ManualFlowDefinitions.Create("move", "", "unused"))!;
             document["actions"]![0]!["type"] = "pogget.action.file.move";
-            document["actions"]![0]!["parameters"] = new System.Text.Json.Nodes.JsonObject { ["source"] = source + (directory ? Path.DirectorySeparatorChar.ToString() : ""), ["destinationDirectory"] = to };
+            document["actions"]![0]!["parameters"] = new System.Text.Json.Nodes.JsonObject { ["source"] = "", ["destinationDirectory"] = "", ["destinationContainerId"] = "old-target" };
+            document["extensions"] = new System.Text.Json.Nodes.JsonObject { ["keep"] = "opaque" };
             studio.FlowJsonDraft = document.ToJsonString();
             Dispatcher.UIThread.RunJobs();
             var view = window.GetVisualDescendants().OfType<StudioView>().Single();
             if (view.FindControl<Button>("RunManualFlowButton")?.Command != studio.RunManualFlowCommand)
                 throw new InvalidOperationException("The Flow run entry is not wired to the production command.");
+            var sourcePicker = view.FindControl<ComboBox>("FlowSourceSpacePicker")!;
+            var filePicker = view.FindControl<ComboBox>("FlowSourceItemPicker")!;
+            var targetPicker = view.FindControl<ComboBox>("FlowTargetSpacePicker")!;
+            var apply = view.FindControl<Button>("ApplyFlowMoveSelectionButton")!;
+            string unchangedDraft = studio.FlowJsonDraft;
+            long pickerRevision = store.Snapshot.Revision;
+            sourcePicker.SelectedItem = studio.AllSpaces.Single(s => s.Id == sourceSpace.Id);
+            Dispatcher.UIThread.RunJobs();
+            filePicker.SelectedItem = studio.FlowSourceFiles.Single(f => f.Id == file.Id);
+            targetPicker.SelectedItem = studio.AllSpaces.Single(s => s.Id == targetSpace.Id);
+            Dispatcher.UIThread.RunJobs();
+            if (!apply.IsEffectivelyVisible || !apply.IsEnabled || apply.Command != studio.ApplyFlowMoveSelectionCommand || studio.FlowJsonDraft != unchangedDraft)
+                throw new InvalidOperationException("Catalog pickers must keep selections draft-only until Apply.");
+            apply.Command!.Execute(null);
+            var picked = System.Text.Json.Nodes.JsonNode.Parse(studio.FlowJsonDraft)!;
+            if (picked["actions"]![0]!["parameters"]!["source"]!.GetValue<string>() != source ||
+                picked["actions"]![0]!["parameters"]!["destinationDirectory"]!.GetValue<string>() != to ||
+                picked["actions"]![0]!["parameters"]!["destinationContainerId"]!.GetValue<string>() != "" ||
+                picked["extensions"]!["keep"]!.GetValue<string>() != "opaque" ||
+                picked["actions"]![0]!["id"]!.GetValue<string>() != document["actions"]![0]!["id"]!.GetValue<string>() ||
+                store.Snapshot.Revision != pickerRevision || !Exists(source))
+                throw new InvalidOperationException("Applying Flow selections must only fill literal draft paths and preserve unrelated data.");
+            string appliedDraft = studio.FlowJsonDraft;
+            await owner.UpdateStoreAsync(s => s);
+            Dispatcher.UIThread.RunJobs();
+            if (studio.FlowSourceFile?.Id != file.Id || studio.FlowTargetSpace?.Id != targetSpace.Id || studio.FlowJsonDraft != appliedDraft)
+                throw new InvalidOperationException("Flow catalog selections must rebind by ID without rewriting the draft.");
+            if (directory) studio.FlowParameters.Single(p => p.Key == "source").Value = source + Path.DirectorySeparatorChar;
             long revision = store.Snapshot.Revision;
             var run = studio.RunManualFlowCommand.ExecuteAsync(null);
             await ReviewAsync();

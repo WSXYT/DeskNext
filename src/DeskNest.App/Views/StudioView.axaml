@@ -1253,6 +1253,22 @@
                                 <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
                                     <StackPanel Spacing="8">
                                         <TextBlock Text="{Binding Localizer[Flow.AdvancedStep]}" IsVisible="{Binding FlowStepNeedsCode}" TextWrapping="Wrap"/>
+                                        <StackPanel IsVisible="{Binding IsFlowMoveStep}" Spacing="5" Margin="0,0,0,12">
+                                            <TextBlock Text="{Binding Localizer[Flow.SourceSpace]}"/>
+                                            <ComboBox Name="FlowSourceSpacePicker" ItemsSource="{Binding AllSpaces}" SelectedItem="{Binding FlowSourceSpace}" HorizontalAlignment="Stretch">
+                                                <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:SpaceItemViewModel"><TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"/></DataTemplate></ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                            <TextBlock Text="{Binding Localizer[Flow.SourceItem]}"/>
+                                            <ComboBox Name="FlowSourceItemPicker" ItemsSource="{Binding FlowSourceFiles}" SelectedItem="{Binding FlowSourceFile}" HorizontalAlignment="Stretch">
+                                                <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:WorkspaceFileItemViewModel"><TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"/></DataTemplate></ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                            <TextBlock Text="{Binding Localizer[Flow.TargetSpace]}"/>
+                                            <ComboBox Name="FlowTargetSpacePicker" ItemsSource="{Binding AllSpaces}" SelectedItem="{Binding FlowTargetSpace}" HorizontalAlignment="Stretch">
+                                                <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:SpaceItemViewModel"><TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"/></DataTemplate></ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                            <Button Name="ApplyFlowMoveSelectionButton" Content="{Binding Localizer[Flow.UseSelection]}"
+                                                    Command="{Binding ApplyFlowMoveSelectionCommand}" IsEnabled="{Binding CanApplyFlowMoveSelection}"/>
+                                        </StackPanel>
                                         <ItemsControl ItemsSource="{Binding FlowParameters}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate x:DataType="vm:FlowParameterEditor">
