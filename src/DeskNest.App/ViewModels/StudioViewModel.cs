@@ -902,6 +902,7 @@ public sealed partial class StudioViewModel : ViewModelBase
     private void OnLocalizerChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName != nameof(LocalizationManager.CurrentLanguage)) return;
+        RefreshFlowLanguage();
         OnPropertyChanged(nameof(SpaceDialogTitle));
         OnPropertyChanged(nameof(SpaceDialogConfirmText));
         OnPropertyChanged(nameof(ManualMoveStatusNotice));

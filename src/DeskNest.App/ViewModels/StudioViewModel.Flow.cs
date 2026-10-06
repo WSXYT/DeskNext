@@ -25,7 +25,11 @@ public sealed partial class StudioViewModel
         FlowJsonDraft = value.Json;
         FlowNotice = string.Empty;
     }
-    partial void OnFlowJsonDraftChanged(string value) => FlowNotice = string.Empty;
+    partial void OnFlowJsonDraftChanged(string value)
+    {
+        FlowNotice = string.Empty;
+        if (!_writingFlowJson && !IsFlowCodeView) RefreshFlowSteps();
+    }
 
     [RelayCommand]
     public void NewFlowDefinition()

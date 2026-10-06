@@ -121,6 +121,52 @@ public static class HeadlessSmokeRunner
         task.GetAwaiter().GetResult();
     }
 
+    private static void VerifyFlowStepEditing(StudioViewModel studio, StudioView view, string root)
+    {
+        if (view.FindControl<Button>("AddFlowStepButton")?.Command != studio.AddFlowStepCommand || !studio.IsFlowStepsView)
+            throw new InvalidOperationException("The sequential Flow form is not the active production editor.");
+        string originalId = studio.FlowSteps.Single().Id;
+        var document = System.Text.Json.Nodes.JsonNode.Parse(studio.FlowJsonDraft)!;
+        document["extensions"] = new System.Text.Json.Nodes.JsonObject { ["keep"] = "保留" };
+        studio.FlowJsonDraft = document.ToJsonString();
+        view.FindControl<TextBox>("FlowNameInput")!.Text = "顺序工作流";
+        Dispatcher.UIThread.RunJobs();
+        var message = view.GetVisualDescendants().OfType<TextBox>().Single(t => t.DataContext is FlowParameterEditor f && f.Key == "message");
+        message.Text = "消息 — مرحبا";
+        Dispatcher.UIThread.RunJobs();
+        foreach (var type in studio.FlowStepTypes.Skip(1))
+        {
+            studio.NewFlowStepType = type;
+            studio.AddFlowStepCommand.Execute(null);
+            foreach (var parameter in studio.FlowParameters)
+                parameter.Value = parameter.Key switch
+                {
+                    "source" => Path.Combine(root, "not-executed.txt"), "destinationDirectory" => Path.Combine(root, "not-created"),
+                    "containerId" => "catalog-placeholder", "insertPosition" => "end", "pattern" => "txt$", "replacement" => "md",
+                    "maximumBytes" => "1024", _ => parameter.Value
+                };
+        }
+        string lastId = studio.SelectedFlowStep!.Id;
+        studio.MoveFlowStepCommand.Execute("up");
+        if (studio.FlowSteps[^2].Id != lastId) throw new InvalidOperationException("Flow step reorder lost the selected ID.");
+        studio.MoveFlowStepCommand.Execute("down");
+        document = System.Text.Json.Nodes.JsonNode.Parse(studio.FlowJsonDraft)!;
+        var nested = System.Text.Json.Nodes.JsonNode.Parse("{\"id\":\"condition\",\"type\":\"pogget.control.if\",\"version\":1,\"enabled\":true,\"parameters\":{\"left\":\"literal\",\"operation\":\"equals\",\"right\":\"literal\"},\"branches\":{\"then\":[],\"else\":[]},\"extensions\":{\"keep\":1}}")!;
+        document["actions"]!.AsArray().Add(nested.DeepClone());
+        studio.FlowJsonDraft = document.ToJsonString();
+        studio.SelectedFlowStep = studio.FlowSteps.Single(s => s.Id == "condition");
+        studio.MoveFlowStepCommand.Execute("up");
+        var moved = System.Text.Json.Nodes.JsonNode.Parse(studio.FlowJsonDraft)!["actions"]!.AsArray().Single(n => n!["id"]!.GetValue<string>() == "condition");
+        if (!System.Text.Json.Nodes.JsonNode.DeepEquals(nested, moved) || !studio.FlowStepNeedsCode)
+            throw new InvalidOperationException("Reordering must preserve advanced nodes and branches without rewriting them.");
+        studio.RemoveFlowStepCommand.Execute(null);
+        document = System.Text.Json.Nodes.JsonNode.Parse(studio.FlowJsonDraft)!;
+        if (studio.FlowSteps.Count != 5 || studio.FlowSteps[0].Id != originalId || document["extensions"]!["keep"]!.GetValue<string>() != "保留" ||
+            document["name"]!.GetValue<string>() != "顺序工作流" || document["actions"]![0]!["parameters"]!["message"]!.GetValue<string>() != "消息 — مرحبا" ||
+            File.Exists(Path.Combine(root, "not-executed.txt")) || Directory.Exists(Path.Combine(root, "not-created")))
+            throw new InvalidOperationException("Flow form changes must preserve IDs/opaque data and perform no file actions.");
+    }
+
     private static async Task<bool> VerifyFlowDefinitionEditorAsync(string root)
     {
         Guid savedId;
@@ -136,6 +182,9 @@ public static class HeadlessSmokeRunner
             {
                 await studio.LoadFlowDefinitionsCommand.ExecuteAsync(null);
                 studio.SelectedTabIndex = 6;
+                Dispatcher.UIThread.RunJobs();
+                VerifyFlowStepEditing(studio, view, root);
+                studio.IsFlowCodeView = true;
                 Dispatcher.UIThread.RunJobs();
                 var editor = view.FindControl<TextBox>("FlowJsonEditor")!;
                 if (!editor.IsEffectivelyVisible || editor.FlowDirection != FlowDirection.LeftToRight ||

@@ -1,5 +1,13 @@
 # P5 folder observation and Flow — partial implementation
 
+## Sequential literal-parameter editor (2026-10-06)
+
+Flow now defaults to an ordered step form, with an advanced-JSON switch. Users can rename the definition, add prompt/move/map/regex-rename/read-text nodes, edit their literal parameters, reorder them and remove a selected step. Parameters are projected from the upstream JSON rather than rebuilt as another workflow schema; native validation remains the save gate. Empty/incomplete drafts can still be edited. No step is executed, including read-text.
+
+Node IDs stay stable through reordering. Existing input bindings, aliases, extensions and nested branches remain intact; unsupported/conditional nodes are shown with an instruction to use JSON. Full nested-branch editing and automatic triggers are not enabled. Form changes update only the current draft; saving still uses the existing disabled-manual catalog/revision path.
+
+Relevant App build: zero warnings/errors. The existing checked headless workflow drives actual form controls and all five action types, verifies Unicode field edits, move-up/down and removal, preserved IDs and opaque conditional/extension data, absent source/target side effects, native validation and save/reopen. `artifacts/p5-flow-tests/flow-steps.log`: terminal `Success=true`, `FlowDefinitionEditorVerified=true`, `FlowDefinitionPersistenceVerified=true`; twelve-locale parity (445 keys), 15,551 ms for the combined smoke, not an editor latency claim. No full suite/CI/installer repetition. This is bounded manual definition editing, not full P5 runtime/scheduling acceptance.
+
 ## Saved manual-Flow definitions (2026-10-06)
 
 The sidebar **Flow definitions** entry now provides an advanced JSON draft editor: new, reload, native validation and save. It reuses the upstream format, not a second node validator. Definitions remain `enabled=false` with a manual trigger; there is deliberately no Run button, automatic trigger or file executor. This is not yet the planned visual sequential editor.
@@ -55,4 +63,4 @@ App build: zero warnings/errors. The existing workflow verifies the actual contr
 
 ## Still open
 
-Durable per-source pause/health semantics, capsule/extension bindings, complete rescan reconciliation, durable event attribution, all overflow/257/1000-event guarantees, native root-replacement policy, aggregate multi-source resource limits and 24-hour testing, and visual sequential Flow editing/scheduling/unified execution remain open. Observation is **not** automatic organization and cannot authorize file moves. P5 and the full F05 row remain incomplete; the accepted P3 manual scope is unchanged.
+Durable per-source pause/health semantics, capsule/extension bindings, complete rescan reconciliation, durable event attribution, all overflow/257/1000-event guarantees, native root-replacement policy, aggregate multi-source resource limits and 24-hour testing, and nested-branch Flow editing/scheduling/unified execution remain open. Observation is **not** automatic organization and cannot authorize file moves. P5 and the full F05 row remain incomplete; the accepted P3 manual scope is unchanged.

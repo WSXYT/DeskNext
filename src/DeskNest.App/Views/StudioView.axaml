@@ -1225,10 +1225,51 @@
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
-                    <TextBox Name="FlowJsonEditor" Grid.Column="1" Text="{Binding FlowJsonDraft}" AcceptsReturn="True" AcceptsTab="True"
-                             MaxLength="1048576" TextWrapping="NoWrap" FontFamily="Consolas, Menlo, monospace" FontSize="13"
-                             FlowDirection="LeftToRight" ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                             ScrollViewer.VerticalScrollBarVisibility="Auto" AutomationProperties.Name="{Binding Localizer[Flow.Editor]}"/>
+                    <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*">
+                        <StackPanel Spacing="4" Margin="0,0,0,8" IsVisible="{Binding IsFlowStepsView}">
+                            <TextBlock Text="{Binding Localizer[Flow.Name]}"/>
+                            <TextBox Name="FlowNameInput" Text="{Binding FlowNameEditor}" MaxLength="160" IsEnabled="{Binding CanEditFlowSteps}"/>
+                        </StackPanel>
+                        <CheckBox Grid.Row="1" Content="{Binding Localizer[Flow.AdvancedJson]}" IsChecked="{Binding IsFlowCodeView}" Margin="0,0,0,8"/>
+                        <TextBox Name="FlowJsonEditor" Grid.Row="2" Text="{Binding FlowJsonDraft}" IsVisible="{Binding IsFlowCodeView}" AcceptsReturn="True" AcceptsTab="True"
+                                 MaxLength="1048576" TextWrapping="NoWrap" FontFamily="Consolas, Menlo, monospace" FontSize="13"
+                                 FlowDirection="LeftToRight" ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto" AutomationProperties.Name="{Binding Localizer[Flow.Editor]}"/>
+                        <Grid Grid.Row="2" RowDefinitions="Auto,*,Auto" IsVisible="{Binding IsFlowStepsView}" IsEnabled="{Binding CanEditFlowSteps}">
+                            <WrapPanel Margin="0,0,0,8">
+                                <ComboBox ItemsSource="{Binding FlowStepTypes}" SelectedItem="{Binding NewFlowStepType}" Width="180" Margin="0,0,8,8">
+                                    <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:FlowStepType"><TextBlock Text="{Binding Label}"/></DataTemplate></ComboBox.ItemTemplate>
+                                </ComboBox>
+                                <Button Name="AddFlowStepButton" Content="{Binding Localizer[Flow.AddStep]}" Command="{Binding AddFlowStepCommand}" Margin="0,0,8,8"/>
+                                <Button Content="{Binding Localizer[Flow.Up]}" Command="{Binding MoveFlowStepCommand}" CommandParameter="up" IsEnabled="{Binding HasFlowStepSelection}" Margin="0,0,8,8"/>
+                                <Button Content="{Binding Localizer[Flow.Down]}" Command="{Binding MoveFlowStepCommand}" CommandParameter="down" IsEnabled="{Binding HasFlowStepSelection}" Margin="0,0,8,8"/>
+                                <Button Content="{Binding Localizer[Flow.RemoveStep]}" Command="{Binding RemoveFlowStepCommand}" IsEnabled="{Binding HasFlowStepSelection}" Margin="0,0,0,8"/>
+                            </WrapPanel>
+                            <Grid Grid.Row="1" ColumnDefinitions="160,*" ColumnSpacing="12">
+                                <ListBox Name="FlowStepsList" ItemsSource="{Binding FlowSteps}" SelectedItem="{Binding SelectedFlowStep}">
+                                    <ListBox.ItemTemplate><DataTemplate x:DataType="vm:FlowStepItem"><TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis"/></DataTemplate></ListBox.ItemTemplate>
+                                </ListBox>
+                                <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+                                    <StackPanel Spacing="8">
+                                        <TextBlock Text="{Binding Localizer[Flow.AdvancedStep]}" IsVisible="{Binding FlowStepNeedsCode}" TextWrapping="Wrap"/>
+                                        <ItemsControl ItemsSource="{Binding FlowParameters}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:FlowParameterEditor">
+                                                    <StackPanel Spacing="4" Margin="0,0,0,10">
+                                                        <TextBlock Text="{Binding Label}" TextWrapping="Wrap"/>
+                                                        <TextBox Text="{Binding Value}" MaxLength="32768" AcceptsReturn="{Binding IsMultiline}"
+                                                                 FlowDirection="{Binding ValueFlowDirection}" MaxHeight="100"
+                                                                 AutomationProperties.Name="{Binding Label}"/>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Grid>
+                            <TextBlock Grid.Row="2" Text="{Binding Localizer[Flow.StepHint]}" TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        </Grid>
+                    </Grid>
                 </Grid>
                 <TextBlock Grid.Row="4" Text="{Binding FlowNotice}" TextWrapping="Wrap" Margin="0,12,0,0"/>
             </Grid>
