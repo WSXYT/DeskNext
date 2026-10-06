@@ -387,6 +387,17 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         };
         if (_manualCoordinator != null)
         {
+            var flowMoves = new DeskNest.Core.Flow.ConfirmedFlowMoves(_store!, _manualCoordinator);
+            studio.OnValidateFlowMove = flowMoves.Validate;
+            studio.OnExecuteFlowMove = async (move, token) =>
+            {
+                try { return await flowMoves.ExecuteAsync(move, studio.ConfirmFlowMoveAsync, token).ConfigureAwait(false); }
+                finally
+                {
+                    // Do not make a native callback wait for a UI refresh after the Core transaction has finished.
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() => { if (!_disposed && _store is not null) ApplySnapshot(_store.Snapshot); });
+                }
+            };
             studio.AttachManualMoveExecutor(ExecuteManualMoveAsync);
             studio.AttachManualUndoExecutor(ExecuteUndoManualMoveAsync);
             studio.OnInspectOperation = InspectOperationAsync;
@@ -1171,7 +1182,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         SelectedTheme = mode;
     }
 
-    private async Task StopFlowPromptRunAsync()
+    internal async Task StopFlowPromptRunAsync()
     {
         Task drain = Task.CompletedTask;
         await SetUIStateAsync(() => { drain = Studio?.StopPromptFlowAsync() ?? Task.CompletedTask; });

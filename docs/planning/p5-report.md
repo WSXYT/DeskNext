@@ -1,5 +1,13 @@
 # P5 folder observation and Flow — partial implementation
 
+## Individually confirmed catalog-file moves (2026-10-06)
+
+Manual Flow runs now accept literal prompts plus **regular-file moves from the catalog into an existing, uniquely identified space folder**. `ConfirmedFlowMoves` resolves the catalog subject and target, reuses the coordinator's source-boundary check, and displays exact read-only source/destination paths for each move. Confirmation captures the workspace revision; only `ManualOrganizationCoordinator.MoveFileAsync` performs the operation and its existing journal/commit/undo protocol. The native runner only requests it. Directory, map, rename, read-text, control, binding and automatic-trigger execution remain refused.
+
+The bridge stops on native runtime errors instead of falling through after a skipped file step. Both callback kinds must match the literal step sequence. Unlike prompt waiting, an in-flight file callback is **not abandoned** by a cancellation wrapper: the native destroy/join waits for the host's operation to finish its commit/recovery boundary. Cancellation prevents subsequent steps; already committed moves remain in Operation History. Closing the workbench drains the active Flow before allowing the window to close; UI refresh after a committed move is posted, not awaited by the native callback.
+
+Related evidence: six Flow Core cases pass locally with a real Release bridge, including confirmed move/normal undo, decline, stale revision, cancellation held across an already-committed host result, and native precheck failure stopping later prompts. App build is clean. `artifacts/p5-flow-tests/confirmed-move-ui.log` reports terminal `Success=true`, `ConfirmedFlowMoveVerified=true`, `ManualPromptFlowVerified=true` and twelve-locale parity (456 keys), exercising the production path controls, cancel/confirm/undo, stale confirmation and close-with-pending-review. This is local Windows evidence; the prior three-platform checkpoint below predates this move extension. Active LSP still reports stale runner syntax/member errors absent from the clean compiler and executable checks; no source was changed to silence that cache. Full P5, unattended execution and installation acceptance remain open.
+
 ## Focused native integration (2026-10-06)
 
 CI [37460672092](https://github.com/WSXYT/DeskNext/actions/runs/37460672092), source `093d9472ce488f87b357cd77715a76cd131e8d23`, passed on **Windows x64, Linux x64 and macOS ARM64**. Each runner compiled its own Release bridge, executed the five Flow Core checks with **zero skips**, and published the App with that native library beside it. The terminal-evidence driver requires editor, persistence and prompt-runtime flags as literal true; its ten self-checks also passed.

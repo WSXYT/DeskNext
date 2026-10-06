@@ -63,7 +63,8 @@ jobs:
       - name: Check Flow definitions, persistence and native callback lifetime
         run: |
           $filter = 'FullyQualifiedName~ManualFlowDefinitionTests|' + `
-            'FullyQualifiedName~ManualPromptFlowTests'
+            'FullyQualifiedName~ManualPromptFlowTests|' + `
+            'FullyQualifiedName~ConfirmedFlowMoveTests'
           dotnet test tests/DeskNest.Core.Tests -c Release -m:1 `
             --nodeReuse:false -p:UseSharedCompilation=false --filter $filter `
             --logger 'trx;LogFileName=flow.trx' `
@@ -71,7 +72,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Flow Core tests failed.' }
           [xml]$trx = Get-Content artifacts/flow-evidence/flow.trx -Raw
           $counts = $trx.TestRun.ResultSummary.Counters
-          if ([int]$counts.executed -lt 5 -or [int]$counts.failed -ne 0 -or
+          if ([int]$counts.executed -lt 6 -or [int]$counts.failed -ne 0 -or
               [int]$counts.notExecuted -ne 0) {
             throw 'Flow tests require executed native evidence, without skips.'
           }

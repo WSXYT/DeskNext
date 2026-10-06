@@ -187,6 +187,7 @@ public sealed partial class StudioViewModel
 
     private void RefreshFlowLanguage()
     {
+        OnPropertyChanged(nameof(FlowPromptActionText));
         foreach (var type in FlowStepTypes) type.RefreshLanguage();
         foreach (var step in FlowSteps) step.RefreshLanguage();
         foreach (var parameter in FlowParameters) parameter.RefreshLanguage();

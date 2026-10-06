@@ -22,8 +22,8 @@ const report = (value, marker = 'PROBE_RESULT_JSON:') =>
 
 test('requested Flow runtime cannot pass with unavailable or incomplete evidence', () => {
     const env = { DESKNEXT_TEST_FLOW_RUNTIME: '1' };
-    const good = { Success: true, FlowDefinitionEditorVerified: true, FlowDefinitionPersistenceVerified: true, ManualPromptFlowVerified: true };
-    for (const field of ['FlowDefinitionEditorVerified', 'FlowDefinitionPersistenceVerified', 'ManualPromptFlowVerified'])
+    const good = { Success: true, FlowDefinitionEditorVerified: true, FlowDefinitionPersistenceVerified: true, ManualPromptFlowVerified: true, ConfirmedFlowMoveVerified: true };
+    for (const field of ['FlowDefinitionEditorVerified', 'FlowDefinitionPersistenceVerified', 'ManualPromptFlowVerified', 'ConfirmedFlowMoveVerified'])
         for (const missing of [undefined, false, 'true'])
             assert.equal(runWithEnv(env, report({ ...good, [field]: missing }), '--headless-smoke').status, 1);
     assert.equal(runWithEnv(env, report(good), '--headless-smoke').status, 0);

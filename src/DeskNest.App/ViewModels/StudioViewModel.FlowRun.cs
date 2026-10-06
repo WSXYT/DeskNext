@@ -7,19 +7,27 @@ namespace DeskNest.App.ViewModels;
 
 public sealed partial class StudioViewModel
 {
+    public Action<FlowMove>? OnValidateFlowMove { get; set; }
+    public Func<FlowMove, CancellationToken, Task<string>>? OnExecuteFlowMove { get; set; }
     [ObservableProperty] private bool _isFlowPromptOpen;
     [ObservableProperty] private string _flowPromptTitle = string.Empty;
     [ObservableProperty] private string _flowPromptMessage = string.Empty;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FlowPromptActionText))]
+    private bool _isFlowMoveConfirmation;
+    [ObservableProperty] private string _flowMoveSource = string.Empty;
+    [ObservableProperty] private string _flowMoveDestination = string.Empty;
+    public string FlowPromptActionText => Localizer[IsFlowMoveConfirmation ? "Files.ActionMoveToSpace" : "Flow.Continue"];
     private TaskCompletionSource<bool>? _flowPromptDecision;
     private Task<int>? _promptRuntimeTask;
 
     [RelayCommand(IncludeCancelCommand = true)]
-    public async Task RunPromptFlowAsync(CancellationToken token)
+    public async Task RunManualFlowAsync(CancellationToken token)
     {
         if (IsFlowBusy) return;
         string draft = FlowJsonDraft;
         IsFlowBusy = true;
-        FlowNotice = Localizer["Flow.RunningPrompts"];
+        FlowNotice = Localizer["Flow.RunningManual"];
         try
         {
             var validation = await Task.Run(() => ManualFlowDefinitions.Validate(draft), token);
@@ -28,27 +36,31 @@ public sealed partial class StudioViewModel
                 FlowNotice = Localizer[validation == FlowDefinitionValidation.NativeUnavailable ? "Flow.NativeUnavailable" : "Flow.Invalid"];
                 return;
             }
-            _promptRuntimeTask = ManualPromptFlowRunner.RunAsync(draft, ShowFlowPromptAsync, token);
+            _promptRuntimeTask = ManualFlowRunner.RunAsync(draft, (prompt, t) => ShowFlowPromptAsync(prompt, t), token,
+                executeMove: OnExecuteFlowMove, validateMove: OnValidateFlowMove);
             int completed = await _promptRuntimeTask;
-            FlowNotice = Localizer.GetString("Flow.PromptsCompleted", completed);
+            FlowNotice = Localizer.GetString("Flow.RunCompleted", completed);
         }
         catch (OperationCanceledException) { FlowNotice = Localizer["Flow.RunCancelled"]; }
         catch (NotSupportedException) { FlowNotice = Localizer["Flow.PromptOnly"]; }
         catch (Exception error) when (error is DllNotFoundException or EntryPointNotFoundException or BadImageFormatException)
         { FlowNotice = Localizer["Flow.NativeUnavailable"]; }
-        catch (Exception error) { FlowNotice = Localizer.GetString("Files.ActionFailedNotice", error.Message); }
+        catch (Exception error) { FlowNotice = Localizer.GetString("Flow.RunFailed", error.Message); }
         finally
         {
             _promptRuntimeTask = null;
             _flowPromptDecision?.TrySetResult(false);
             _flowPromptDecision = null;
-            IsFlowPromptOpen = false;
-            FlowPromptTitle = FlowPromptMessage = string.Empty;
+            IsFlowPromptOpen = IsFlowMoveConfirmation = false;
+            FlowPromptTitle = FlowPromptMessage = FlowMoveSource = FlowMoveDestination = string.Empty;
             IsFlowBusy = false;
         }
     }
 
-    private async Task<bool> ShowFlowPromptAsync(FlowPrompt prompt, CancellationToken token)
+    internal Task<bool> ConfirmFlowMoveAsync(FlowMoveReview review, CancellationToken token) =>
+        ShowFlowPromptAsync(new(Localizer["Flow.MoveConfirmation"], Localizer["Triage.ImportNotice"]), token, review);
+
+    private async Task<bool> ShowFlowPromptAsync(FlowPrompt prompt, CancellationToken token, FlowMoveReview? move = null)
     {
         var decision = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         try
@@ -59,6 +71,9 @@ public sealed partial class StudioViewModel
                 _flowPromptDecision = decision;
                 FlowPromptTitle = prompt.Title;
                 FlowPromptMessage = prompt.Message;
+                FlowMoveSource = move?.SourcePath ?? "";
+                FlowMoveDestination = move?.DestinationPath ?? "";
+                IsFlowMoveConfirmation = move is not null;
                 IsFlowPromptOpen = true;
             });
             return await decision.Task.WaitAsync(token);
@@ -69,8 +84,8 @@ public sealed partial class StudioViewModel
             {
                 if (!ReferenceEquals(_flowPromptDecision, decision)) return;
                 _flowPromptDecision = null;
-                IsFlowPromptOpen = false;
-                FlowPromptTitle = FlowPromptMessage = string.Empty;
+                IsFlowPromptOpen = IsFlowMoveConfirmation = false;
+                FlowPromptTitle = FlowPromptMessage = FlowMoveSource = FlowMoveDestination = string.Empty;
             });
         }
     }
@@ -81,13 +96,13 @@ public sealed partial class StudioViewModel
     internal async Task StopPromptFlowAsync()
     {
         Dispatcher.UIThread.VerifyAccess();
-        RunPromptFlowCommand.Cancel();
+        RunManualFlowCommand.Cancel();
         _flowPromptDecision?.TrySetResult(false);
         IsFlowPromptOpen = false;
         var runtime = _promptRuntimeTask;
         if (runtime is null) return;
-        // Await native draining, not the UI command continuation. The latter may need this dispatcher.
+        // This raw task includes native callback drain and any already-started Core commit, not a queued UI continuation.
         try { await runtime.ConfigureAwait(false); }
-        catch (Exception) { /* The command reports the run outcome; shutdown must still release its owner. */ }
+        catch (Exception) { /* The command reports the outcome; shutdown must still release its owner. */ }
     }
 }

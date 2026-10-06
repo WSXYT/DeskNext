@@ -617,7 +617,7 @@ public sealed class ManualOrganizationCoordinator
 
     private static StringComparer PathComparer => OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 
-    private static void ValidateSource(WorkspaceFile file, WorkspaceSpace space)
+    internal static void ValidateSource(WorkspaceFile file, WorkspaceSpace space)
     {
         if (file.IsInTrash)
             throw new InvalidOperationException("Restore a trashed item through its recorded operation first.");

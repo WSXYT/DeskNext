@@ -43,6 +43,40 @@ public partial class MainWindow : Window
         };
     }
 
+    private bool _drainingFlow, _allowFlowClose;
+
+    protected override void OnClosing(WindowClosingEventArgs e)
+    {
+        base.OnClosing(e);
+        if (e.Cancel || _allowFlowClose) return;
+        if (_drainingFlow) { e.Cancel = true; return; }
+        if (DataContext is MainWindowViewModel { Studio: { } studio } vm && studio.RunManualFlowCommand.IsRunning)
+        {
+            e.Cancel = true;
+            _drainingFlow = true;
+            _ = CloseAfterFlowAsync(vm);
+        }
+    }
+
+    private async System.Threading.Tasks.Task CloseAfterFlowAsync(MainWindowViewModel vm)
+    {
+        try
+        {
+            await vm.StopFlowPromptRunAsync();
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                _allowFlowClose = true;
+                try { Close(); }
+                finally { _allowFlowClose = _drainingFlow = false; }
+            });
+        }
+        catch (Exception error)
+        {
+            _drainingFlow = false;
+            if (vm.Studio is { } studio) studio.FlowNotice = vm.Localizer.GetString("Flow.RunFailed", error.Message);
+        }
+    }
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);

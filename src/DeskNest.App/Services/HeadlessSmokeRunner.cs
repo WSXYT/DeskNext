@@ -75,6 +75,7 @@ public sealed class SmokeTestResult
     public bool FlowDefinitionEditorVerified { get; set; }
     public bool FlowDefinitionPersistenceVerified { get; set; }
     public bool ManualPromptFlowVerified { get; set; }
+    public bool ConfirmedFlowMoveVerified { get; set; }
     public bool LocalClassificationPreviewVerified { get; set; }
     public bool LocalWorkerReuseVerified { get; set; }
     public bool ModelPackageActivationVerified { get; set; }
@@ -209,21 +210,21 @@ public static class HeadlessSmokeRunner
                 if (saved.Revision != 1 || studio.FlowNotice != studio.Localizer["Flow.Saved"] || store.Snapshot.Revision != revision || store.Snapshot.Operations.Count != 0)
                     throw new InvalidOperationException("Saving a Flow must persist only a disabled definition.");
                 string before = File.ReadAllText(Path.Combine(root, "flow-definitions.json"));
-                await studio.RunPromptFlowCommand.ExecuteAsync(null);
+                await studio.RunManualFlowCommand.ExecuteAsync(null);
                 if (studio.FlowNotice != studio.Localizer["Flow.PromptOnly"] || studio.IsFlowPromptOpen)
                     throw new InvalidOperationException("The prompt runner accepted file steps.");
                 string promptDraft = DeskNest.Core.Flow.ManualFlowDefinitions.Create("manual", "提示", "确认这条提示");
                 studio.FlowJsonDraft = promptDraft;
-                var promptRun = studio.RunPromptFlowCommand.ExecuteAsync(null);
+                var promptRun = studio.RunManualFlowCommand.ExecuteAsync(null);
                 await UntilPromptAsync();
                 var acknowledge = view.FindControl<Button>("AcknowledgeFlowPromptButton")!;
                 if (!acknowledge.IsEffectivelyVisible || acknowledge.Command != studio.AcknowledgeFlowPromptCommand || studio.FlowPromptMessage != "确认这条提示")
                     throw new InvalidOperationException("The native prompt must be shown through the production acknowledgement control.");
                 acknowledge.Command!.Execute(null);
                 await promptRun;
-                if (studio.FlowNotice != studio.Localizer.GetString("Flow.PromptsCompleted", 1) || studio.FlowJsonDraft != promptDraft || studio.IsFlowPromptOpen)
+                if (studio.FlowNotice != studio.Localizer.GetString("Flow.RunCompleted", 1) || studio.FlowJsonDraft != promptDraft || studio.IsFlowPromptOpen)
                     throw new InvalidOperationException("Prompt acknowledgement changed the draft or did not complete.");
-                promptRun = studio.RunPromptFlowCommand.ExecuteAsync(null);
+                promptRun = studio.RunManualFlowCommand.ExecuteAsync(null);
                 await UntilPromptAsync();
                 view.FindControl<Button>("CancelFlowPromptButton")!.Command!.Execute(null);
                 await promptRun;
@@ -237,7 +238,7 @@ public static class HeadlessSmokeRunner
                 if (File.ReadAllText(Path.Combine(root, "flow-definitions.json")) != before)
                     throw new InvalidOperationException("An enabled Flow was allowed into the definition store.");
                 studio.FlowJsonDraft = promptDraft;
-                promptRun = studio.RunPromptFlowCommand.ExecuteAsync(null);
+                promptRun = studio.RunManualFlowCommand.ExecuteAsync(null);
                 await UntilPromptAsync();
                 await owner.DisposeAsync();
                 await promptRun;
@@ -264,6 +265,86 @@ public static class HeadlessSmokeRunner
         if (definitions.Count != 1 || definitions[0].Id != savedId || definitions[0].Revision != 1)
             throw new InvalidOperationException("Saved Flow definition did not survive reopening the workbench store.");
         return true;
+    }
+
+    private static async Task VerifyConfirmedFlowMoveAsync(string root)
+    {
+        string from = Directory.CreateDirectory(Path.Combine(root, "source")).FullName;
+        string to = Directory.CreateDirectory(Path.Combine(root, "target")).FullName;
+        string source = Path.Combine(from, "流水.txt"), target = Path.Combine(to, "流水.txt");
+        File.WriteAllText(source, "flow fixture");
+        var sourceSpace = new WorkspaceSpace(Guid.NewGuid(), "source", "", SpaceStorageMode.Managed, from);
+        var targetSpace = new WorkspaceSpace(Guid.NewGuid(), "target", "", SpaceStorageMode.Managed, to);
+        var file = new WorkspaceFile(Guid.NewGuid(), sourceSpace.Id, "流水.txt", source, false);
+        await using var store = await WorkspaceStore.OpenAsync(Path.Combine(root, "state"));
+        await store.UpdateAsync(s => s with { OnboardingComplete = true, OnboardingStep = 5, Spaces = [sourceSpace, targetSpace], Files = [file] });
+        await using var owner = new MainWindowViewModel(store, ownsStore: false);
+        var window = new MainWindow(owner);
+        window.Show();
+        try
+        {
+            var studio = owner.Studio!;
+            await studio.LoadFlowDefinitionsAsync();
+            studio.SelectedTabIndex = 6;
+            var document = System.Text.Json.Nodes.JsonNode.Parse(DeskNest.Core.Flow.ManualFlowDefinitions.Create("move", "", "unused"))!;
+            document["actions"]![0]!["type"] = "pogget.action.file.move";
+            document["actions"]![0]!["parameters"] = new System.Text.Json.Nodes.JsonObject { ["source"] = source, ["destinationDirectory"] = to };
+            studio.FlowJsonDraft = document.ToJsonString();
+            Dispatcher.UIThread.RunJobs();
+            var view = window.GetVisualDescendants().OfType<StudioView>().Single();
+            if (view.FindControl<Button>("RunManualFlowButton")?.Command != studio.RunManualFlowCommand)
+                throw new InvalidOperationException("The Flow run entry is not wired to the production command.");
+            long revision = store.Snapshot.Revision;
+            var run = studio.RunManualFlowCommand.ExecuteAsync(null);
+            await ReviewAsync();
+            var sourceInput = view.FindControl<TextBox>("FlowMoveSourceInput")!;
+            var destinationInput = view.FindControl<TextBox>("FlowMoveDestinationInput")!;
+            if (!sourceInput.IsReadOnly || !sourceInput.IsEffectivelyVisible || sourceInput.FlowDirection != FlowDirection.LeftToRight ||
+                sourceInput.Text != source || destinationInput.Text != target || store.Snapshot.Revision != revision || !File.Exists(source))
+                throw new InvalidOperationException("Flow moves must show exact read-only paths before any mutation.");
+            view.FindControl<Button>("CancelFlowPromptButton")!.Command!.Execute(null);
+            await run;
+            if (!File.Exists(source) || File.Exists(target) || store.Snapshot.Revision != revision)
+                throw new InvalidOperationException("Cancelling a Flow review must not move or save metadata.");
+            run = studio.RunManualFlowCommand.ExecuteAsync(null);
+            await ReviewAsync();
+            studio.AcknowledgeFlowPromptCommand.Execute(null);
+            await run;
+            Dispatcher.UIThread.RunJobs();
+            var operation = store.Snapshot.Operations.Single();
+            if (operation.Status != ProposedOperationStatus.Completed || File.Exists(source) || File.ReadAllText(target) != "flow fixture")
+                throw new InvalidOperationException("Confirmed Flow move did not use the journaled coordinator.");
+            await studio.ExecuteUndoManualMoveCommand.ExecuteAsync(operation.Id);
+            if (File.ReadAllText(source) != "flow fixture" || File.Exists(target))
+                throw new InvalidOperationException("Flow move must retain normal identity-checked undo.");
+            run = studio.RunManualFlowCommand.ExecuteAsync(null);
+            await ReviewAsync();
+            await store.UpdateAsync(s => s);
+            studio.AcknowledgeFlowPromptCommand.Execute(null);
+            await run;
+            if (!File.Exists(source) || File.Exists(target) || store.Snapshot.Operations.Count != 1)
+                throw new InvalidOperationException("A stale Flow confirmation was allowed to move a file.");
+            run = studio.RunManualFlowCommand.ExecuteAsync(null);
+            await ReviewAsync();
+            window.Close();
+            await run;
+            var closing = Stopwatch.StartNew();
+            while (window.IsVisible && closing.Elapsed < TimeSpan.FromSeconds(5)) await Task.Delay(10);
+            if (window.IsVisible || studio.IsFlowBusy || !File.Exists(source) || File.Exists(target))
+                throw new InvalidOperationException("Window close must cancel and drain a pending Flow before closing.");
+
+            async Task ReviewAsync()
+            {
+                var wait = Stopwatch.StartNew();
+                while (!studio.IsFlowMoveConfirmation || !studio.IsFlowPromptOpen)
+                {
+                    if (run.IsCompleted || wait.Elapsed > TimeSpan.FromSeconds(5)) throw new InvalidOperationException("Flow review did not open: " + studio.FlowNotice);
+                    await Task.Delay(10);
+                }
+                Dispatcher.UIThread.RunJobs();
+            }
+        }
+        finally { window.Close(); }
     }
 
     private static void VerifyStartupRecoveryRetry()
@@ -900,6 +981,12 @@ public static class HeadlessSmokeRunner
                 result.FlowDefinitionPersistenceVerified = flowCheck.GetAwaiter().GetResult();
                 result.ManualPromptFlowVerified = result.FlowDefinitionPersistenceVerified;
                 result.FlowDefinitionEditorVerified = true;
+            }
+            if (result.FlowDefinitionPersistenceVerified)
+            {
+                using var moveFixture = new TempTestDir();
+                AwaitOnUIThread(VerifyConfirmedFlowMoveAsync(moveFixture.Path), "confirmed native Flow move", 20);
+                result.ConfirmedFlowMoveVerified = true;
             }
             result.ModelPackageActivationVerified = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DESKNEXT_TEST_MODEL_ARCHIVE"));
             result.ModelDataRemovalVerified = OperatingSystem.IsWindows() && result.ModelPackageActivationVerified;

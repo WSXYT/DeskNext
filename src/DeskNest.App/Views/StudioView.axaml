@@ -1216,7 +1216,7 @@
                     <Button Content="{Binding Localizer[Flow.Reload]}" Command="{Binding LoadFlowDefinitionsCommand}" Margin="0,0,8,0"/>
                     <Button Name="ValidateFlowButton" Content="{Binding Localizer[Flow.Validate]}" Command="{Binding ValidateFlowDefinitionCommand}" Margin="0,0,8,0"/>
                     <Button Name="SaveFlowButton" Content="{Binding Localizer[Action.Save]}" Command="{Binding SaveFlowDefinitionCommand}" Margin="0,0,8,0"/>
-                    <Button Name="RunPromptFlowButton" Content="{Binding Localizer[Flow.RunPrompts]}" Command="{Binding RunPromptFlowCommand}" ToolTip.Tip="{Binding Localizer[Flow.PromptOnly]}"/>
+                    <Button Name="RunManualFlowButton" Content="{Binding Localizer[Flow.RunManual]}" Command="{Binding RunManualFlowCommand}" ToolTip.Tip="{Binding Localizer[Flow.PromptOnly]}"/>
                 </WrapPanel>
                 <Grid Grid.Row="3" ColumnDefinitions="180,*" ColumnSpacing="12" IsEnabled="{Binding !IsFlowBusy}">
                     <ListBox ItemsSource="{Binding FlowDefinitions}" SelectedItem="{Binding SelectedFlowDefinition}">
@@ -1424,22 +1424,28 @@
             </Border>
         </Border>
 
-        <!-- Explicit acknowledgement of a prompt-only native run. -->
+        <!-- Per-step acknowledgement; file moves show exact read-only paths before Core execution. -->
         <Border Name="FlowPromptOverlay" Grid.ColumnSpan="2" IsVisible="{Binding IsFlowPromptOpen}"
                 Background="{DynamicResource AcrylicOverlayBrush}">
             <Border Width="520" MaxHeight="540" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center"
                     Background="{DynamicResource AcrylicBackgroundBrush}" BorderBrush="{DynamicResource AcrylicBorderBrush}"
                     BorderThickness="1" CornerRadius="{DynamicResource RadiusLarge}">
-                <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="12">
-                    <TextBlock Text="{Binding Localizer[Flow.RunningPrompts]}" FontWeight="SemiBold"/>
+                <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" RowSpacing="12">
+                    <TextBlock Text="{Binding Localizer[Flow.RunningManual]}" FontWeight="SemiBold"/>
                     <TextBlock Grid.Row="1" Text="{Binding FlowPromptTitle}" TextWrapping="Wrap" FontSize="18"/>
                     <ScrollViewer Grid.Row="2" MaxHeight="300" VerticalScrollBarVisibility="Auto">
                         <TextBlock Text="{Binding FlowPromptMessage}" TextWrapping="Wrap"/>
                     </ScrollViewer>
-                    <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                    <StackPanel Grid.Row="3" IsVisible="{Binding IsFlowMoveConfirmation}" Spacing="4">
+                        <TextBlock Text="{Binding Localizer[Triage.ImportFrom]}"/>
+                        <TextBox Name="FlowMoveSourceInput" Text="{Binding FlowMoveSource, Mode=OneWay}" IsReadOnly="True" FlowDirection="LeftToRight"/>
+                        <TextBlock Text="{Binding Localizer[Triage.ImportTo]}"/>
+                        <TextBox Name="FlowMoveDestinationInput" Text="{Binding FlowMoveDestination, Mode=OneWay}" IsReadOnly="True" FlowDirection="LeftToRight"/>
+                    </StackPanel>
+                    <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
                         <Button Name="CancelFlowPromptButton" Content="{Binding Localizer[Action.Cancel]}"
-                                Command="{Binding RunPromptFlowCancelCommand}" IsCancel="{Binding IsFlowPromptOpen}"/>
-                        <Button Name="AcknowledgeFlowPromptButton" Content="{Binding Localizer[Flow.Continue]}"
+                                Command="{Binding RunManualFlowCancelCommand}" IsCancel="{Binding IsFlowPromptOpen}"/>
+                        <Button Name="AcknowledgeFlowPromptButton" Content="{Binding FlowPromptActionText}"
                                 Command="{Binding AcknowledgeFlowPromptCommand}" IsDefault="{Binding IsFlowPromptOpen}"/>
                     </StackPanel>
                 </Grid>

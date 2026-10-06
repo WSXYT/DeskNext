@@ -64,6 +64,10 @@ struct dn_flow {
         : callback(cb), executor(file), context(ctx), runtime({}, makeAdapters()) {}
     PoggetCore::Flow::RuntimeAdapters makeAdapters() {
         PoggetCore::Flow::RuntimeAdapters adapters;
+        // The Core bridge is fail-fast: a skipped/failed file action must not fall through to later steps.
+        adapters.log = [this](const std::wstring& level, const std::wstring&) noexcept {
+            if (level == L"ERROR") runtime.Cancel();
+        };
         adapters.showTip = [this](const std::wstring& title, const std::wstring& message) {
             if (!callback) return PoggetCore::Flow::ShowTipResult{false, false, L"no host prompt"};
             const auto t = utf8(title), m = utf8(message);
