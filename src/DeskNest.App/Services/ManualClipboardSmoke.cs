@@ -340,8 +340,18 @@ internal static class ManualClipboardSmoke
                 if (store.Snapshot.Settings.ModelCacheDirectory != installed)
                     throw new InvalidOperationException("Explicit settings save did not activate the installed model.");
                 await using (var reopenedViewModel = new MainWindowViewModel(store, ownsStore: false))
-                    if (reopenedViewModel.Studio?.ModelInstallRoot != deploymentRoot)
+                {
+                    var reopened = reopenedViewModel.Studio!;
+                    if (reopened.ModelInstallRoot != deploymentRoot)
                         throw new InvalidOperationException("The activated model must retain its installation location on workspace reload.");
+                    long beforePreview = store.Snapshot.Revision;
+                    await reopened.PreviewClassificationCommand.ExecuteAsync(reopened.AllSpaces.SelectMany(s => s.Files).Single(f => f.Id == fileId));
+                    if (!reopened.IsPreviewDialogOpen || reopened.PreviewKind != main.Localizer["Classification.LocalCpu"] ||
+                        store.Snapshot.Revision != beforePreview || File.ReadAllText(contentPath) != "clipboard fixture")
+                        throw new InvalidOperationException("The installed model failed the reopened CPU preview: " + reopened.FileActionNotice);
+                    reopened.ClosePreviewDialog();
+                    Console.WriteLine("MODEL_PACKAGE_REOPENED_CPU_PREVIEW_VERIFIED: true");
+                }
                 studio.SettingsModelCache = bundle;
                 await studio.SaveSettingsAsync();
                 Console.WriteLine("MODEL_PACKAGE_UI_ACTIVATION_VERIFIED: true");

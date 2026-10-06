@@ -2,7 +2,9 @@
 import { spawnSync } from 'node:child_process';
 const [exe, ...args] = process.argv.slice(2);
 if (!exe) throw new Error('Usage: node tests/run-app-probe.mjs <executable> <probe arguments>');
-const child = spawnSync(exe, args, { encoding: 'utf8', timeout: 90_000, maxBuffer: 2 * 1024 * 1024, windowsHide: true });
+// The opt-in real package fixture includes extraction and two cold CPU loads, not a latency benchmark.
+const modelPackage = args.includes('--headless-smoke') && Boolean(process.env.DESKNEXT_TEST_MODEL_ARCHIVE);
+const child = spawnSync(exe, args, { encoding: 'utf8', timeout: modelPackage ? 180_000 : 90_000, maxBuffer: 2 * 1024 * 1024, windowsHide: true });
 process.stdout.write(child.stdout ?? '');
 process.stderr.write(child.stderr ?? '');
 if (child.error || child.status !== 0 || child.signal)
@@ -13,6 +15,8 @@ const sections = (child.stdout ?? '').split(marker);
 if (sections.length !== 2) throw new Error(`Expected exactly one terminal ${marker}`);
 const result = JSON.parse(sections[1].trim());
 if (result.Success !== true) throw new Error('Probe did not report Success=true.');
+if (modelPackage && result.ModelPackageActivationVerified !== true)
+    throw new Error('Requested real model installation, activation and reopened CPU preview were not verified.');
 if (args.some(a => a === '--native-library' || a.startsWith('--native-library=')) &&
     (result.NativeLoadRequested !== true || result.NativeLoadSuccess !== true))
     throw new Error('Requested native library interop was not verified.');
