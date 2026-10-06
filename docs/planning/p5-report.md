@@ -1,4 +1,12 @@
-# P5 folder observation — partial implementation
+# P5 folder observation and Flow — partial implementation
+
+## Independent manual-Flow foundation (2026-10-06)
+
+P4's quality/live-service gates remain unpassed. This is independent definition/validation work permitted by PLAN.md, not P4 completion or automatic execution enablement.
+
+`ManualFlowDefinitions` emits the existing `pogget.flow` schema with a manual trigger and **enabled=false**. Its bounded reader rejects enabled/automatic definitions and NUL-bearing strings; the native `dn_flow_validate` remains the authority for module parameters and dataflow. The wrapper loads only the application-directory bridge by default (an explicit developer path is separate from JSON), distinguishes invalid definitions from unavailable native support, and never creates a Flow runtime or executor.
+
+Two focused Core checks passed with the explicitly supplied compiled Windows bridge (`artifacts/p5-flow-tests/flow-definition-final.trx`), including Unicode prompt validation, rejected unknown modules and a valid move definition whose source/destination stayed untouched. Without the native-library fixture the native test is explicitly skipped, not counted as native evidence. This does not establish native packaging, a completed editor, persistence, host-executor integration, schedules or full P5 acceptance. Those remain in task 58 / the broader P5 ledger.
 
 ## Explicit observation session (2026-10-03)
 
