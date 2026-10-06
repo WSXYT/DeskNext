@@ -396,7 +396,7 @@
   "Classification.RepairPackage": "Reparar modelo",
   "Classification.RepairPackageNotice": "Instala el modelo multilingüe verificado en una carpeta nueva sin modificar la anterior. Guarda los ajustes para cambiar.",
   "Classification.InstallLocation": "Ubicación de modelos nuevos",
-  "Classification.InstallLocationNotice": "Los modelos nuevos y la caché se guardan aquí. Se copian las descargas anteriores completas y verificadas si están disponibles; los archivos anteriores se conservan. La observación se pausa; reanúdala manualmente al terminar.",
+  "Classification.InstallLocationNotice": "Los modelos nuevos y la caché se guardan aquí; los archivos anteriores se conservan. Se prefieren descargas completas verificadas; las parciales compatibles pueden continuar. La observación se pausa; reanúdala al terminar.",
   "Classification.Hint": "Nota opcional de clasificación",
   "Classification.HintNotice": "Hasta 256 caracteres. Se envía con la vista previa al proveedor elegido; no se guarda en los metadatos del espacio."
 }

@@ -72,6 +72,41 @@ public sealed class ModelPackageDownloadTests(ITestOutputHelper output) : IDispo
         Assert.Equal("incomplete", await File.ReadAllTextAsync(partial));
     }
 
+    [Theory]
+    [InlineData("\"release-a\"", true)]
+    [InlineData("W/\"release-a\"", false)]
+    [InlineData("*", false)]
+    [InlineData(null, false)]
+    public async Task PartialCacheMigrationPreservesSourceAndOnlyResumesWithStrongETag(string? tag, bool accepted)
+    {
+        string source = Directory.CreateDirectory(Path.Combine(_root, "old-cache")).FullName;
+        string destination = Path.Combine(_root, "new-cache");
+        string name = ".model-download-" + LocalModelInstaller.ArchiveSha256 + ".partial";
+        await File.WriteAllTextAsync(Path.Combine(source, name), "abc");
+        if (tag is not null) await File.WriteAllTextAsync(Path.Combine(source, name + ".etag"), tag);
+        Assert.Equal(accepted, await ModelPackageDownload.CopyPartialCacheAsync(source, destination));
+        Assert.Equal("abc", await File.ReadAllTextAsync(Path.Combine(source, name)));
+        if (!accepted) { Assert.False(Directory.Exists(destination)); return; }
+        Assert.Equal("\"release-a\"", await File.ReadAllTextAsync(Path.Combine(destination, name + ".etag")));
+        using var client = new HttpClient(new Handler(request =>
+        {
+            Assert.Equal(3, request.Headers.Range!.Ranges.Single().From);
+            Assert.Equal("\"release-a\"", request.Headers.IfRange!.EntityTag!.Tag);
+            var response = Reply(request, HttpStatusCode.PartialContent, "def");
+            response.Content.Headers.ContentRange = new ContentRangeHeaderValue(3, LocalModelInstaller.ArchiveBytes - 1, LocalModelInstaller.ArchiveBytes);
+            response.Content.Headers.ContentLength = LocalModelInstaller.ArchiveBytes - 3;
+            return response;
+        }));
+        await Assert.ThrowsAsync<InvalidDataException>(() => ModelPackageDownload.DownloadAsync(client, destination));
+        Assert.Equal("abcdef", await File.ReadAllTextAsync(Path.Combine(destination, name)));
+        Assert.Equal("abc", await File.ReadAllTextAsync(Path.Combine(source, name)));
+        string occupied = Directory.CreateDirectory(Path.Combine(_root, "occupied")).FullName;
+        await File.WriteAllTextAsync(Path.Combine(occupied, name + ".etag"), "preserve");
+        Assert.False(await ModelPackageDownload.CopyPartialCacheAsync(source, occupied));
+        Assert.False(File.Exists(Path.Combine(occupied, name)));
+        Assert.Equal("preserve", await File.ReadAllTextAsync(Path.Combine(occupied, name + ".etag")));
+    }
+
     [LocalModelPackageFact]
     public async Task VerifiedCacheCopiesWithoutNetworkOverwriteOrDeletingOldBytes()
     {
@@ -94,7 +129,15 @@ public sealed class ModelPackageDownloadTests(ITestOutputHelper output) : IDispo
             new InterruptDownload(stop), stop.Token));
         Assert.InRange(new FileInfo(Path.Combine(interrupted, name)).Length, 1, LocalModelInstaller.ArchiveBytes - 1);
         Assert.Equal(original, await ModelPackageDownload.DownloadAsync(offline, source));
-        output.WriteLine("MODEL_CACHE_RELOCATION_VERIFIED: pinned bytes, offline reuse, retained original, collision refusal and cancellation.");
+        string resumable = Directory.CreateDirectory(Path.Combine(_root, "partial-source")).FullName;
+        await File.WriteAllTextAsync(Path.Combine(resumable, name), "abc");
+        await File.WriteAllTextAsync(Path.Combine(resumable, name + ".etag"), "\"release-a\"");
+        string preferred = Path.Combine(_root, "prefer-complete");
+        string installed = await ModelPackageDownload.InstallAsync(preferred, reusableCacheRoots: [resumable, source]);
+        Assert.True(File.Exists(Path.Combine(installed, "manifest.json")));
+        Assert.Equal(Path.Combine(preferred, name), await ModelPackageDownload.DownloadAsync(offline, preferred));
+        Assert.Equal("abc", await File.ReadAllTextAsync(Path.Combine(resumable, name)));
+        output.WriteLine("MODEL_CACHE_RELOCATION_VERIFIED: pinned bytes preferred over partial, offline reuse, retained original, collision refusal and cancellation.");
     }
 
     [OnlineModelDownloadFact]

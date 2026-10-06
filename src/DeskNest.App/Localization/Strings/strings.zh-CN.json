@@ -396,7 +396,7 @@
   "Classification.RepairPackage": "修复模型",
   "Classification.RepairPackageNotice": "将已校验的多语言模型安装到新目录，保留旧目录不动；保存设置后才切换。",
   "Classification.InstallLocation": "新模型安装位置",
-  "Classification.InstallLocationNotice": "新模型副本和下载缓存存放于此。优先复制可用的完整已校验旧缓存，旧文件保留。安装会暂停文件夹观察，请在完成后手动恢复。",
+  "Classification.InstallLocationNotice": "新模型与下载缓存存放于此，旧文件保留。优先复用已校验完整缓存；续传信息有效时可继续未完成下载。安装暂停观察，完成后手动恢复。",
   "Classification.Hint": "补充分类说明（可选）",
   "Classification.HintNotice": "最多256个字符，将随预览请求发送给所选引擎，不保存到工作区元数据。"
 }

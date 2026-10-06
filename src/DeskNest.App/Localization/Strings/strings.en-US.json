@@ -396,7 +396,7 @@
   "Classification.RepairPackage": "Repair model",
   "Classification.RepairPackageNotice": "Installs a verified multilingual model into a new folder, keeping the old folder untouched. Save settings to switch.",
   "Classification.InstallLocation": "New model location",
-  "Classification.InstallLocationNotice": "New model copies and download cache are stored here. Complete, verified old downloads are copied when available; old files stay. Installation pauses observation—resume it manually afterwards.",
+  "Classification.InstallLocationNotice": "New models and download cache use this location; old files stay. Verified downloads are reused first; supported partial downloads can continue. Installation pauses observation; resume it afterwards.",
   "Classification.Hint": "Optional classification note",
   "Classification.HintNotice": "Up to 256 characters. Sent with your preview to the selected provider; never saved in workspace metadata."
 }

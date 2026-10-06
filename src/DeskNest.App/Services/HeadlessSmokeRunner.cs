@@ -75,6 +75,7 @@ public sealed class SmokeTestResult
     public bool LocalClassificationPreviewVerified { get; set; }
     public bool LocalWorkerReuseVerified { get; set; }
     public bool ModelPackageActivationVerified { get; set; }
+    public bool? WindowsSystemIconsAvailable { get; set; }
     public bool WorkspaceFileCallbacksInvoked { get; set; }
     public bool WorkspaceFileManagedVsMappedVerified { get; set; }
     public bool WorkspaceFileSelectionRetentionVerified { get; set; }
@@ -738,7 +739,8 @@ public static class HeadlessSmokeRunner
             {
                 using var clipboardFixture = new TempTestDir();
                 // This is now a multi-operation functional workflow, not a 5-second latency benchmark.
-                AwaitOnUIThread(ManualClipboardSmoke.VerifyAsync(clipboardFixture.Path, directory),
+                AwaitOnUIThread(ManualClipboardSmoke.VerifyAsync(clipboardFixture.Path, directory,
+                        available => result.WindowsSystemIconsAvailable = (result.WindowsSystemIconsAvailable ?? true) && available),
                     $"managed clipboard workflow ({(directory ? "directory" : "file")})",
                     timeoutSeconds: string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DESKNEXT_TEST_MODEL_ARCHIVE")) ? 20 : 120);
             }

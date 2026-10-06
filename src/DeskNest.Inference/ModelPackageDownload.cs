@@ -22,8 +22,17 @@ public static class ModelPackageDownload
         }
         var downloadProgress = new ScaledProgress(progress, 0, 70);
         if (reusableCacheRoots is not null)
-            foreach (string previous in reusableCacheRoots.Distinct(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal))
-                if (await CopyVerifiedCacheAsync(previous, cacheRoot, downloadProgress, cancellationToken).ConfigureAwait(false)) break;
+        {
+            var roots = reusableCacheRoots.Distinct(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal).ToArray();
+            bool copied = false;
+            // Prefer a complete verified cache to a partial one, even if it is in a legacy location.
+            foreach (bool partial in new[] { false, true })
+            {
+                foreach (string previous in roots)
+                    if (await CopyCacheAsync(previous, cacheRoot, partial, downloadProgress, cancellationToken).ConfigureAwait(false)) { copied = true; break; }
+                if (copied) break;
+            }
+        }
         string archive = await DownloadAsync(cacheRoot, downloadProgress, cancellationToken).ConfigureAwait(false);
         return await LocalModelInstaller.InstallArchiveAsync(archive, destinationRoot ?? cacheRoot, new ScaledProgress(progress, 70, 30), cancellationToken).ConfigureAwait(false);
     }
@@ -31,8 +40,17 @@ public static class ModelPackageDownload
     private static string ArchivePath(string root) => Path.Combine(root, ".model-download-" + LocalModelInstaller.ArchiveSha256 + ".partial");
 
     /// <summary>Copies only a complete pinned cache. Never overwrites a destination or removes old/partial files.</summary>
-    public static async Task<bool> CopyVerifiedCacheAsync(string sourceRoot, string destinationRoot,
-        IProgress<int>? progress = null, CancellationToken cancellationToken = default)
+    public static Task<bool> CopyVerifiedCacheAsync(string sourceRoot, string destinationRoot,
+        IProgress<int>? progress = null, CancellationToken cancellationToken = default) =>
+        CopyCacheAsync(sourceRoot, destinationRoot, false, progress, cancellationToken);
+
+    /// <summary>Copies resumable partial bytes plus their strong ETag. These bytes are not a verified model.</summary>
+    public static Task<bool> CopyPartialCacheAsync(string sourceRoot, string destinationRoot,
+        IProgress<int>? progress = null, CancellationToken cancellationToken = default) =>
+        CopyCacheAsync(sourceRoot, destinationRoot, true, progress, cancellationToken);
+
+    private static async Task<bool> CopyCacheAsync(string sourceRoot, string destinationRoot, bool partial,
+        IProgress<int>? progress, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (!Path.IsPathFullyQualified(sourceRoot) || !Path.IsPathFullyQualified(destinationRoot))
@@ -41,9 +59,21 @@ public static class ModelPackageDownload
         string destinationPath = ArchivePath(Path.GetFullPath(destinationRoot));
         LocalModelInstaller.RequirePlainAncestors(sourcePath);
         LocalModelInstaller.RequirePlainAncestors(destinationPath);
-        if (File.Exists(destinationPath) || Directory.Exists(destinationPath) || !File.Exists(sourcePath)) return false;
-        await using var source = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read, 131072, FileOptions.Asynchronous);
-        if (source.Length != LocalModelInstaller.ArchiveBytes || !await HasPinnedHashAsync(source, cancellationToken).ConfigureAwait(false)) return false;
+        string destinationTag = destinationPath + ".etag";
+        LocalModelInstaller.RequirePlainAncestors(destinationTag);
+        if (File.Exists(destinationPath) || Directory.Exists(destinationPath) || File.Exists(destinationTag) || Directory.Exists(destinationTag) ||
+            !File.Exists(sourcePath)) return false;
+        // Cooperating downloaders own the data file and its ETag under this same exclusive lock.
+        await using var source = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.None, 131072, FileOptions.Asynchronous);
+        long sourceLength = source.Length;
+        EntityTagHeaderValue? etag = null;
+        if (partial)
+        {
+            if (sourceLength <= 0 || sourceLength >= LocalModelInstaller.ArchiveBytes) return false;
+            etag = await ReadStrongETagAsync(sourcePath + ".etag", cancellationToken).ConfigureAwait(false);
+            if (etag is null) return false;
+        }
+        else if (sourceLength != LocalModelInstaller.ArchiveBytes || !await HasPinnedHashAsync(source, cancellationToken).ConfigureAwait(false)) return false;
         LocalModelInstaller.RequirePlainAncestors(destinationPath);
         Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
         await using var destination = new FileStream(destinationPath, FileMode.CreateNew, FileAccess.ReadWrite,
@@ -52,9 +82,9 @@ public static class ModelPackageDownload
         byte[] buffer = new byte[131072];
         long written = 0;
         int reported = -1;
-        while (written < LocalModelInstaller.ArchiveBytes)
+        while (written < sourceLength)
         {
-            int count = await source.ReadAsync(buffer.AsMemory(0, (int)Math.Min(buffer.Length, LocalModelInstaller.ArchiveBytes - written)), cancellationToken).ConfigureAwait(false);
+            int count = await source.ReadAsync(buffer.AsMemory(0, (int)Math.Min(buffer.Length, sourceLength - written)), cancellationToken).ConfigureAwait(false);
             if (count == 0) throw new InvalidDataException("The source model cache changed during copying.");
             await destination.WriteAsync(buffer.AsMemory(0, count), cancellationToken).ConfigureAwait(false);
             written += count;
@@ -62,9 +92,16 @@ public static class ModelPackageDownload
             if (percent != reported) { progress?.Report(percent); reported = percent; }
         }
         await destination.FlushAsync(cancellationToken).ConfigureAwait(false);
-        if (!await HasPinnedHashAsync(destination, cancellationToken).ConfigureAwait(false))
+        if (!partial && !await HasPinnedHashAsync(destination, cancellationToken).ConfigureAwait(false))
             throw new InvalidDataException("The copied model cache failed verification; both copies are retained.");
-        progress?.Report(100);
+        if (etag is not null)
+        {
+            LocalModelInstaller.RequirePlainAncestors(destinationTag);
+            await using var tag = new FileStream(destinationTag, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, FileOptions.Asynchronous);
+            await tag.WriteAsync(System.Text.Encoding.UTF8.GetBytes(etag.ToString()), cancellationToken).ConfigureAwait(false);
+            await tag.FlushAsync(cancellationToken).ConfigureAwait(false);
+        }
+        progress?.Report((int)(sourceLength * 100 / LocalModelInstaller.ArchiveBytes));
         return true;
     }
 
@@ -101,9 +138,7 @@ public static class ModelPackageDownload
                 progress?.Report(100);
                 return path;
             }
-            EntityTagHeaderValue? etag = null;
-            if (File.Exists(etagPath) && new FileInfo(etagPath).Length is > 0 and <= 1024)
-                EntityTagHeaderValue.TryParse(await File.ReadAllTextAsync(etagPath, token).ConfigureAwait(false), out etag);
+            EntityTagHeaderValue? etag = await ReadStrongETagAsync(etagPath, token).ConfigureAwait(false);
             long offset = file.Length is > 0 and < LocalModelInstaller.ArchiveBytes && etag is { IsWeak: false } && etag.Tag != "*"
                 ? file.Length : 0;
             using var request = new HttpRequestMessage(HttpMethod.Get, DownloadUrl);
@@ -178,6 +213,18 @@ public static class ModelPackageDownload
         {
             throw new TimeoutException("Model download received no data for 60 seconds. Retry to resume retained data.");
         }
+    }
+
+    private static async Task<EntityTagHeaderValue?> ReadStrongETagAsync(string path, CancellationToken token)
+    {
+        LocalModelInstaller.RequirePlainAncestors(path);
+        if (!File.Exists(path)) return null;
+        await using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.Asynchronous);
+        if (file.Length is <= 0 or > 1024) return null;
+        byte[] bytes = new byte[(int)file.Length];
+        await file.ReadExactlyAsync(bytes, token).ConfigureAwait(false);
+        return EntityTagHeaderValue.TryParse(System.Text.Encoding.UTF8.GetString(bytes), out var tag) && !tag.IsWeak && tag.Tag != "*"
+            ? tag : null;
     }
 
     private static async Task<bool> HasPinnedHashAsync(FileStream file, CancellationToken token)

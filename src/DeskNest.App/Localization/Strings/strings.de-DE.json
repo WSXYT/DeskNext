@@ -396,7 +396,7 @@
   "Classification.RepairPackage": "Modell reparieren",
   "Classification.RepairPackageNotice": "Installiert das geprüfte mehrsprachige Modell in einem neuen Ordner. Der alte bleibt unverändert. Zum Wechseln Einstellungen speichern.",
   "Classification.InstallLocation": "Speicherort neuer Modelle",
-  "Classification.InstallLocationNotice": "Neue Modelle und der Download-Cache liegen hier. Vollständige, geprüfte alte Downloads werden nach Möglichkeit kopiert; alte Dateien bleiben erhalten. Die Beobachtung wird pausiert; danach manuell fortsetzen.",
+  "Classification.InstallLocationNotice": "Neue Modelle und Downloads liegen hier; alte Dateien bleiben erhalten. Geprüfte vollständige Downloads haben Vorrang, unterstützte Teil-Downloads lassen sich fortsetzen. Die Beobachtung wird pausiert; danach manuell fortsetzen.",
   "Classification.Hint": "Optionale Klassifizierungsnotiz",
   "Classification.HintNotice": "Bis zu 256 Zeichen. Wird mit der Vorschau an den gewählten Anbieter gesendet, nicht in Arbeitsbereich-Metadaten gespeichert."
 }

@@ -15,7 +15,7 @@ namespace DeskNest.App.Services;
 // This does not establish native clipboard interop or physical keyboard/mouse acceptance.
 internal static class ManualClipboardSmoke
 {
-    internal static async Task VerifyAsync(string root, bool directory)
+    internal static async Task VerifyAsync(string root, bool directory, Action<bool>? reportSystemIcons = null)
     {
         string managedRoot = Path.Combine(root, "managed");
         string sourceFolder = Directory.CreateDirectory(Path.Combine(managedRoot, "Source")).FullName;
@@ -552,10 +552,33 @@ internal static class ManualClipboardSmoke
                 if (customIcon.PixelSize.Width != 64) throw new InvalidOperationException("Custom icon decoding must remain bounded.");
             if (OperatingSystem.IsWindows())
             {
-                if (await SystemFileIcons.GetAsync("fixture.txt", false) is null)
-                    throw new InvalidOperationException("Windows system/type icon failed. Native stage: " + SystemFileIcons.FailureFor(".txt"));
-                if (await SystemFileIcons.GetAsync("README", false) is null)
-                    throw new InvalidOperationException("Windows stock-document fallback failed: " + SystemFileIcons.FailureFor(""));
+                bool available = true;
+                foreach (string iconName in new[] { "fixture.txt", "README" })
+                {
+                    var systemIcon = await SystemFileIcons.GetAsync(iconName, false);
+                    available &= systemIcon is not null;
+                    var presentation = new FileIcon { FileName = iconName, Width = 32, Height = 32 };
+                    var iconWindow = new Window { Content = presentation, Width = 64, Height = 64 };
+                    iconWindow.Show();
+                    try
+                    {
+                        Dispatcher.UIThread.RunJobs();
+                        var image = presentation.GetVisualDescendants().OfType<Image>().Single();
+                        var fallback = presentation.GetVisualDescendants().OfType<PathIcon>().Single();
+                        if (systemIcon is null ? image.Source is not null || !fallback.IsEffectivelyVisible || fallback.Data is null
+                            : !ReferenceEquals(image.Source, systemIcon) || fallback.IsVisible)
+                            throw new InvalidOperationException("File icon presentation did not honor the actual system icon or its visible fallback.");
+                        if (systemIcon is null) Console.WriteLine("SYSTEM_ICON_UNAVAILABLE: " + SystemFileIcons.FailureFor(Path.GetExtension(iconName)));
+                        presentation.CustomIconPath = Path.Combine(root, "missing-icon.png");
+                        using var fallbackTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                        while (image.Source is not null || !fallback.IsEffectivelyVisible) await Task.Delay(10, fallbackTimeout.Token);
+                        if (fallback.Data is null) throw new InvalidOperationException("Missing custom icons must retain the production vector fallback.");
+                    }
+                    finally { iconWindow.Close(); }
+                }
+                reportSystemIcons?.Invoke(available);
+                window.Activate();
+                Dispatcher.UIThread.RunJobs();
             }
             await floating.ApplyIconSelectionAsync(fileId, false, null);
             await floating.ApplyIconSelectionAsync(source.Id, true, null);

@@ -396,7 +396,7 @@
   "Classification.RepairPackage": "修復模型",
   "Classification.RepairPackageNotice": "將已驗證的多語言模型安裝到新目錄，保留舊目錄不動；儲存設定後才切換。",
   "Classification.InstallLocation": "新模型安裝位置",
-  "Classification.InstallLocationNotice": "新模型副本與下載快取存放於此。優先複製可用的完整已驗證舊快取，保留舊檔案。安裝會暫停資料夾觀察，請於完成後手動恢復。",
+  "Classification.InstallLocationNotice": "新模型與下載快取存放於此，保留舊檔案。優先重用已驗證的完整快取；續傳資訊有效時可繼續未完成下載。安裝暫停觀察，完成後手動恢復。",
   "Classification.Hint": "補充分類說明（選填）",
   "Classification.HintNotice": "最多256個字元，會隨預覽請求傳送給所選引擎，不儲存到工作區中繼資料。"
 }

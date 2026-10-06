@@ -396,7 +396,7 @@
   "Classification.RepairPackage": "モデルを修復",
   "Classification.RepairPackageNotice": "検証済みの多言語モデルを新しいフォルダーにインストールし、元のフォルダーは保持します。設定保存で切り替えます。",
   "Classification.InstallLocation": "新しいモデルの保存先",
-  "Classification.InstallLocationNotice": "新しいモデルとダウンロードキャッシュをここに保存します。利用可能な検証済みの完全な旧キャッシュをコピーし、旧ファイルは保持します。監視は一時停止するため、完了後に手動で再開してください。",
+  "Classification.InstallLocationNotice": "新しいモデルとキャッシュをここに保存し、旧ファイルは保持します。検証済みの完全なダウンロードを優先し、対応する未完了のダウンロードは再開できます。監視は一時停止するため、完了後に再開してください。",
   "Classification.Hint": "分類の補足（任意）",
   "Classification.HintNotice": "最大256文字。選択したプロバイダーへのプレビューに含まれ、ワークスペースのメタデータには保存されません。"
 }

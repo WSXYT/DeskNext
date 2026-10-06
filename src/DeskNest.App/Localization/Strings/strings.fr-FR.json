@@ -396,7 +396,7 @@
   "Classification.RepairPackage": "Réparer le modèle",
   "Classification.RepairPackageNotice": "Installe le modèle multilingue vérifié dans un nouveau dossier sans modifier l’ancien. Enregistrez les paramètres pour basculer.",
   "Classification.InstallLocation": "Emplacement des nouveaux modèles",
-  "Classification.InstallLocationNotice": "Les nouveaux modèles et le cache sont stockés ici. Les anciens téléchargements complets et vérifiés sont copiés si disponibles ; les anciens fichiers sont conservés. L’observation est suspendue ; reprenez-la manuellement ensuite.",
+  "Classification.InstallLocationNotice": "Les nouveaux modèles et le cache sont stockés ici ; les anciens fichiers restent. Les téléchargements complets vérifiés sont prioritaires ; les téléchargements partiels compatibles peuvent reprendre. L’observation est suspendue ; reprenez-la ensuite.",
   "Classification.Hint": "Note de classement facultative",
   "Classification.HintNotice": "256 caractères maximum. Envoyée avec l’aperçu au fournisseur choisi, jamais enregistrée dans les métadonnées de l’espace."
 }
