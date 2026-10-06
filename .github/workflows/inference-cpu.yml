@@ -2,6 +2,11 @@ name: P4 native CPU model deployment
 
 on:
   workflow_dispatch:
+    inputs:
+      macos_only:
+        description: Only macOS CPU deployment (targeted lifecycle verification)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -13,11 +18,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: ubuntu-24.04
-            rid: linux-x64
-          - os: macos-15
-            rid: osx-arm64
+        include: >-
+          ${{ fromJSON(inputs.macos_only &&
+          '[{"os":"macos-15","rid":"osx-arm64"}]' ||
+          '[{"os":"ubuntu-24.04","rid":"linux-x64"},
+          {"os":"macos-15","rid":"osx-arm64"}]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     defaults:
@@ -60,6 +65,15 @@ jobs:
           node tests/run-app-probe.mjs artifacts/p4-cpu-app/DeskNest.App \
             --headless-smoke 2>&1 | \
             tee artifacts/p4-cpu-evidence/model-workflow.log
+      - name: Preserve application crash reports on macOS failure
+        if: failure() && runner.os == 'macOS'
+        run: |
+          reports="$HOME/Library/Logs/DiagnosticReports"
+          mkdir -p artifacts/p4-cpu-evidence
+          if [ -d "$reports" ]; then
+            find "$reports" -maxdepth 1 -name 'DeskNest*.ips' \
+              -exec cp {} artifacts/p4-cpu-evidence/ \;
+          fi
       # upload-artifact v4
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()

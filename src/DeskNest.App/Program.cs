@@ -20,6 +20,9 @@ public static class Program
             if (args.Length != 2) return 2;
             try
             {
+                // Own the process-global environment until all worker sessions have closed.
+                // Explicit release avoids ORT 1.22 macOS static logger teardown (#24579).
+                using var environment = Microsoft.ML.OnnxRuntime.OrtEnv.Instance();
                 DeskNest.Inference.Probe.Worker(args[1], Console.OpenStandardInput(), Console.OpenStandardOutput());
                 return 0;
             }

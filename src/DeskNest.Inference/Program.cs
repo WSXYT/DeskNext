@@ -9,6 +9,8 @@ if (args.Length != 2 || args[0] is not ("--inference-worker" or "--tensor-probe"
 }
 try
 {
+    // Release after the sessions, before native-library static destruction (ORT #24579).
+    using var environment = args[0] == "--encode-probe" ? null : Microsoft.ML.OnnxRuntime.OrtEnv.Instance();
     if (args[0] == "--inference-worker")
         Probe.Worker(args[1], Console.OpenStandardInput(), Console.OpenStandardOutput());
     else
