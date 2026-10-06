@@ -467,8 +467,46 @@ public static class HeadlessSmokeRunner
             throw new InvalidOperationException("Malformed or oversized clipboard input was accepted.");
     }
 
+    internal static void VerifyTemplateCandidateBudgets(string root, string modelDirectory)
+    {
+        var localizer = LocalizationManager.Instance;
+        string originalLanguage = localizer.CurrentLanguage;
+        using var tokenizer = Tokenizers.HuggingFace.Tokenizer.Tokenizer.FromFile(Path.Combine(modelDirectory, "tokenizer.json"));
+        using var config = JsonDocument.Parse(File.ReadAllText(Path.Combine(modelDirectory, "rl_agent_config.json")));
+        var state = new WorkspaceState { Settings = new WorkspaceSettings { ManagedRoot = Path.Combine(root, "template-budget-only") } };
+        var onboarding = new OnboardingViewModel(state, _ => throw new InvalidOperationException("Template token checks must not save metadata."));
+        int checkedCases = 0;
+        try
+        {
+            foreach (var language in LocalizationManager.SupportedLanguages)
+            {
+                localizer.CurrentLanguage = language.Code;
+                foreach (string preset in new[] { "office", "development", "creative" })
+                {
+                    onboarding.SelectPreset(preset);
+                    var snapshot = state with { Spaces = onboarding.Categories.Select(c => new WorkspaceSpace(c.Id, c.Name, c.Description, c.Mode, c.Folder)).ToList() };
+                    var request = MainWindowViewModel.CreateClassificationRequest(snapshot, "report.txt", false, "");
+                    if (request.Candidates.Length != snapshot.Spaces.Count + 2 ||
+                        request.Candidates.Take(snapshot.Spaces.Count).Select(c => c.Id).Distinct().Count() != snapshot.Spaces.Count)
+                        throw new InvalidOperationException("Model aliases lost categories or reserved choices.");
+                    for (int i = 0; i < snapshot.Spaces.Count; i++)
+                        if (request.Candidates[i].Id != "c" + i.ToString(System.Globalization.CultureInfo.InvariantCulture) ||
+                            request.Candidates[i].Description != snapshot.Spaces[i].Name + ": " + snapshot.Spaces[i].Description)
+                            throw new InvalidOperationException("Model aliases must retain compact codes and complete descriptions.");
+                    var tensors = DeskNest.Inference.Probe.Encode(request, tokenizer, config.RootElement, modelDirectory);
+                    if (tensors.MarkerPos[0].Length != request.Candidates.Length)
+                        throw new InvalidOperationException("Default template did not retain every option marker.");
+                    checkedCases++;
+                }
+            }
+        }
+        finally { localizer.CurrentLanguage = originalLanguage; }
+        Console.WriteLine($"TEMPLATE_CANDIDATE_BUDGET_VERIFIED: {checkedCases} native-tokenizer cases; no categories or text removed.");
+    }
+
     private static async Task VerifyLocalClassificationPreviewAsync(string root, string modelDirectory)
     {
+        VerifyTemplateCandidateBudgets(root, modelDirectory);
         string folder = Directory.CreateDirectory(Path.Combine(root, "files")).FullName;
         string path = Path.Combine(folder, "Quarterly financial report.txt");
         File.WriteAllText(path, "Fixture content must remain untouched.");

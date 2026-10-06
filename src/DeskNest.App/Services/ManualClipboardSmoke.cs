@@ -344,6 +344,7 @@ internal static class ManualClipboardSmoke
                     store.Snapshot.Revision != beforeInstall || store.Snapshot.Settings.ModelCacheDirectory != bundle ||
                     File.ReadAllText(Path.Combine(bundle, "manifest.json")) != "{}")
                     throw new InvalidOperationException("Installing the real model must prepare a verified draft without activating it: " + studio.ModelInstallNotice);
+                HeadlessSmokeRunner.VerifyTemplateCandidateBudgets(root, installed);
                 await studio.SaveSettingsAsync();
                 if (store.Snapshot.Settings.ModelCacheDirectory != installed)
                     throw new InvalidOperationException("Explicit settings save did not activate the installed model.");

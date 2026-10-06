@@ -2,6 +2,14 @@
 
 P3's user-approved safe manual workflow is accepted; **P4 is not complete**. These previews are read-only: they do not authorize any file move or copy. Manual file operations have their separate P3 evidence.
 
+## Default-template token budget correction (2026-10-06)
+
+Space GUIDs were being included verbatim as model option names, wasting the checkpoint's small head budget and sometimes exceeding its per-option cap before useful category text was considered. With fixed realistic GUIDs, five of 36 language/template combinations failed (Simplified Chinese office/creative; Traditional Chinese office/development/creative). These are diagnostic template cases, not human-labeled quality samples. The native C# encoder reproduced the Simplified Chinese office rejection; its short-code counterpart succeeded.
+
+The shared UI request builder now assigns `c0`, `c1`, … only within that request. Snapshot order and revision map labels/suggestions back to the original GUID spaces. Names and descriptions are unchanged, both reserved pseudo-categories remain, and aliases are never saved as workspace IDs. Neither the generic tokenizer/math nor its reject-on-overflow policy was relaxed. Jev uses the same request-local mapping; this is an intentional input change, not a claim that model probabilities remain unchanged.
+
+The existing native-tokenizer check now builds the actual OOBE office/development/creative presets in all twelve languages using the production request builder: 36/36 fit with complete descriptions and markers. One six-option Simplified Chinese office request also ran successfully through the real versioned CPU worker. The existing UI test passed suggestion-to-GUID mapping, explicit import and undo (`template-aliases.log`: terminal Success/LocalClassificationPreviewVerified and MODEL_SUGGESTION_MANUAL_IMPORT_UNDO_VERIFIED). App Release build had zero warnings/errors. Custom inputs can still exceed the fixed model limits and are refused, never silently truncated. This does not satisfy the independent 500-sample quality gate.
+
 ## Download cache follows model installation (2026-10-06)
 
 New downloads use `.desknext-downloads` under the selected installation location. Before a network request, the online/repair command can copy a complete pinned archive from the previously activated model's cache or the legacy application-data cache. It verifies the source, uses exclusive create-new output, bounds copied bytes, verifies the destination and leaves the source untouched. Existing destination files are not overwritten by migration; partial/unverified old caches are not copied. A copied complete archive can be used offline through the existing downloader/installer. Failed or cancelled copies remain as partial cache data; this is not atomic relocation or a new cleanup protocol, and retrying an incomplete destination can require a normal network restart.
