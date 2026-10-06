@@ -550,8 +550,13 @@ internal static class ManualClipboardSmoke
                 throw new InvalidOperationException("Custom icons must change only presentation metadata.");
             using (var customIcon = FileIcon.LoadCustom(wallpaper))
                 if (customIcon.PixelSize.Width != 64) throw new InvalidOperationException("Custom icon decoding must remain bounded.");
-            if (OperatingSystem.IsWindows() && await SystemFileIcons.GetAsync("fixture.txt", false) is null)
-                throw new InvalidOperationException("Windows must provide a registered file-type icon. Native stage: " + SystemFileIcons.FailureFor(".txt"));
+            if (OperatingSystem.IsWindows())
+            {
+                if (await SystemFileIcons.GetAsync("fixture.txt", false) is null)
+                    throw new InvalidOperationException("Windows system/type icon failed. Native stage: " + SystemFileIcons.FailureFor(".txt"));
+                if (await SystemFileIcons.GetAsync("README", false) is null)
+                    throw new InvalidOperationException("Windows stock-document fallback failed: " + SystemFileIcons.FailureFor(""));
+            }
             await floating.ApplyIconSelectionAsync(fileId, false, null);
             await floating.ApplyIconSelectionAsync(source.Id, true, null);
             await floating.SetFileViewAsync(SpaceFileView.List);

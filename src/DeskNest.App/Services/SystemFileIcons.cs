@@ -54,10 +54,21 @@ internal static class SystemFileIcons
         if (com < 0) return Failed(extension, $"CoInitializeEx: 0x{com:X8}");
         try
         {
-            // USEFILEATTRIBUTES obtains the registered type icon without opening or executing a user file.
-            if (SHGetFileInfo(directory ? "folder" : "file" + extension, directory ? 0x10u : 0x80u,
-                out var info, (uint)Marshal.SizeOf<ShellFileInfo>(), 0x100 | 0x10) == IntPtr.Zero) return Failed(extension, "SHGetFileInfo");
-            icon = info.Icon;
+            // USEFILEATTRIBUTES avoids opening user files. A successful call can still return no HICON.
+            if (directory || extension.Length != 0)
+            {
+                var status = SHGetFileInfo(directory ? "folder" : "file" + extension, directory ? 0x10u : 0x80u,
+                    out var info, (uint)Marshal.SizeOf<ShellFileInfo>(), 0x100 | 0x10);
+                icon = info.Icon;
+                if (status == IntPtr.Zero && icon != IntPtr.Zero) { DestroyIcon(icon); icon = IntPtr.Zero; }
+            }
+            if (icon == IntPtr.Zero)
+            {
+                var stock = new StockIconInfo { Size = (uint)Marshal.SizeOf<StockIconInfo>() };
+                int status = SHGetStockIconInfo(directory ? 3u : 0u, 0x100, ref stock); // SIID_FOLDER / SIID_DOCNOASSOC
+                icon = stock.Icon;
+                if (status < 0 || icon == IntPtr.Zero) return Failed(extension, $"SHGetStockIconInfo: 0x{status:X8}");
+            }
             dc = CreateCompatibleDC(IntPtr.Zero);
             var header = new BitmapInfo { Size = 40, Width = 48, Height = -48, Planes = 1, BitCount = 32 };
             bitmap = CreateDIBSection(dc, ref header, 0, out var pixels, IntPtr.Zero, 0);
@@ -92,6 +103,15 @@ internal static class SystemFileIcons
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)] public string DisplayName;
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 80)] public string TypeName;
     }
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct StockIconInfo
+    {
+        public uint Size;
+        public IntPtr Icon;
+        public int SystemImageIndex, IconIndex;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)] public string Path;
+    }
+    [DllImport("shell32.dll")] private static extern int SHGetStockIconInfo(uint id, uint flags, ref StockIconInfo info);
     [StructLayout(LayoutKind.Sequential)]
     private struct BitmapInfo
     {

@@ -466,6 +466,19 @@ public static class HeadlessSmokeRunner
             JsonSerializer.Serialize(Payload(first.Id, space, first.Path + new string('x', 4096)))];
         if (rejected.Any(input => AvaloniaClipboardBridge.ParsePayload(input) is not null))
             throw new InvalidOperationException("Malformed or oversized clipboard input was accepted.");
+        var metadata = state with { Spaces = [new WorkspaceSpace(space, "Documents", "文档", SpaceStorageMode.Managed, root)] };
+        const string name = "设计稿 العربية.txt";
+        const string hint = "预算\\说明 \"quoted\"\n第二行";
+        foreach (string note in new[] { string.Empty, hint })
+        {
+            var request = MainWindowViewModel.CreateClassificationRequest(metadata, name, false, note);
+            using var decoded = JsonDocument.Parse(request.State);
+            if (!request.State.Contains("设计稿") || !request.State.Contains("العربية") ||
+                decoded.RootElement.GetProperty("name").GetString() != name ||
+                (note.Length > 0 && decoded.RootElement.GetProperty("hint").GetString() != note))
+                throw new InvalidOperationException("Model text must preserve readable Unicode and JSON data boundaries.");
+        }
+        Console.WriteLine("MODEL_STATE_UNICODE_VERIFIED: true");
     }
 
     internal static void VerifyTemplateCandidateBudgets(string root, string modelDirectory)
@@ -509,11 +522,11 @@ public static class HeadlessSmokeRunner
     {
         VerifyTemplateCandidateBudgets(root, modelDirectory);
         string folder = Directory.CreateDirectory(Path.Combine(root, "files")).FullName;
-        string path = Path.Combine(folder, "Quarterly financial report.txt");
+        string path = Path.Combine(folder, "季度财务报告.txt");
         File.WriteAllText(path, "Fixture content must remain untouched.");
         var space = new WorkspaceSpace(Guid.NewGuid(), "Documents", "Reports and office documents", SpaceStorageMode.Managed, folder);
         var file = new WorkspaceFile(Guid.NewGuid(), space.Id, Path.GetFileName(path), path, false);
-        string pendingPath = Path.Combine(root, "Pending quarterly financial report.txt");
+        string pendingPath = Path.Combine(root, "待处理季度财务报告.txt");
         File.WriteAllText(pendingPath, "Pending fixture must stay outside the space.");
         var pending = new PendingFile(Guid.NewGuid(), Path.GetFileName(pendingPath), pendingPath,
             TriageReason.FilenameAmbiguous, null, DateTimeOffset.UtcNow);
