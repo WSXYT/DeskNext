@@ -2,6 +2,12 @@
 
 P3's user-approved safe manual workflow is accepted; **P4 is not complete**. These previews are read-only: they do not authorize any file move or copy. Manual file operations have their separate P3 evidence.
 
+## Preview 2 integration (2026-10-06)
+
+The cumulative P4 runtime/cache/default-template fixes are delivered as [v0.4.0-preview.2](https://github.com/WSXYT/DeskNext/releases/tag/v0.4.0-preview.2), an unsigned Windows x64 development preview from `37423fa00e072ebbbc4c89c2a86c5ce4d6e19ab9`. This is one integration package after the source increments, not a P3 matrix rerun. The three frozen A/B/C references were copied unchanged; the installed D results still match. The installed UI additionally verified protocol-v1 loading, legacy-cache copying into the chosen location, explicit activation/reopening, 36 template/language budgets and a real suggestion→confirmed-import→undo fixture. Terminal Success/ModelPackageActivationVerified/LocalClassificationPreviewVerified/FolderObservationVerified are true. The compound smoke took 128,377 ms; this is not a per-preview latency measurement.
+
+Evidence: `artifacts/p4-preview2-parity/installed/`. The installed App SHA-256 is `9B0EDA903F6B1A681E1BB0910FD31C2089DCE331E4BEF40234F45D220A23C7B0`. Uninstall removed the application while preserving its unknown-file sentinel. The 125,464,411-byte archive has 450 verified payload manifest entries and SHA-256 `a3b0e546162b8803ea8ffe57ccbdce133ee671a758e508f7279e8cf304e0bab3`; GitHub reports the same digest. Previous release assets remain unchanged. No model weights, SDK/Python or test-only recovery executable is bundled. Quality/live Jev/permanent cleanup/signing and the remaining P4/P7 gates are still open.
+
 ## Default-template token budget correction (2026-10-06)
 
 Space GUIDs were being included verbatim as model option names, wasting the checkpoint's small head budget and sometimes exceeding its per-option cap before useful category text was considered. With fixed realistic GUIDs, five of 36 language/template combinations failed (Simplified Chinese office/creative; Traditional Chinese office/development/creative). These are diagnostic template cases, not human-labeled quality samples. The native C# encoder reproduced the Simplified Chinese office rejection; its short-code counterpart succeeded.
