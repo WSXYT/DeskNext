@@ -1,5 +1,11 @@
 {
   "App.Title": "DeskNext",
+  "Flow.Import": "Importer une définition…",
+  "Flow.Export": "Exporter dans un dossier…",
+  "Flow.Imported": "Importée comme nouveau brouillon désactivé. Vérifiez-le puis enregistrez explicitement.",
+  "Flow.Exported": "Un nouveau fichier de définition a été exporté. Le brouillon et les définitions enregistrées sont inchangés.",
+  "Flow.TransferHint": "L’import remplace le brouillon sans l’exécuter et refuse les déclencheurs automatiques. L’export crée un fichier. Les définitions peuvent contenir des chemins et messages ; vérifiez-les avant de partager.",
+  "Flow.TransferUnavailable": "La sélection de fichiers ou dossiers locaux est indisponible dans cette session.",
   "Flow.SourceSpace": "Espace source",
   "Flow.SourceItem": "Élément catalogué",
   "Flow.TargetSpace": "Espace cible",

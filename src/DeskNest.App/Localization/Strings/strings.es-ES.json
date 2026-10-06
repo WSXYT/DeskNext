@@ -1,5 +1,11 @@
 {
   "App.Title": "DeskNext",
+  "Flow.Import": "Importar definición…",
+  "Flow.Export": "Exportar a carpeta…",
+  "Flow.Imported": "Importada como borrador nuevo desactivado. Revíselo y guárdelo explícitamente.",
+  "Flow.Exported": "Se exportó un archivo nuevo. El borrador y las definiciones guardadas no cambiaron.",
+  "Flow.TransferHint": "Importar reemplaza el borrador sin ejecutarlo y rechaza los activadores automáticos. Exportar crea un archivo. Las definiciones pueden incluir rutas y mensajes; revíselas antes de compartir.",
+  "Flow.TransferUnavailable": "El selector de archivos o carpetas locales no está disponible en esta sesión.",
   "Flow.SourceSpace": "Espacio de origen",
   "Flow.SourceItem": "Elemento catalogado",
   "Flow.TargetSpace": "Espacio de destino",

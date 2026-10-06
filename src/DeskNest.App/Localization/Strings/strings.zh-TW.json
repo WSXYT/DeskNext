@@ -1,5 +1,11 @@
 {
   "App.Title": "DeskNext",
+  "Flow.Import": "匯入定義…",
+  "Flow.Export": "匯出至資料夾…",
+  "Flow.Imported": "已匯入為新的停用草稿。請審閱後明確儲存。",
+  "Flow.Exported": "已建立新的定義檔案，草稿與已儲存定義均未改變。",
+  "Flow.TransferHint": "匯入會取代草稿，不會執行，含自動觸發的定義會被拒絕。匯出會新增檔案；定義可能包含路徑與訊息，分享前請檢查。",
+  "Flow.TransferUnavailable": "目前工作階段無法使用本機檔案或資料夾選擇器。",
   "Flow.SourceSpace": "來源空間",
   "Flow.SourceItem": "已登錄項目",
   "Flow.TargetSpace": "目標空間",

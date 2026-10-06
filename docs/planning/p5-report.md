@@ -1,5 +1,13 @@
 # P5 folder observation and Flow — partial implementation
 
+## Import/export of disabled manual definitions (2026-10-06)
+
+The editor now offers **Import definition** (local JSON file picker) and **Export to folder** (local folder picker). Import reads at most 1 MiB of strict UTF-8 (optional BOM), assigns a new definition ID/revision zero, disables it and validates the manual trigger plus complete native schema before replacing the draft. Node IDs, bindings and extensions remain intact. Automatic-trigger definitions and unavailable native validation are refused; failures/cancellation leave the prior draft/catalog unchanged. Imported definitions are not saved or run until separate explicit actions.
+
+Export validates the disabled definition and creates a uniquely named UTF-8 file in the selected existing folder using create-new semantics. It neither overwrites files nor changes the draft/catalog; its output path is displayed read-only with LTR isolation. The UI warns that definitions can contain local paths/messages and should be reviewed before sharing. An interrupted export may leave its new partial file; no pathname cleanup or automatic import is attempted.
+
+Related validation only: four Flow-definition Core checks passed with the compiled bridge (`flow-transfer.trx`), including enabled-source import, new identity, opaque data preservation, two non-overwriting exports, automatic-trigger refusal and malformed/oversized input. App Release build is clean. The existing headless workflow exercises draft-only import, save as a separate definition, preservation of the original, export path presentation and refusal without overwriting; `artifacts/p5-flow-tests/transfer-ui.log` has terminal Success/editor/persistence/confirmed-move/parity true. Twelve locales have 466 matching keys. This checks production commands and transfer entrypoints, not native picker interaction or full P5 acceptance; no full suite/CI/installer repeat.
+
 ## Catalog pickers for move drafts (2026-10-06)
 
 Move-step forms now reuse the current space and file/directory view models for source-space, source-item and target-space pickers. **Apply selection to draft** fills only the literal source/destination folder and clears the alternative container-ID field; it does not save, inspect contents or execute. Manual path and advanced-JSON editing remain available. Snapshot refresh rebinds selected IDs without rewriting the draft, and execution still performs the separate revision-bound confirmation.

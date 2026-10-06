@@ -1,5 +1,11 @@
 {
   "App.Title": "DeskNext",
+  "Flow.Import": "导入定义…",
+  "Flow.Export": "导出到文件夹…",
+  "Flow.Imported": "已导入为新的禁用草稿。请审阅后明确保存。",
+  "Flow.Exported": "已创建新的定义文件，草稿和已保存定义均未改变。",
+  "Flow.TransferHint": "导入会替换草稿，不会运行，自动触发定义会被拒绝。导出新建文件；定义可能包含路径和消息，分享前请检查。",
+  "Flow.TransferUnavailable": "当前会话无法使用本地文件或文件夹选择器。",
   "Flow.SourceSpace": "来源空间",
   "Flow.SourceItem": "已登记项目",
   "Flow.TargetSpace": "目标空间",

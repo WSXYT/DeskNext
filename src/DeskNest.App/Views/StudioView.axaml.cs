@@ -234,6 +234,34 @@ public partial class StudioView : UserControl
         finally { button.IsEnabled = true; }
     }
 
+    private async void OnFlowTransferClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not StudioViewModel vm || !vm.IsFlowTab || vm.IsFlowBusy || sender is not Button button) return;
+        var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
+        bool importing = button.Tag as string == "import";
+        if (storage is null || (importing ? !storage.CanOpen : !storage.CanPickFolder))
+        { vm.FlowNotice = vm.Localizer["Flow.TransferUnavailable"]; return; }
+        string draft = vm.FlowJsonDraft;
+        button.IsEnabled = false;
+        try
+        {
+            using var item = importing
+                ? (IStorageItem?)(await storage.OpenFilePickerAsync(new FilePickerOpenOptions
+                {
+                    Title = vm.Localizer["Flow.Import"], AllowMultiple = false,
+                    FileTypeFilter = [new FilePickerFileType("JSON") { Patterns = ["*.json"] }]
+                })).FirstOrDefault()
+                : (await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions
+                { Title = vm.Localizer["Flow.Export"], AllowMultiple = false })).FirstOrDefault();
+            if (item is null || DataContext != vm || !vm.IsFlowTab || vm.IsFlowBusy || vm.FlowJsonDraft != draft) return;
+            string path = item.TryGetLocalPath() ?? throw new InvalidDataException(vm.Localizer["Validation.ValidAbsolutePathRequired"]);
+            if (importing) await vm.ImportFlowDefinitionCommand.ExecuteAsync(path);
+            else await vm.ExportFlowDefinitionCommand.ExecuteAsync(path);
+        }
+        catch (Exception error) { vm.FlowNotice = vm.Localizer.GetString("Files.ActionFailedNotice", error.Message); }
+        finally { button.IsEnabled = true; }
+    }
+
     private async void OnImportModelPackageClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (DataContext is not StudioViewModel vm || sender is not Button button || vm.InstallLocalModelPackageCommand.IsRunning) return;

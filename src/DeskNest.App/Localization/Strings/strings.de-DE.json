@@ -1,5 +1,11 @@
 {
   "App.Title": "DeskNext",
+  "Flow.Import": "Definition importieren…",
+  "Flow.Export": "In Ordner exportieren…",
+  "Flow.Imported": "Als neuer deaktivierter Entwurf importiert. Prüfen und anschließend ausdrücklich speichern.",
+  "Flow.Exported": "Neue Definitionsdatei exportiert. Entwurf und gespeicherte Definitionen sind unverändert.",
+  "Flow.TransferHint": "Import ersetzt den Entwurf, führt ihn nie aus und lehnt automatische Auslöser ab. Export erstellt eine neue Datei. Definitionen können Pfade und Nachrichten enthalten; vor dem Teilen prüfen.",
+  "Flow.TransferUnavailable": "In dieser Sitzung ist keine lokale Datei- oder Ordnerauswahl verfügbar.",
   "Flow.SourceSpace": "Quellbereich",
   "Flow.SourceItem": "Katalogisierter Eintrag",
   "Flow.TargetSpace": "Zielbereich",

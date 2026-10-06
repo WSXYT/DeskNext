@@ -169,9 +169,53 @@ public static class HeadlessSmokeRunner
             throw new InvalidOperationException("Flow form changes must preserve IDs/opaque data and perform no file actions.");
     }
 
+    private static async Task<Guid> VerifyFlowTransferAsync(WorkspaceStore store, StudioViewModel studio, StudioView view, string root)
+    {
+        if (!view.FindControl<Button>("ImportFlowButton")!.IsEffectivelyVisible || !view.FindControl<Button>("ExportFlowButton")!.IsEffectivelyVisible)
+            throw new InvalidOperationException("Flow transfer entries must be visible in the production editor.");
+        var original = studio.FlowDefinitions.Single();
+        string originalDraft = studio.FlowJsonDraft;
+        string catalog = File.ReadAllText(Path.Combine(root, "flow-definitions.json"));
+        long revision = store.Snapshot.Revision;
+        await studio.ImportFlowDefinitionCommand.ExecuteAsync(null);
+        await studio.ExportFlowDefinitionCommand.ExecuteAsync(null);
+        if (studio.FlowJsonDraft != originalDraft || store.Snapshot.Revision != revision)
+            throw new InvalidOperationException("A cancelled transfer must leave the draft and workspace unchanged.");
+        string exportedDirectory = Directory.CreateDirectory(Path.Combine(root, "exports")).FullName;
+        await studio.ExportFlowDefinitionCommand.ExecuteAsync(exportedDirectory);
+        Dispatcher.UIThread.RunJobs();
+        var pathInput = view.FindControl<TextBox>("FlowExportPathInput")!;
+        string exported = studio.FlowExportPath;
+        if (!pathInput.IsReadOnly || !pathInput.IsEffectivelyVisible || pathInput.FlowDirection != FlowDirection.LeftToRight || pathInput.Text != exported ||
+            File.ReadAllText(exported) != original.Json || File.ReadAllText(Path.Combine(root, "flow-definitions.json")) != catalog || studio.FlowJsonDraft != originalDraft)
+            throw new InvalidOperationException("Export must show its new path without changing the draft or catalog.");
+        var import = System.Text.Json.Nodes.JsonNode.Parse(original.Json)!;
+        import["enabled"] = true;
+        string incomingPath = Path.Combine(root, "incoming.flow.json");
+        string input = import.ToJsonString();
+        File.WriteAllText(incomingPath, input);
+        await studio.ImportFlowDefinitionCommand.ExecuteAsync(incomingPath);
+        var draft = DeskNest.Core.Flow.ManualFlowDefinitions.Read(studio.FlowJsonDraft);
+        if (draft.Id == original.Id || draft.Revision != 0 || studio.SelectedFlowDefinition is not null || studio.FlowDefinitions.Count != 1 ||
+            File.ReadAllText(Path.Combine(root, "flow-definitions.json")) != catalog || File.ReadAllText(incomingPath) != input || studio.HasFlowExportPath)
+            throw new InvalidOperationException("Import must create a fresh disabled draft without automatically saving or altering the input.");
+        string importedDraft = studio.FlowJsonDraft;
+        import["trigger"]!["type"] = "pogget.trigger.schedule";
+        File.WriteAllText(incomingPath, import.ToJsonString());
+        await studio.ImportFlowDefinitionCommand.ExecuteAsync(incomingPath);
+        if (studio.FlowJsonDraft != importedDraft || File.ReadAllText(Path.Combine(root, "flow-definitions.json")) != catalog)
+            throw new InvalidOperationException("An unsupported automatic definition replaced the draft or catalog.");
+        await studio.SaveFlowDefinitionCommand.ExecuteAsync(null);
+        if (studio.FlowDefinitions.Count != 2 || studio.FlowDefinitions.Single(d => d.Id == original.Id) != original ||
+            studio.FlowDefinitions.Single(d => d.Id == draft.Id).Revision != 1 || store.Snapshot.Revision != revision || store.Snapshot.Operations.Count != 0)
+            throw new InvalidOperationException("Saving an imported draft must preserve the original definition and file-operation history.");
+        studio.SelectedFlowDefinition = studio.FlowDefinitions.Single(d => d.Id == original.Id);
+        return draft.Id;
+    }
+
     private static async Task<bool> VerifyFlowDefinitionEditorAsync(string root)
     {
-        Guid savedId;
+        Guid savedId, importedId;
         await using (var store = await WorkspaceStore.OpenAsync(root))
         {
             await store.UpdateAsync(s => s with { OnboardingComplete = true, OnboardingStep = 5 });
@@ -209,6 +253,7 @@ public static class HeadlessSmokeRunner
                 savedId = saved.Id;
                 if (saved.Revision != 1 || studio.FlowNotice != studio.Localizer["Flow.Saved"] || store.Snapshot.Revision != revision || store.Snapshot.Operations.Count != 0)
                     throw new InvalidOperationException("Saving a Flow must persist only a disabled definition.");
+                importedId = await VerifyFlowTransferAsync(store, studio, view, root);
                 string before = File.ReadAllText(Path.Combine(root, "flow-definitions.json"));
                 await studio.RunManualFlowCommand.ExecuteAsync(null);
                 if (studio.FlowNotice != studio.Localizer["Flow.PromptOnly"] || studio.IsFlowPromptOpen)
@@ -262,7 +307,7 @@ public static class HeadlessSmokeRunner
         }
         await using var reopened = await WorkspaceStore.OpenAsync(root);
         var definitions = await new DeskNest.Core.Flow.ManualFlowStore(reopened).LoadAsync();
-        if (definitions.Count != 1 || definitions[0].Id != savedId || definitions[0].Revision != 1)
+        if (definitions.Count != 2 || !definitions.Any(d => d.Id == savedId && d.Revision == 1) || !definitions.Any(d => d.Id == importedId && d.Revision == 1))
             throw new InvalidOperationException("Saved Flow definition did not survive reopening the workbench store.");
         return true;
     }

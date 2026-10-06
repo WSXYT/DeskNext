@@ -1206,7 +1206,7 @@
                 </Grid>
             </Grid>
 
-            <!-- Disabled definitions only: no runtime or automatic execution entry. -->
+            <!-- Stored definitions remain disabled; running always requires explicit review. -->
             <Grid IsVisible="{Binding IsFlowTab}" RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="24,18">
                 <TextBlock Text="{Binding Localizer[Flow.Title]}" FontSize="20" FontWeight="SemiBold"/>
                 <TextBlock Grid.Row="1" Text="{Binding Localizer[Flow.Notice]}" TextWrapping="Wrap" Margin="0,8,0,16"
@@ -1216,7 +1216,9 @@
                     <Button Content="{Binding Localizer[Flow.Reload]}" Command="{Binding LoadFlowDefinitionsCommand}" Margin="0,0,8,0"/>
                     <Button Name="ValidateFlowButton" Content="{Binding Localizer[Flow.Validate]}" Command="{Binding ValidateFlowDefinitionCommand}" Margin="0,0,8,0"/>
                     <Button Name="SaveFlowButton" Content="{Binding Localizer[Action.Save]}" Command="{Binding SaveFlowDefinitionCommand}" Margin="0,0,8,0"/>
-                    <Button Name="RunManualFlowButton" Content="{Binding Localizer[Flow.RunManual]}" Command="{Binding RunManualFlowCommand}" ToolTip.Tip="{Binding Localizer[Flow.PromptOnly]}"/>
+                    <Button Name="RunManualFlowButton" Content="{Binding Localizer[Flow.RunManual]}" Command="{Binding RunManualFlowCommand}" ToolTip.Tip="{Binding Localizer[Flow.PromptOnly]}" Margin="0,0,8,0"/>
+                    <Button Name="ImportFlowButton" Content="{Binding Localizer[Flow.Import]}" Click="OnFlowTransferClick" Tag="import" Margin="0,0,8,0"/>
+                    <Button Name="ExportFlowButton" Content="{Binding Localizer[Flow.Export]}" Click="OnFlowTransferClick" Tag="export"/>
                 </WrapPanel>
                 <Grid Grid.Row="3" ColumnDefinitions="180,*" ColumnSpacing="12" IsEnabled="{Binding !IsFlowBusy}">
                     <ListBox ItemsSource="{Binding FlowDefinitions}" SelectedItem="{Binding SelectedFlowDefinition}">
@@ -1288,7 +1290,12 @@
                         </Grid>
                     </Grid>
                 </Grid>
-                <TextBlock Grid.Row="4" Text="{Binding FlowNotice}" TextWrapping="Wrap" Margin="0,12,0,0"/>
+                <StackPanel Grid.Row="4" Spacing="6" Margin="0,12,0,0">
+                    <TextBlock Text="{Binding Localizer[Flow.TransferHint]}" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <TextBlock Text="{Binding FlowNotice}" TextWrapping="Wrap"/>
+                    <TextBox Name="FlowExportPathInput" IsVisible="{Binding HasFlowExportPath}" Text="{Binding FlowExportPath, Mode=OneWay}" IsReadOnly="True"
+                             FlowDirection="LeftToRight" AutomationProperties.Name="{Binding Localizer[Flow.Export]}"/>
+                </StackPanel>
             </Grid>
 
             <!-- ================= TAB 4: SYSTEM PROBE & DIAGNOSTICS ================= -->

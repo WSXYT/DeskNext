@@ -1,6 +1,8 @@
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using DeskNest.Core.Storage;
 
 namespace DeskNest.Core.Flow;
 
@@ -21,6 +23,61 @@ public static class ManualFlowDefinitions
         actions = new[] { new { id = "step-1", type = "pogget.interaction.tip", version = 1, enabled = true,
             parameters = new { title, message } } }
     }, JsonOptions);
+
+    /// <summary>Import as a fresh, disabled manual draft. No persistence or execution authority.</summary>
+    public static ManualFlowDefinition ImportDraft(string json, string? libraryPath = null)
+    {
+        if (string.IsNullOrWhiteSpace(json) || Encoding.UTF8.GetByteCount(json) > MaximumBytes)
+            throw new InvalidDataException("Flow import exceeds the supported size.");
+        try
+        {
+            var root = JsonNode.Parse(json, documentOptions: new JsonDocumentOptions { MaxDepth = 32 })!.AsObject();
+            root["enabled"] = false;
+            root["id"] = Guid.NewGuid().ToString("N");
+            root["revision"] = 0;
+            string draft = root.ToJsonString(JsonOptions);
+            RequireNativeValidation(draft, libraryPath);
+            return Read(draft);
+        }
+        catch (Exception error) when (error is JsonException or InvalidOperationException or ArgumentException or NullReferenceException)
+        { throw new InvalidDataException("Invalid Flow import; the current draft was not replaced.", error); }
+    }
+
+    public static async Task<ManualFlowDefinition> ImportFileAsync(string path, CancellationToken token = default, string? libraryPath = null)
+    {
+        token.ThrowIfCancellationRequested();
+        FileSystemVolume.RequireNoReparsePoints(path);
+        await using var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 8192, FileOptions.Asynchronous);
+        byte[] bytes = new byte[MaximumBytes + 1];
+        int count = await input.ReadAtLeastAsync(bytes, bytes.Length, throwOnEndOfStream: false, cancellationToken: token).ConfigureAwait(false);
+        if (count > MaximumBytes) throw new InvalidDataException("Flow import exceeds the supported size.");
+        // Accept a UTF-8 BOM from editors; malformed UTF-8 is refused rather than silently replaced.
+        int start = count >= 3 && bytes[0] == 0xef && bytes[1] == 0xbb && bytes[2] == 0xbf ? 3 : 0;
+        string json = new UTF8Encoding(false, true).GetString(bytes, start, count - start);
+        return await Task.Run(() => ImportDraft(json, libraryPath), token).ConfigureAwait(false);
+    }
+
+    /// <summary>Create a new UTF-8 definition file only. Never overwrite an existing file or enable the definition.</summary>
+    public static async Task<string> ExportFileAsync(string directory, string json, CancellationToken token = default, string? libraryPath = null)
+    {
+        token.ThrowIfCancellationRequested();
+        var definition = Read(json);
+        await Task.Run(() => RequireNativeValidation(json, libraryPath), token).ConfigureAwait(false);
+        FileSystemVolume.RequireNoReparsePoints(directory);
+        if (!Directory.Exists(directory)) throw new DirectoryNotFoundException("Choose an existing Flow export folder.");
+        string path = Path.Combine(directory, $"flow-{definition.Id:N}-{Guid.NewGuid():N}.flow.json");
+        await using var output = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None, 8192, FileOptions.Asynchronous);
+        await output.WriteAsync(Encoding.UTF8.GetBytes(json), token).ConfigureAwait(false);
+        await output.FlushAsync(token).ConfigureAwait(false);
+        return path;
+    }
+
+    private static void RequireNativeValidation(string json, string? libraryPath)
+    {
+        var validation = Validate(json, libraryPath);
+        if (validation == FlowDefinitionValidation.NativeUnavailable) throw new NotSupportedException("Native Flow validation is unavailable.");
+        if (validation != FlowDefinitionValidation.Valid) throw new InvalidDataException("The Flow definition was rejected by native validation.");
+    }
 
     public static ManualFlowDefinition Read(string json)
     {

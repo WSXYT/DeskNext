@@ -15,6 +15,10 @@ public sealed partial class StudioViewModel
     [ObservableProperty] private string _flowJsonDraft = string.Empty;
     [ObservableProperty] private string _flowNotice = string.Empty;
     [ObservableProperty] private bool _isFlowBusy;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasFlowExportPath))]
+    private string _flowExportPath = string.Empty;
+    public bool HasFlowExportPath => !string.IsNullOrEmpty(FlowExportPath);
     private Guid _editingFlowId;
     private bool _flowsLoaded;
 
@@ -28,6 +32,7 @@ public sealed partial class StudioViewModel
     partial void OnFlowJsonDraftChanged(string value)
     {
         FlowNotice = string.Empty;
+        FlowExportPath = string.Empty;
         if (!_writingFlowJson && !IsFlowCodeView) RefreshFlowSteps();
     }
 
@@ -56,6 +61,42 @@ public sealed partial class StudioViewModel
         catch (Exception error) { FlowNotice = Localizer.GetString("Files.ActionFailedNotice", error.Message); }
         finally { IsFlowBusy = false; }
         if (_flowsLoaded && FlowDefinitions.Count == 0 && string.IsNullOrEmpty(FlowJsonDraft)) NewFlowDefinition();
+    }
+
+    [RelayCommand]
+    public async Task ImportFlowDefinitionAsync(string? path)
+    {
+        if (IsFlowBusy || string.IsNullOrWhiteSpace(path)) return;
+        IsFlowBusy = true;
+        FlowExportPath = string.Empty;
+        try
+        {
+            var imported = await ManualFlowDefinitions.ImportFileAsync(path);
+            SelectedFlowDefinition = null;
+            _editingFlowId = imported.Id;
+            FlowJsonDraft = imported.Json;
+            FlowNotice = Localizer["Flow.Imported"];
+        }
+        catch (NotSupportedException) { FlowNotice = Localizer["Flow.NativeUnavailable"]; }
+        catch (Exception error) { FlowNotice = Localizer.GetString("Files.ActionFailedNotice", error.Message); }
+        finally { IsFlowBusy = false; }
+    }
+
+    [RelayCommand]
+    public async Task ExportFlowDefinitionAsync(string? folder)
+    {
+        if (IsFlowBusy || string.IsNullOrWhiteSpace(folder)) return;
+        string draft = FlowJsonDraft;
+        IsFlowBusy = true;
+        FlowExportPath = string.Empty;
+        try
+        {
+            FlowExportPath = await ManualFlowDefinitions.ExportFileAsync(folder, draft);
+            FlowNotice = Localizer["Flow.Exported"];
+        }
+        catch (NotSupportedException) { FlowNotice = Localizer["Flow.NativeUnavailable"]; }
+        catch (Exception error) { FlowNotice = Localizer.GetString("Files.ActionFailedNotice", error.Message); }
+        finally { IsFlowBusy = false; }
     }
 
     [RelayCommand]

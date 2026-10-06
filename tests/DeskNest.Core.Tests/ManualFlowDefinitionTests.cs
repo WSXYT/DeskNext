@@ -21,6 +21,45 @@ public sealed class ManualFlowDefinitionTests
     }
 
     [FlowNativeFact]
+    public async Task ImportAndExportPreserveNodesWithoutActivationOverwriteOrExecution()
+    {
+        string root = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "DeskNext-flow-transfer-" + Guid.NewGuid().ToString("N"))).FullName;
+        try
+        {
+            string library = Environment.GetEnvironmentVariable("DESKNEXT_FLOW_NATIVE_LIBRARY")!;
+            string json = ManualFlowDefinitions.Create("导入", "عنوان", "message");
+            var original = ManualFlowDefinitions.Read(json);
+            var input = JsonNode.Parse(json)!;
+            input["enabled"] = true;
+            input["revision"] = 42;
+            input["extensions"] = new JsonObject { ["note"] = "preserve" };
+            string path = Path.Combine(root, "input.flow.json"), bytes = input.ToJsonString();
+            File.WriteAllText(path, bytes, new System.Text.UTF8Encoding(true));
+            var imported = await ManualFlowDefinitions.ImportFileAsync(path, libraryPath: library);
+            Assert.NotEqual(original.Id, imported.Id);
+            Assert.Equal(0, imported.Revision);
+            Assert.False(JsonNode.Parse(imported.Json)!["enabled"]!.GetValue<bool>());
+            Assert.True(JsonNode.DeepEquals(input["actions"], JsonNode.Parse(imported.Json)!["actions"]));
+            Assert.True(JsonNode.DeepEquals(input["extensions"], JsonNode.Parse(imported.Json)!["extensions"]));
+            string first = await ManualFlowDefinitions.ExportFileAsync(root, imported.Json, libraryPath: library);
+            string second = await ManualFlowDefinitions.ExportFileAsync(root, imported.Json, libraryPath: library);
+            Assert.NotEqual(first, second);
+            Assert.Equal(imported.Json, File.ReadAllText(first));
+            Assert.Equal(imported.Json, File.ReadAllText(second));
+            Assert.Equal(bytes, File.ReadAllText(path));
+            Assert.Throws<NotSupportedException>(() => ManualFlowDefinitions.ImportDraft(json, "missing-library"));
+            input["trigger"]!["type"] = "pogget.trigger.schedule";
+            Assert.Throws<InvalidDataException>(() => ManualFlowDefinitions.ImportDraft(input.ToJsonString(), library));
+            File.WriteAllBytes(path, [0xff, 0xfe]);
+            await Assert.ThrowsAsync<System.Text.DecoderFallbackException>(() => ManualFlowDefinitions.ImportFileAsync(path, libraryPath: library));
+            File.WriteAllBytes(path, new byte[ManualFlowDefinitions.MaximumBytes + 1]);
+            await Assert.ThrowsAsync<InvalidDataException>(() => ManualFlowDefinitions.ImportFileAsync(path, libraryPath: library));
+            Assert.Equal(3, Directory.GetFiles(root).Length);
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [FlowNativeFact]
     public async Task DefinitionStorageRetainsRevisionsAndRefusesCorruptReset()
     {
         string root = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "DeskNext-flow-store-" + Guid.NewGuid().ToString("N"))).FullName;

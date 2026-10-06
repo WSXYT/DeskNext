@@ -1,5 +1,11 @@
 {
   "App.Title": "DeskNext",
+  "Flow.Import": "Import definition…",
+  "Flow.Export": "Export to folder…",
+  "Flow.Imported": "Imported as a new disabled draft. Review it, then save explicitly.",
+  "Flow.Exported": "A new definition file was exported. The draft and saved definitions are unchanged.",
+  "Flow.TransferHint": "Import replaces the draft, never runs it, and rejects automatic triggers. Export creates a new file; definitions may include paths and messages—review before sharing.",
+  "Flow.TransferUnavailable": "A local file or folder picker is unavailable in this session.",
   "Flow.SourceSpace": "Source space",
   "Flow.SourceItem": "Cataloged item",
   "Flow.TargetSpace": "Target space",

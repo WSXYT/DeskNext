@@ -1,5 +1,11 @@
 {
   "App.Title": "DeskNext",
+  "Flow.Import": "Importar definição…",
+  "Flow.Export": "Exportar para pasta…",
+  "Flow.Imported": "Importada como novo rascunho desativado. Revise e salve explicitamente.",
+  "Flow.Exported": "Um novo arquivo de definição foi exportado. O rascunho e as definições salvas não mudaram.",
+  "Flow.TransferHint": "Importar substitui o rascunho sem executar e recusa gatilhos automáticos. Exportar cria um arquivo. Definições podem conter caminhos e mensagens; revise antes de compartilhar.",
+  "Flow.TransferUnavailable": "O seletor de arquivos ou pastas locais não está disponível nesta sessão.",
   "Flow.SourceSpace": "Espaço de origem",
   "Flow.SourceItem": "Item catalogado",
   "Flow.TargetSpace": "Espaço de destino",
