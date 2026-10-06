@@ -1,5 +1,13 @@
 # P5 folder observation and Flow — partial implementation
 
+## Focused native integration (2026-10-06)
+
+CI [37460672092](https://github.com/WSXYT/DeskNext/actions/runs/37460672092), source `093d9472ce488f87b357cd77715a76cd131e8d23`, passed on **Windows x64, Linux x64 and macOS ARM64**. Each runner compiled its own Release bridge, executed the five Flow Core checks with **zero skips**, and published the App with that native library beside it. The terminal-evidence driver requires editor, persistence and prompt-runtime flags as literal true; its ten self-checks also passed.
+
+Downloaded TRX and terminal JSON were inspected by the parent: all three report `Success`, `FlowDefinitionEditorVerified`, `FlowDefinitionPersistenceVerified`, `ManualPromptFlowVerified` and dictionary parity true, with 12 locales. Combined headless workflow times were Windows 19,426 ms / Linux 13,678 ms / macOS 10,986 ms, not per-Flow performance figures. Evidence is under `artifacts/p5-flow-tests/ci-37460672092/`.
+
+This closes native ABI/definition/acknowledgement/cancellation/disposal integration for the restricted prompt runner. It does not establish OS-native input, installation/signing, file/control execution, automatic triggers, full P5 or any P4 quality gate. No P3 disk/drag/kill, model-download or installer matrix was repeated.
+
 ## Explicit prompt-only native execution (2026-10-06)
 
 **Run prompt steps** now invokes the existing Pogget `FlowRuntime` for one explicit, transient manual submission. Saved/draft definitions remain disabled. The runner accepts only 1–100 literal prompt nodes and rejects every file/control node (including disabled ones), automatic triggers, bindings, aliases, branches and `${...}` substitutions before creating the native runtime. No file executor, map adapter, automatic tick or published monitoring definition is installed.
