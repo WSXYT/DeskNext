@@ -430,8 +430,10 @@ public sealed partial class StudioViewModel : ViewModelBase
     [ObservableProperty] private string _jevSessionKey = string.Empty;
     [ObservableProperty] private bool _jevSendConsent;
     [ObservableProperty] private string _jevConnectionNotice = string.Empty;
+    private long _jevConnectionGeneration;
     partial void OnJevSessionKeyChanged(string value)
     {
+        _jevConnectionGeneration++;
         JevCredentialNotice = string.Empty;
         JevSendConsent = false;
         PreviewClassificationCommand.Cancel();
@@ -441,31 +443,45 @@ public sealed partial class StudioViewModel : ViewModelBase
     partial void OnJevSendConsentChanged(bool value)
     {
         if (value) return;
+        _jevConnectionGeneration++;
         PreviewClassificationCommand.Cancel();
         CheckJevConnectionCommand.Cancel();
         JevConnectionNotice = string.Empty;
     }
 
     [RelayCommand(IncludeCancelCommand = true)]
-    private async Task CheckJevConnectionAsync(CancellationToken token)
+    private Task CheckJevConnectionAsync(CancellationToken token) =>
+        CheckJevConnectionCoreAsync(DeskNest.Inference.JevPreviewClient.CheckConnectionAsync, token);
+
+    // The injected check is an internal smoke seam; production always calls the fixed Jev client above.
+    internal async Task CheckJevConnectionCoreAsync(
+        Func<string, CancellationToken, Task<DeskNest.Inference.JevPreviewClient.Result>> check, CancellationToken token)
     {
         if (!IsJevPreview || !JevSendConsent || string.IsNullOrWhiteSpace(JevSessionKey))
         { JevConnectionNotice = Localizer["Classification.JevSetup"]; return; }
         string key = JevSessionKey;
+        long generation = ++_jevConnectionGeneration;
+        bool IsCurrent() => generation == _jevConnectionGeneration && IsJevPreview && JevSendConsent && JevSessionKey == key;
         JevConnectionNotice = Localizer["Classification.TestingJev"];
         try
         {
-            var result = await DeskNest.Inference.JevPreviewClient.CheckConnectionAsync(key, token);
+            var result = await check(key, token);
             token.ThrowIfCancellationRequested();
-            if (IsJevPreview && JevSendConsent && JevSessionKey == key)
-                JevConnectionNotice = Localizer.GetString("Classification.JevConnected", result.Model);
+            if (IsCurrent()) JevConnectionNotice = Localizer.GetString("Classification.JevConnected", result.Model);
         }
-        catch (OperationCanceledException) { JevConnectionNotice = Localizer["Classification.Cancelled"]; }
-        catch (Exception error) { JevConnectionNotice = Localizer.GetString("Files.ActionFailedNotice", error.Message); }
+        catch (OperationCanceledException)
+        {
+            if (IsCurrent()) JevConnectionNotice = Localizer["Classification.Cancelled"];
+        }
+        catch (Exception error)
+        {
+            if (IsCurrent()) JevConnectionNotice = Localizer.GetString("Files.ActionFailedNotice", error.Message);
+        }
     }
     [RelayCommand]
     public void ClearJevSession()
     {
+        _jevConnectionGeneration++;
         PreviewClassificationCommand.Cancel();
         CheckJevConnectionCommand.Cancel();
         JevConnectionNotice = string.Empty;

@@ -43,6 +43,7 @@ internal static class OnboardingModelSmoke
             if (setup.JevConnectionNotice != setup.Localizer["Classification.JevSetup"])
                 throw new InvalidOperationException("Missing onboarding key was not refused.");
             const string key = "onboarding-fixture-not-a-real-key";
+            await VerifyLateJevNoticesAsync(setup, key);
             input.Text = key;
             if (setup.JevSendConsent) throw new InvalidOperationException("Key entry did not revoke permission; refuse to send the fixture.");
             await setup.CheckJevConnectionCommand.ExecuteAsync(null); // Unapproved: must return before HTTP.
@@ -69,6 +70,33 @@ internal static class OnboardingModelSmoke
             Console.WriteLine("OOBE_JEV_SESSION_VERIFIED: permission/refusal/transfer/disposal only; no live API request.");
         }
         finally { window.Close(); }
+    }
+
+    private static async Task VerifyLateJevNoticesAsync(StudioViewModel setup, string key)
+    {
+        // No HTTP client or live key: release a deferred response only after revoking its session.
+        foreach (string outcome in new[] { "success", "failure", "cancelled" })
+        {
+            setup.JevSessionKey = key;
+            setup.JevSendConsent = true;
+            var response = new TaskCompletionSource<DeskNest.Inference.JevPreviewClient.Result>(TaskCreationOptions.RunContinuationsAsynchronously);
+            Task oldCheck = setup.CheckJevConnectionCoreAsync((_, _) => response.Task, default);
+            setup.ClearJevSession();
+            setup.JevSessionKey = key; // Same key re-entered must not revive a revoked request.
+            setup.JevSendConsent = true;
+            if (outcome == "success") response.SetResult(new("fixture", "documents", [1, 0, 0]));
+            else if (outcome == "failure") response.SetException(new IOException("late-fixture-failure"));
+            else response.SetCanceled();
+            await oldCheck;
+            if (setup.JevConnectionNotice.Length != 0)
+                throw new InvalidOperationException("A revoked connection check repopulated its cleared notice.");
+        }
+        using var cancelled = new System.Threading.CancellationTokenSource();
+        cancelled.Cancel();
+        await setup.CheckJevConnectionCoreAsync((_, _) => Task.FromCanceled<DeskNest.Inference.JevPreviewClient.Result>(cancelled.Token), cancelled.Token);
+        if (setup.JevConnectionNotice != setup.Localizer["Classification.Cancelled"])
+            throw new InvalidOperationException("Cancellation of the current session must remain visible.");
+        setup.ClearJevSession();
     }
 
     internal static async Task<bool> VerifyAsync(string root)

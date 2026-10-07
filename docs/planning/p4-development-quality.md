@@ -72,7 +72,7 @@ A second twelve-case comparison kept the original special descriptions but repla
 
 ## Separate external reference
 
-The [published filename reference](p4-public-filename-reference.md) is a distinct, author-reported human-annotation source, not a relabeling of these 120 synthetic cases. Its frozen 536-input selection and interrupted-run/continuation evidence remain separate; the first incomplete process is not a successful quality result.
+The [published filename reference](p4-public-filename-reference.md) is a distinct, author-reported human-annotation source, not a relabeling of these 120 synthetic cases. Its frozen 536-input selection and interrupted-run/continuation evidence remain separate. Combined label agreement is 296/536 (55.2%); the first incomplete process is still not a clean-run result. Neither this English reference nor the 120 synthetic cases passes P4 quality acceptance.
 
 ## What this changes
 

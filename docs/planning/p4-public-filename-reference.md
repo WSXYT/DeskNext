@@ -1,4 +1,4 @@
-# Published filename reference — evaluation in progress
+# Published filename reference — bounded results
 
 ## Source and scope
 
@@ -47,6 +47,16 @@ Use the executable without `.exe` on Unix. Output directories must be new. The a
 
 `artifacts/p4-quality/filename-reference-run1/` recorded 135 complete progress lines before the enclosing command was aborted. There was no final report or observed clean exit, and the old driver had not yet written its in-memory full replies. These are **partial distribution records**, not a successful 536-case run or tensor-parity evidence. No old files were overwritten.
 
-A local-only continuation verifies the original frozen-request digest and the 135-record prefix's IDs/input digests, then runs only the remaining **401 requests** in a fresh process under `filename-reference-run1-continuation/`. Its status is at `artifacts/p4-quality/filename-continuation-status.json`; a running process is not acceptance. The suffix will have its own dataset identity and report. The generic driver now writes `execution.json` before inference and flushes `raw-replies.jsonl` before each progress record, so later interruptions do not discard all previous tensor replies. This changes evidence retention, not model inputs or outputs.
+A local-only continuation verifies the original frozen-request digest and the 135-record prefix's IDs/input digests, then runs only the remaining **401 requests** in a fresh process under `filename-reference-run1-continuation/`. The monitor terminated with exit code 0; `artifacts/p4-quality/filename-continuation-status.json` records that terminal state. The suffix has its own dataset identity/report: all 401 replies passed protocol/distribution checks, one worker exited cleanly, and stderr was empty. It achieved 235/401 agreement. None of that retroactively supplies a clean-exit or raw-reply receipt for the interrupted prefix. The generic driver now writes `execution.json` before inference and flushes `raw-replies.jsonl` before each progress record, so later interruptions do not discard all previous tensor replies. This changes evidence retention, not model inputs or outputs.
 
-No aggregate result or clean-run claim is available yet. A future combined distribution report must retain the interruption and unavailable-prefix-raw-reply limitations rather than presenting two processes as a single uninterrupted run. No thresholds, weights, candidate text or labels are tuned during this evaluation. P4 remains open; GPU and unattended moves remain disabled, and the user declined live Jev requests.
+## Combined distribution summary (2026-10-07)
+
+The local summary script checked the frozen request-set digest, the preserved prefix progress digest, exact suffix request/label equality and all 536 ID/input-digest pairs before scoring. `artifacts/p4-quality/filename-reference-combined/report.json` combines distributions only; it explicitly reports `processEvidenceComplete=false`, `prefixRawRepliesAvailable=false`, `cleanWorkerExit=null` and `formalAcceptance=false` alongside both segment records. There are 536 valid distributions and no recorded protocol failures; this is **not** evidence of a single uninterrupted clean 536-request process or full tensor parity.
+
+- Label agreement: **296/536 (55.2%)**.
+- Indicative, concrete-category agreement: **130/284 (45.8%)**.
+- Ambiguous-name recall: **166/252 (65.9%)**; precision **166/249 (66.7%)**.
+- Categories-insufficient has **no labeled cases and no predictions** in this selected subset, so recall/precision are unknown, not zero-error evidence.
+- High-risk behavior was not assessed. No automatic operations were executed, so the automatic-error upper bound remains unknown.
+
+No thresholds, weights, candidate text or labels were tuned during this evaluation. The numbers do not support unattended file moves; an English reference also does not close multilingual or special-option coverage. P4 remains open; GPU and unattended moves remain disabled, and the user declined live Jev requests.
