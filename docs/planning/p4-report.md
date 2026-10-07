@@ -2,6 +2,10 @@
 
 P3's user-approved safe manual workflow is accepted; **P4 is not complete**. These previews are read-only: they do not authorize any file move or copy. Manual file operations have their separate P3 evidence.
 
+## Explicit session-only NVIDIA workbench startup (2026-10-07)
+
+`--experimental-nvidia` plus explicit worker/model/DXGI arguments now starts the regular source-built workbench after normal onboarding, without changing saved engine settings. It overrides even a saved Jev choice locally, exposes the experimental label/path, and disables normal CPU deployment/reset actions for the session. Save Settings preserves the saved provider and model path; normal restart uses them again. No automatic GPU selection or public GPU release was added. The supplied worker is trusted developer code, not publisher-authenticated by this entry. The focused headless GPU workflow passed the overridden-preview and saved-setting-preservation checks with eight DirectML graph profiles; the earlier memory-cancelled attempt remains failed. [Usage and scope](../../tests/DeskNest.DirectMLProbe/README.md).
+
 ## Focused GPU workbench integration (2026-10-07)
 
 The explicit `--directml-preview-smoke` developer mode now runs the existing production file/pending preview → draft suggestion → confirmed import → undo workflow with the isolated NVIDIA worker, without running a CPU model reference or the full P3/Flow suite. It passed with terminal `DirectMlPreviewVerified`, model-preview and worker-reuse flags, and eight DirectML-only graph profiles (`artifacts/p4-gpu/workbench-preview.log`, 47,312 ms). A localized experimental-provider label prevents calling it a CPU result. Normal startup, saved settings and public model assets remain CPU-backed; worker paths are explicit developer arguments, never workspace data. This is not normal-user GPU selection, native desktop rendering, quality or complete P4 acceptance. Details and reproduction are in the [DirectML report](p4-directml-report.md).

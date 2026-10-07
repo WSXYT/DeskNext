@@ -874,8 +874,14 @@ public static class HeadlessSmokeRunner
             TriageReason.FilenameAmbiguous, null, DateTimeOffset.UtcNow);
         await using var store = await WorkspaceStore.OpenAsync(Path.Combine(root, "state"));
         await store.UpdateAsync(s => s with { OnboardingComplete = true, OnboardingStep = 5,
-            Spaces = [space], Files = [file], Pending = [pending], Settings = s.Settings with { ModelCacheDirectory = Path.GetFullPath(modelDirectory) } });
-        await using var main = new MainWindowViewModel(store, ownsStore: false, clipboardProvider: null, localWorkerStart);
+            Spaces = [space], Files = [file], Pending = [pending], Settings = s.Settings with
+            {
+                Provider = localWorkerStart is null ? InferenceProvider.Laya : InferenceProvider.Jev,
+                ModelCacheDirectory = localWorkerStart is null ? Path.GetFullPath(modelDirectory) : Path.Combine(root, "saved-cpu-selection")
+            } });
+        var savedEngine = store.Snapshot.Settings;
+        await using var main = new MainWindowViewModel(store, ownsStore: false, clipboardProvider: null, localWorkerStart,
+            experimentalModelDirectory: localWorkerStart is null ? null : Path.GetFullPath(modelDirectory));
         var studio = main.Studio!;
         using var cancelOnPressure = safetyToken.Register(() => Dispatcher.UIThread.Post(() =>
         {
@@ -884,6 +890,7 @@ public static class HeadlessSmokeRunner
         }));
         safetyToken.ThrowIfCancellationRequested();
         long revision = store.Snapshot.Revision;
+        if (localWorkerStart is not null) studio.SettingsModelCache = Path.GetFullPath(modelDirectory); // Draft only, never replaces saved selection.
         await studio.VerifyLocalModelCommand.ExecuteAsync(null);
         if (studio.ModelVerificationNotice != main.Localizer["Classification.BundleVerified"] ||
             store.Snapshot.Revision != revision)
@@ -982,6 +989,31 @@ public static class HeadlessSmokeRunner
         if (File.ReadAllText(pendingPath) != "Pending fixture must stay outside the space." ||
             store.Snapshot.Operations.Single(op => op.Id == operation.Id).Status != ProposedOperationStatus.Undone)
             throw new InvalidOperationException("Model-assisted import undo did not restore the original source.");
+        if (localWorkerStart is not null)
+        {
+            studio.SelectedTabIndex = 3;
+            var settingsView = new StudioView { DataContext = studio };
+            var settingsWindow = new Window { Content = settingsView, Width = 1280, Height = 720 };
+            settingsWindow.Show();
+            try
+            {
+                Dispatcher.UIThread.RunJobs();
+                if (!settingsView.FindControl<StackPanel>("NvidiaSessionPanel")!.IsEffectivelyVisible ||
+                    settingsView.FindControl<RadioButton>("JevPreviewProvider")!.IsEffectivelyVisible ||
+                    settingsView.FindControl<Button>("DownloadModelPackageButton")!.IsEffectivelyVisible ||
+                    !studio.IsLayaPreview || studio.IsJevPreview || studio.OnInstallLocalModelPackage is not null)
+                    throw new InvalidOperationException("The explicit GPU session must show its override and hide CPU/cloud deployment controls.");
+                await studio.SaveSettingsAsync();
+                if (store.Snapshot.Settings.Provider != savedEngine.Provider ||
+                    store.Snapshot.Settings.ModelCacheDirectory != savedEngine.ModelCacheDirectory)
+                    throw new InvalidOperationException("Session GPU configuration leaked into saved engine settings.");
+                long beforeReset = store.Snapshot.Revision;
+                await studio.ResetOnboardingAsync();
+                if (store.Snapshot.Revision != beforeReset || !store.Snapshot.OnboardingComplete)
+                    throw new InvalidOperationException("An experimental GPU session must not reset normal setup.");
+            }
+            finally { settingsWindow.Close(); }
+        }
         await main.DisposeAsync();
         if (main.LocalWorkerProcessId is not null || main.LocalWorkerShutdownError is not null)
             throw new InvalidOperationException("Workbench disposal did not close its CPU worker cleanly: " + main.LocalWorkerShutdownError);

@@ -15,6 +15,7 @@ internal static class DirectMlPreviewSmoke
     {
         string? root = null;
         bool passed = false;
+        long pressureFreeMiB = -1;
         var clock = Stopwatch.StartNew();
         var report = new Dictionary<string, object?>
         {
@@ -41,17 +42,15 @@ internal static class DirectMlPreviewSmoke
             {
                 var memory = new MemoryStatus { Length = (uint)Marshal.SizeOf<MemoryStatus>() };
                 if (GlobalMemoryStatusEx(ref memory) && (memory.AvailablePhysical < 192UL * 1048576 || memory.AvailablePageFile < 768UL * 1048576))
+                {
+                    Interlocked.CompareExchange(ref pressureFreeMiB, (long)(memory.AvailablePhysical / 1048576), -1);
                     deadline.Cancel();
+                }
             }, null, 0, 100);
             AppBuilder.Configure<App>().UseSkia().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).SetupWithoutStarting();
+            var config = new ExperimentalNvidiaSession(worker, model, adapter, Path.Combine(root, "gpu-workers"));
             int starts = 0;
-            ProcessStartInfo Start()
-            {
-                var info = new ProcessStartInfo(worker);
-                info.ArgumentList.Add("--adapter=" + adapter);
-                info.ArgumentList.Add("--profiles=" + Path.Combine(root, "gpu-worker-" + ++starts));
-                return info;
-            }
+            ProcessStartInfo Start() { starts++; return config.CreateWorkerStart(); }
             HeadlessSmokeRunner.AwaitOnUIThread(HeadlessSmokeRunner.VerifyLocalClassificationPreviewAsync(root, model, Start, deadline.Token),
                 "explicit NVIDIA workbench preview", 90);
             int graphProfiles = 0;
@@ -77,6 +76,7 @@ internal static class DirectMlPreviewSmoke
         {
             // Retain only this isolated fixture/profiles for review, including on failure. No user files were used.
             report["ElapsedMs"] = clock.ElapsedMilliseconds;
+            if (pressureFreeMiB >= 0) report["CancelledForLowMemoryMiB"] = pressureFreeMiB;
             if (root is not null) File.WriteAllText(Path.Combine(root, "result.json"), JsonSerializer.Serialize(report));
             Console.WriteLine("PROBE_RESULT_JSON:");
             Console.WriteLine(JsonSerializer.Serialize(report));

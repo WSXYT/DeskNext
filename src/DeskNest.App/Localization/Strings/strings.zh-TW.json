@@ -1,5 +1,7 @@
 {
   "App.Title": "DeskNext",
+  "Classification.NvidiaSessionNotice": "僅本次工作階段使用實驗性 NVIDIA 獨顯與啟動時指定的模型，不更改已儲存的引擎或模型設定。此模式不提供 CPU 模型下載、修復與移除，請正常重新啟動後使用。不會自動移動檔案。",
+  "Classification.NvidiaNeedsSetup": "請先以一般模式完成首次啟動設定，再啟動實驗性 NVIDIA 工作階段。",
   "Classification.ExperimentalNvidia": "Laya · NVIDIA 獨顯（實驗）",
   "Flow.RunHistory": "本次工作階段執行記錄",
   "Flow.SessionOnly": "僅保留此工作台工作階段最近 20 次執行，停止後顯示已完成步驟。持久移動記錄與復原仍在操作歷史中。",

@@ -27,7 +27,9 @@ public partial class App : Application
             }
             else
             {
-                var window = new MainWindow();
+                var window = Program.NvidiaSession is { } gpu
+                    ? new MainWindow(new ViewModels.MainWindowViewModel(null, gpu))
+                    : new MainWindow();
                 desktop.MainWindow = window;
                 window.Opened += (_, _) =>
                 {

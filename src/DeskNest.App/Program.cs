@@ -8,6 +8,7 @@ namespace DeskNest.App;
 
 public static class Program
 {
+    internal static ExperimentalNvidiaSession? NvidiaSession { get; private set; }
     // Initialization code. Don't use any Avalonia, third-party APIs or any
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
     // yet and stuff might break.
@@ -39,6 +40,15 @@ public static class Program
         if (args.Contains("--directml-preview-smoke", StringComparer.Ordinal))
             return DirectMlPreviewSmoke.Run(args);
 
+        // Session-only opt-in. Extra/malformed arguments must not silently open a CPU session.
+        if (args.Any(a => a == "--experimental-nvidia" || a.StartsWith("--gpu-", StringComparison.Ordinal)))
+        {
+            try { NvidiaSession = ExperimentalNvidiaSession.Parse(args); }
+            catch (Exception error) { Console.Error.WriteLine(error.Message); return 2; }
+            try { return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args); }
+            finally { NvidiaSession = null; }
+        }
+
         // Support opt-in native OS desktop window smoke test
         if (args.Any(a => a.Equals("--native-window-smoke", StringComparison.OrdinalIgnoreCase)))
         {
@@ -55,9 +65,7 @@ public static class Program
             return HeadlessSmokeRunner.RunSmokeAsync(args).GetAwaiter().GetResult();
         }
 
-        // Standard desktop GUI execution
-        return BuildAvaloniaApp()
-            .StartWithClassicDesktopLifetime(args);
+        return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 
     // Avalonia configuration, don't remove; also used by visual designer.

@@ -1,5 +1,7 @@
 {
   "App.Title": "DeskNext",
+  "Classification.NvidiaSessionNotice": "仅本次会话使用实验性 NVIDIA 独显与启动时指定的模型，不更改已保存的引擎或模型设置。此模式不提供 CPU 模型下载、修复与卸载，请正常重启后使用。不会自动移动文件。",
+  "Classification.NvidiaNeedsSetup": "请先以普通模式完成首次启动设置，再启动实验性 NVIDIA 会话。",
   "Classification.ExperimentalNvidia": "Laya · NVIDIA 独显（实验）",
   "Flow.RunHistory": "本次会话运行记录",
   "Flow.SessionOnly": "仅保留此工作台会话最近 20 次运行，停止后显示已完成步骤。持久移动记录与撤销仍在操作历史中。",

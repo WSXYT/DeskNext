@@ -33,6 +33,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     private readonly System.Threading.SemaphoreSlim _startupGate = new(1, 1);
     private readonly DeskNest.Inference.LocalPreviewSession _localPreview;
     private readonly bool _experimentalNvidia;
+    private readonly string? _experimentalModelDirectory;
     internal int? LocalWorkerProcessId => _localPreview.WorkerProcessId;
     internal string? LocalWorkerShutdownError => _localPreview.LastShutdownError;
     private readonly Func<Func<WorkspaceState, WorkspaceState>, Task<WorkspaceState>>? _stateUpdater;
@@ -136,8 +137,13 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     /// Connects to the default WorkspaceStore.
     /// </summary>
     public MainWindowViewModel(Func<Avalonia.Input.Platform.IClipboard?>? clipboardProvider = null)
+        : this(clipboardProvider, null) { }
+
+    internal MainWindowViewModel(Func<Avalonia.Input.Platform.IClipboard?>? clipboardProvider, ExperimentalNvidiaSession? gpu)
     {
-        _localPreview = new(CreateLocalWorkerStart);
+        _localPreview = new(gpu is null ? CreateLocalWorkerStart : gpu.CreateWorkerStart);
+        _experimentalNvidia = gpu is not null;
+        _experimentalModelDirectory = gpu?.ModelDirectory;
         ClipboardProvider = clipboardProvider;
         _ownsStore = true;
         _selectedLanguage = Localizer.CurrentLanguageInfo;
@@ -156,10 +162,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
 
     // Explicit developer fixture only; no worker path is loaded from workspace metadata.
     internal MainWindowViewModel(WorkspaceStore store, bool ownsStore,
-        Func<Avalonia.Input.Platform.IClipboard?>? clipboardProvider, Func<System.Diagnostics.ProcessStartInfo>? localWorkerStart)
+        Func<Avalonia.Input.Platform.IClipboard?>? clipboardProvider, Func<System.Diagnostics.ProcessStartInfo>? localWorkerStart,
+        string? experimentalModelDirectory = null)
     {
         _localPreview = new(localWorkerStart ?? CreateLocalWorkerStart);
         _experimentalNvidia = localWorkerStart is not null;
+        _experimentalModelDirectory = experimentalModelDirectory;
         ClipboardProvider = clipboardProvider;
         _store = store;
         _dataDirectory = store.DataDirectory;
@@ -246,6 +254,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
                     _store, new DesktopOrganizationTransaction(
                         Path.Combine(_store.DataDirectory, "organization-recovery.json")));
                 await _manualCoordinator.RecoverPendingAsync().ConfigureAwait(false);
+                if (_experimentalModelDirectory is not null && !_store.Snapshot.OnboardingComplete)
+                    throw new NotSupportedException(Localizer["Classification.NvidiaNeedsSetup"]);
                 await SetUIStateAsync(() =>
                 {
                     StartupState = StartupState.Ready;
@@ -379,6 +389,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     private void AttachStudioExecutors(StudioViewModel studio)
     {
         studio.IsExperimentalNvidia = _experimentalNvidia;
+        studio.ExperimentalModelDirectory = _experimentalModelDirectory ?? string.Empty;
         studio.OnLoadFlowDefinitions = async () =>
         {
             if (_disposed || _store is null) throw new ObjectDisposedException(nameof(MainWindowViewModel));
@@ -389,14 +400,15 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             if (_disposed || _store is null) throw new ObjectDisposedException(nameof(MainWindowViewModel));
             return await new DeskNest.Core.Flow.ManualFlowStore(_store).SaveAsync(id, json);
         };
-        studio.OnPrepareModelRemoval = OperatingSystem.IsWindows() ? PrepareModelRemovalAsync : null;
-        studio.OnRemoveModelData = OperatingSystem.IsWindows() ? RemoveModelDataAsync : null;
+        studio.OnPrepareModelRemoval = OperatingSystem.IsWindows() && !_experimentalNvidia ? PrepareModelRemovalAsync : null;
+        studio.OnRemoveModelData = OperatingSystem.IsWindows() && !_experimentalNvidia ? RemoveModelDataAsync : null;
         AttachModelInstaller(studio);
         AttachWorkspaceExecutors(studio);
     }
 
     private void AttachModelInstaller(StudioViewModel studio)
     {
+        if (_experimentalNvidia) { studio.OnInstallLocalModelPackage = null; return; }
         if (string.IsNullOrEmpty(studio.ModelInstallRoot) && _store is not null)
         {
             studio.ModelInstallRoot = _store.Snapshot.Settings.GetModelInstallationRoot() ?? Path.Combine(_store.DataDirectory, "models");
@@ -536,8 +548,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             ? snapshot.Pending.SingleOrDefault(p => p.Id == selectedPending.Id) : null;
         string hint = (selected as PendingItemViewModel)?.ClassificationHint?.Trim() ?? string.Empty;
         if (hint.Length > 256) throw new InvalidDataException(Localizer["Classification.HintNotice"]);
-        bool cloud = snapshot.Settings.Provider == InferenceProvider.Jev;
-        string? directory = snapshot.Settings.ModelCacheDirectory;
+        bool cloud = !_experimentalNvidia && snapshot.Settings.Provider == InferenceProvider.Jev;
+        string? directory = _experimentalModelDirectory ?? snapshot.Settings.ModelCacheDirectory;
         if (cloud && (!studio.JevSendConsent || string.IsNullOrWhiteSpace(studio.JevSessionKey)))
         {
             studio.FileActionNotice = Localizer["Classification.JevSetup"];

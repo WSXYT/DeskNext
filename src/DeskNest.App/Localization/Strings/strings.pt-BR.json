@@ -1,5 +1,7 @@
 {
   "App.Title": "DeskNext",
+  "Classification.NvidiaSessionNotice": "Somente esta sessão usa NVIDIA experimental e o modelo escolhido ao iniciar, sem alterar as configurações salvas. Reinicie normalmente para baixar, reparar ou remover modelos CPU. Nenhum arquivo é movido automaticamente.",
+  "Classification.NvidiaNeedsSetup": "Conclua a configuração inicial no modo normal antes de iniciar uma sessão NVIDIA experimental.",
   "Classification.ExperimentalNvidia": "Laya · NVIDIA DirectML (experimental)",
   "Flow.RunHistory": "Histórico da sessão",
   "Flow.SessionOnly": "Mantém apenas as últimas 20 execuções desta sessão. Etapas concluídas aparecem após o término. Movimentações persistentes e desfazer continuam no histórico de operações.",

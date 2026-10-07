@@ -74,6 +74,22 @@ Each stdin frame is a four-byte little-endian byte count followed by `Probe.Work
 
 Hardware checks are opt-in in `tests/DeskNest.Inference.Tests/DirectMlWorkerTests.cs`. Set `DESKNEXT_DIRECTML_PROBE`, `DESKNEXT_DIRECTML_MODEL`, `DESKNEXT_DIRECTML_CASES`, `DESKNEXT_DIRECTML_EVIDENCE` and `DESKNEXT_DIRECTML_ADAPTER` explicitly. `CASES` holds the three fixed `<0|1|2>-input.json` request files and prior `<0|1|2>-reference.json` `Probe.Result` files. No test creates new CPU reference responses or downloads weights. An unset fixture skips and does **not** count as GPU evidence. A monitored emergency memory cancellation is a failed test, not a numerical pass.
 
+## Explicit interactive session (experimental)
+
+After completing normal first-run setup, you may launch the **source-built App** with this explicitly supplied trusted worker and derived model:
+
+```powershell
+& .\src\DeskNest.App\bin\Release\net10.0\DeskNest.App.exe `
+  --experimental-nvidia `
+  --gpu-worker=D:/absolute/path/DeskNest.DirectMLProbe.exe `
+  --gpu-model=D:/absolute/path/derived-model `
+  --gpu-adapter=1
+```
+
+Close another instance of the same workspace first. This opens the regular workbench with a **session-only local NVIDIA override**. The saved provider/model path is neither used for inference nor replaced by Save Settings; normal startup without these arguments uses the saved settings again. Provider controls and CPU download/repair/removal are hidden for this session, and startup configuration reset is refused. The chosen model path and experimental label are visible in Settings and preview results. No inference starts just by opening the window, and file moves still require the existing explicit user action. Cloud calls are not made by this session.
+
+The worker and its model are **trusted developer inputs**: validating a path/file name is not publisher authentication. This is not a supported installer download source or an automatic GPU-selection policy. Unsupported GPU/model execution fails visibly without CPU fallback. Profiles remain in the printed/local temporary GPU-session directory for diagnosis; do not use this experimental session for unattended operation. Starting with no completed onboarding refuses and asks you to finish normal setup first. Malformed/mixed GPU launch arguments return exit code 2 before UI startup rather than silently opening a CPU session.
+
 ## Isolated workbench classification workflow
 
 The application also provides an **explicit diagnostic-only** workflow that exercises its real view-model commands with this worker:
@@ -85,7 +101,7 @@ node tests/run-app-probe.mjs src/DeskNest.App/bin/Release/net10.0/DeskNest.App.e
   --local-model=<absolute-derived-model> --gpu-adapter=1
 ```
 
-This creates only an isolated temporary workspace, uses headless rendering and labels the local provider **NVIDIA (experimental)**. It checks file/pending previews, editable hint invalidation, worker reuse/cancellation, category creation and explicit confirmation/import/undo through the existing coordinator. It does not start the broad UI/Core/Flow/packaging suite or a CPU model reference. The supplied worker is trusted developer code; paths are accepted only from explicit launch arguments, never workspace metadata or a Flow document. This mode is not an everyday user-facing backend selector and does not persist GPU configuration.
+This creates only an isolated temporary workspace, uses headless rendering and labels the local provider **NVIDIA (experimental)**. It checks file/pending previews, editable hint invalidation, worker reuse/cancellation, category creation and explicit confirmation/import/undo through the existing coordinator. It does not start the broad UI/Core/Flow/packaging suite or a CPU model reference. The supplied worker is trusted developer code; paths are accepted only from explicit launch arguments, never workspace metadata or a Flow document. The diagnostic mode is not the interactive launch itself and does not persist GPU configuration. It additionally checks that a saved Jev provider/different model path are preserved through settings save while the session uses the explicitly supplied local GPU model.
 
 The process runs below normal priority, with a 75-second workflow cancellation deadline and a low-memory monitor that cancels the active command. No threshold grants automatic file operations. The terminal `DirectMlPreviewVerified` flag requires the actual workflow plus at least eight completed DirectML-only graph profiles, not just an exit code. The fixture and profiles remain under its printed `EvidenceDirectory` for inspection; no user workspace or clipboard is used.
 
@@ -95,4 +111,4 @@ See [the DirectML report](../../docs/planning/p4-directml-report.md). Three fixe
 
 The subsequent v1 integration check passed **three raw requests through the unmodified `LocalPreviewSession` and one reusable NVIDIA process**, with exact tokenizer tensors, matching choice/routing and logit/probability deltas below 1e-4. Cancelling another request retired the worker and no replacement/CPU fallback started. Oversized frames, protocol mismatch and wrong model digest were refused without graph execution. Two hardware tests executed and passed in `artifacts/p4-gpu/versioned-worker-followup/directml-worker-followup.trx`; the earlier `versioned-worker/directml-worker.trx` retains its memory-cancelled failure. No claim that the later pass solved system-wide memory pressure.
 
-These are bounded numerical/execution checks, not classifier quality, production App backend selection, physical UI cancellation, an installed/signed GPU distribution, per-adapter performance certification, or P4 acceptance. The application and public model release remain CPU-only. The user-facing manual-operation safeguards are unchanged.
+These are bounded numerical/execution checks, not classifier quality, production App backend selection, physical UI cancellation, an installed/signed GPU distribution, per-adapter performance certification, or P4 acceptance. Normal application startup and the existing public releases retain their CPU behavior; the new experimental interactive override is explicit and session-only. The user-facing manual-operation safeguards are unchanged.

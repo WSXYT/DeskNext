@@ -1,5 +1,7 @@
 {
   "App.Title": "DeskNext",
+  "Classification.NvidiaSessionNotice": "تستخدم هذه الجلسة فقط NVIDIA التجريبي والنموذج المحدد عند التشغيل، دون تغيير إعدادات المحرك أو النموذج المحفوظة. أعد التشغيل العادي لتنزيل نماذج CPU أو إصلاحها أو إزالتها. لا تُنقل الملفات تلقائيًا.",
+  "Classification.NvidiaNeedsSetup": "أكمل الإعداد الأولي في الوضع العادي قبل بدء جلسة NVIDIA تجريبية.",
   "Classification.ExperimentalNvidia": "Laya · NVIDIA DirectML (تجريبي)",
   "Flow.RunHistory": "سجل تشغيل الجلسة",
   "Flow.SessionOnly": "يحتفظ بآخر 20 تشغيلاً في جلسة مساحة العمل هذه فقط. تظهر الخطوات المكتملة بعد التوقف. تبقى عمليات النقل الدائمة والتراجع في سجل العمليات.",

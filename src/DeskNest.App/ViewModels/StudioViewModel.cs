@@ -534,8 +534,10 @@ public sealed partial class StudioViewModel : ViewModelBase
     }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(LocalPreviewProviderText))]
+    [NotifyPropertyChangedFor(nameof(LocalPreviewProviderText), nameof(IsLayaPreview), nameof(IsJevPreview), nameof(CanManageLocalModel))]
     private bool _isExperimentalNvidia;
+    [ObservableProperty] private string _experimentalModelDirectory = string.Empty;
+    public bool CanManageLocalModel => IsLayaPreview && !IsExperimentalNvidia;
     public string LocalPreviewProviderText => Localizer[IsExperimentalNvidia ? "Classification.ExperimentalNvidia" : "Classification.LocalCpu"];
 
     public void ShowClassificationPreview(string fileName, string content, bool cloud = false)
@@ -544,6 +546,7 @@ public sealed partial class StudioViewModel : ViewModelBase
         PreviewKind = cloud ? Localizer["Classification.JevCloud"] : LocalPreviewProviderText;
         PreviewContent = content;
         PreviewDetails = Localizer[cloud ? "Classification.JevResultNotice" : "Classification.ReadOnly"];
+        if (!cloud && IsExperimentalNvidia) PreviewDetails += Environment.NewLine + Localizer["Classification.NvidiaSessionNotice"];
         IsPreviewTruncated = false;
         IsPreviewDialogOpen = true;
         FileActionNotice = PreviewDetails;
@@ -769,11 +772,11 @@ public sealed partial class StudioViewModel : ViewModelBase
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsJevPreview))]
-    [NotifyPropertyChangedFor(nameof(IsLayaPreview))]
+    [NotifyPropertyChangedFor(nameof(IsLayaPreview), nameof(CanManageLocalModel))]
     private InferenceProvider _settingsProvider;
 
-    public bool IsJevPreview { get => SettingsProvider == InferenceProvider.Jev; set { if (value) SettingsProvider = InferenceProvider.Jev; } }
-    public bool IsLayaPreview { get => SettingsProvider == InferenceProvider.Laya; set { if (value) SettingsProvider = InferenceProvider.Laya; } }
+    public bool IsJevPreview { get => !IsExperimentalNvidia && SettingsProvider == InferenceProvider.Jev; set { if (value && !IsExperimentalNvidia) SettingsProvider = InferenceProvider.Jev; } }
+    public bool IsLayaPreview { get => IsExperimentalNvidia || SettingsProvider == InferenceProvider.Laya; set { if (value && !IsExperimentalNvidia) SettingsProvider = InferenceProvider.Laya; } }
     partial void OnSettingsProviderChanged(InferenceProvider value)
     {
         ClearJevSession();
@@ -2378,8 +2381,8 @@ public sealed partial class StudioViewModel : ViewModelBase
                 AccentSource = SettingsAccentSource,
                 Language = SettingsLanguage.Code,
                 Theme = SettingsTheme.ToString(),
-                Provider = SettingsProvider,
-                ModelCacheDirectory = cache,
+                Provider = IsExperimentalNvidia ? state.Settings.Provider : SettingsProvider,
+                ModelCacheDirectory = IsExperimentalNvidia ? state.Settings.ModelCacheDirectory : cache,
                 ManagedRoot = root,
                 MonitoredFolders = SettingsMonitoredFolders.Where(Path.IsPathFullyQualified).ToList(),
                 MonitoredFolderTargets = state.Settings.MonitoredFolderTargets.Where(binding => SettingsMonitoredFolders.Contains(binding.Key))
@@ -2399,6 +2402,7 @@ public sealed partial class StudioViewModel : ViewModelBase
     [RelayCommand]
     public async Task ResetOnboardingAsync()
     {
+        if (IsExperimentalNvidia) { SettingsSavedFeedback = Localizer["Classification.NvidiaSessionNotice"]; return; }
         await _updateStore(state => state with
         {
             OnboardingComplete = false,

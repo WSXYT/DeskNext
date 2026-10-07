@@ -1,5 +1,7 @@
 {
   "App.Title": "DeskNext",
+  "Classification.NvidiaSessionNotice": "このセッションのみ実験的 NVIDIA と起動時指定モデルを使用します。保存済みエンジン・モデル設定は変更しません。CPU モデルのダウンロード、修復、削除には通常モードで再起動してください。ファイルは自動移動しません。",
+  "Classification.NvidiaNeedsSetup": "実験的 NVIDIA セッションを起動する前に、通常モードで初期設定を完了してください。",
   "Classification.ExperimentalNvidia": "Laya · NVIDIA DirectML（実験）",
   "Flow.RunHistory": "セッションの実行履歴",
   "Flow.SessionOnly": "このワークベンチのセッションで最近の20回のみ保持します。停止後に完了した手順を表示します。移動の永続的な記録と取り消しは操作履歴にあります。",

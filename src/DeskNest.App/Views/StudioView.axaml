@@ -749,7 +749,12 @@
                     <!-- Section: Engine -->
                     <StackPanel Spacing="16">
                         <TextBlock Text="{Binding Localizer[Settings.Engine]}" FontWeight="SemiBold" FontSize="16"/>
-                        <WrapPanel>
+                        <StackPanel Name="NvidiaSessionPanel" Spacing="8" IsVisible="{Binding IsExperimentalNvidia}">
+                            <TextBlock Text="{Binding LocalPreviewProviderText}" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding Localizer[Classification.NvidiaSessionNotice]}" TextWrapping="Wrap"/>
+                            <TextBox Text="{Binding ExperimentalModelDirectory, Mode=OneWay}" IsReadOnly="True" FlowDirection="LeftToRight"/>
+                        </StackPanel>
+                        <WrapPanel IsVisible="{Binding !IsExperimentalNvidia}">
                             <RadioButton Name="LayaPreviewProvider" GroupName="PreviewProvider" Margin="0,0,16,0"
                                          Content="{Binding LocalPreviewProviderText}" IsChecked="{Binding IsLayaPreview, Mode=TwoWay}"/>
                             <RadioButton Name="JevPreviewProvider" GroupName="PreviewProvider"
@@ -788,7 +793,7 @@
                             <TextBlock Text="{Binding Localizer[Classification.TestJevNotice]}" TextWrapping="Wrap" FontSize="12"/>
                             <TextBlock Text="{Binding JevConnectionNotice}" TextWrapping="Wrap" FontSize="13"/>
                         </StackPanel>
-                        <StackPanel Spacing="8" IsVisible="{Binding IsLayaPreview}">
+                        <StackPanel Spacing="8" IsVisible="{Binding CanManageLocalModel}">
                             <TextBlock Text="{Binding Localizer[OOBE.Step2.ModelCache]}" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             <TextBlock Text="{Binding Localizer[Classification.Setup]}" TextWrapping="Wrap"
                                        FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
