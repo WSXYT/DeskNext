@@ -10,6 +10,7 @@ import random
 import time
 from pathlib import Path
 
+import head_training_checkpoint as continuation
 from development_corpus import canonical
 from train_frozen_head import load_frozen_head, sha
 
@@ -21,6 +22,11 @@ def main():
     p.add_argument("checkpoint", type=Path)
     p.add_argument("upstream_common", type=Path)
     p.add_argument("output", type=Path)
+    mode = p.add_mutually_exclusive_group()
+    mode.add_argument("--scorer-only", action="store_true", help="Fixed comparison: freeze transformers/type embedding, 40 accumulated scorer updates at 1e-4")
+    mode.add_argument("--accumulated-head", action="store_true", help="Fixed comparison: train decision-head transformers/type embedding/scorer, 40 accumulated updates at 1e-4")
+    p.add_argument("--resume", type=Path, help="Verified local epoch checkpoint; output must still be a new directory")
+    p.add_argument("--stop-file", type=Path, help="Local monitor request to checkpoint at the next completed epoch and exit")
     args = p.parse_args()
     args.output.mkdir(exist_ok=False)
     report = {"success": False, "formalAcceptance": False, "scope": __doc__}
@@ -107,6 +113,14 @@ def main():
                          "candidates": candidates, "reference": result})
         stage("load-decision-head")
         model = load_frozen_head(torch, args.upstream_common, args.checkpoint, rows[0]["hidden"])
+        accumulated = args.scorer_only or args.accumulated_head
+        if args.scorer_only:
+            model.head.requires_grad_(False)
+            model.type_emb.requires_grad_(False)
+        if accumulated:
+            report["protocol"] = {**expected_training, "mode": "scorer-only" if args.scorer_only else "accumulated-head",
+                                  "epochs": 40, "learningRate": 0.0001, "gradientAccumulation": 20,
+                                  "headTransformerFrozen": args.scorer_only, "typeEmbeddingFrozen": args.scorer_only}
         train = [r for r in rows if r["split"] == "train"]
         checks = [r for r in rows if r["split"] == "development-check"]
         if len(train) != 20 or len(checks) != 10:
@@ -132,33 +146,58 @@ def main():
             raise ValueError("Initial CUDA head/DirectML frozen-feature logits differ")
         report["initialHeadVsDirectMlMaxLogitDelta"] = delta
         parameters = [p for p in model.parameters() if p.requires_grad]
-        optimizer = torch.optim.AdamW(parameters, lr=0.0003, weight_decay=0)
+        report["trainableParameters"] = sum(p.numel() for p in parameters)
+        optimizer = torch.optim.AdamW(parameters, lr=0.0001 if accumulated else 0.0003, weight_decay=0)
+        epochs = 40 if accumulated else 6
         losses = []
+        contract = {"pilot": source["pilotSha256"], "baseCheckpoint": original_hash,
+                    "architecture": report["commonSha256"], "features": feature_hashes,
+                    "protocol": report["protocol"], "torch": str(torch.__version__),
+                    "trainer": sha(Path(__file__)), "loader": sha(Path(__file__).with_name("train_frozen_head.py"))}
+        if args.resume:
+            losses = continuation.restore(torch, args.resume, model, optimizer, rng, contract)
+            if not 0 <= len(losses) <= epochs:
+                raise ValueError("Checkpoint is beyond the fixed training schedule")
+            report["resumedFrom"] = {"path": str(args.resume), "sha256": sha(args.resume), "completedEpochs": len(losses)}
         torch.cuda.reset_peak_memory_stats()
         # Fixed order shuffle/epochs, dropout disabled; never choose a checkpoint by check-set score.
-        stage("train-fixed-six-epochs")
-        for epoch in range(6):
+        stage("train-fixed-protocol")
+        for epoch in range(len(losses), epochs):
             order = list(train)
             rng.shuffle(order)
             total = 0.0
+            if accumulated:
+                optimizer.zero_grad(set_to_none=True)
             for row in order:
                 if time.monotonic() - started > 180:
                     raise TimeoutError("Bounded training budget exceeded")
                 model.encoder.hidden = row["hidden"]
-                optimizer.zero_grad(set_to_none=True)
+                if not accumulated:
+                    optimizer.zero_grad(set_to_none=True)
                 logits, _ = model(*row["inputs"])
                 loss = torch.nn.functional.cross_entropy(logits, torch.tensor([row["target"]], device="cuda"))
                 if not bool(torch.isfinite(loss)):
                     raise ValueError("Non-finite loss")
-                loss.backward()
+                (loss / len(train) if accumulated else loss).backward()
+                if not accumulated:
+                    torch.nn.utils.clip_grad_norm_(parameters, 1.0, error_if_nonfinite=True)
+                    optimizer.step()
+                total += loss.item()
+            if accumulated:
                 torch.nn.utils.clip_grad_norm_(parameters, 1.0, error_if_nonfinite=True)
                 optimizer.step()
-                total += loss.item()
             losses.append(total / len(train))
             print(json.dumps({"epoch": epoch + 1, "trainLoss": losses[-1]}), flush=True)
+            stop_requested = args.stop_file is not None and args.stop_file.exists()
+            if len(losses) % 5 == 0 or len(losses) == epochs or stop_requested:
+                report["lastCheckpoint"] = continuation.save(torch, args.output, model, optimizer, rng, losses, contract)
+                report["completedEpochs"] = len(losses)
+                stage("checkpoint-saved")
+            if stop_requested:
+                raise InterruptedError("Local monitor requested a checkpointed stop; resume the remaining fixed epochs")
         stage("evaluate-fixed-final-head")
         after = evaluate(rows)
-        report.update(success=True, epochs=6, updates=120, trainLossByEpoch=losses,
+        report.update(success=True, epochs=epochs, updates=epochs if accumulated else epochs * len(train), trainLossByEpoch=losses,
                       trainAgreementBefore=sum(x["correct"] for x in before[:20]), trainAgreementAfter=sum(x["correct"] for x in after[:20]),
                       checkAgreementBefore=sum(x["correct"] for x in before[20:]), checkAgreementAfter=sum(x["correct"] for x in after[20:]),
                       peakCudaAllocatedMiB=round(torch.cuda.max_memory_allocated()/1048576,2),
