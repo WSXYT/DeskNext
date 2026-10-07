@@ -70,6 +70,10 @@ A second twelve-case comparison kept the original special descriptions but repla
 
 `artifacts/p4-quality/development-v1-token-cache-run2/` reran the same 120 frozen requests after removing repeated vocabulary parsing. It returned **120 valid responses, zero protocol failures, one worker start and a clean exit**. All **119 previously valid complete versioned replies are identical** (including tensors, logits, probabilities and choices); the formerly failed Spanish folder request returned ambiguous. Agreement is **61/120 (50.8%)**, ordinary agreement remains **39/84**, and insufficient-category recall remains **0/12**. No inputs, labels, thresholds or model assets changed. The original failed run is retained; this successful rerun is not proof that resource exhaustion cannot recur, and it does not satisfy the independent quality gate.
 
+## Separate external reference
+
+The [published filename reference](p4-public-filename-reference.md) is a distinct, author-reported human-annotation source, not a relabeling of these 120 synthetic cases. Its frozen 536-input selection and interrupted-run/continuation evidence remain separate; the first incomplete process is not a successful quality result.
+
 ## What this changes
 
 This gives P4 an actual, reproducible development signal instead of another arithmetic-only scorer. It shows why model suggestions must remain reviewable, especially multilingual inputs and the two fallback options. Future prompt/model changes can compare against these fixed cases, but doing so makes them development data, not independent validation. A blind human-labeled held-out corpus, real service evidence and the other P4 requirements still remain open; the user declined Jev calls, so none were made.

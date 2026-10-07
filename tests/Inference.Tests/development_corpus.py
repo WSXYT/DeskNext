@@ -84,11 +84,18 @@ def run(worker, model, output, labels, requests):
     base: dict[str, Any] = {"schemaVersion": 1, "datasetId": labels["datasetId"], "provider": "laya",
                             "modelId": "laya-multilingual-fp32-v1", "manifestSha256": model_hash,
                             "workerSha256": hashlib.sha256(worker.read_bytes()).hexdigest()}
+    # Persist identity and each raw reply before progress: an interrupted process still leaves inspectable evidence.
+    write_json(output / "execution.json", {**base, "workerPath": str(worker),
+        "assemblySha256": {name: hashlib.sha256((worker.parent / name).read_bytes()).hexdigest()
+                          for name in ("DeskNest.App.dll", "DeskNest.Inference.dll") if (worker.parent / name).is_file()}})
     predictions, raw_results = [], []
     aliases = {c["id"]: canonical_id for c, canonical_id in zip(requests[0]["candidates"], labels["samples"][0]["candidates"], strict=True)}
     process = None
     starts = 0
-    with (output / "worker-stderr.log").open("xb") as errors, (output / "progress.jsonl").open("x", encoding="utf-8") as progress, ThreadPoolExecutor(max_workers=1) as reader:
+    with ((output / "worker-stderr.log").open("xb") as errors,
+          (output / "progress.jsonl").open("x", encoding="utf-8") as progress,
+          (output / "raw-replies.jsonl").open("x", encoding="utf-8") as raw_stream,
+          ThreadPoolExecutor(max_workers=1) as reader):
         try:
             for label, request in zip(labels["samples"], requests, strict=True):
                 began = time.monotonic()
@@ -112,7 +119,10 @@ def run(worker, model, output, labels, requests):
                             result["requestId"] != request["requestId"] or result["revision"] != 0):
                         raise ValueError("Worker reply identity mismatch")
                     record.update(choice=aliases[result["choice"]], probabilities=result["probabilities"])
-                    raw_results.append({"id": label["id"], "reply": reply})
+                    raw = {"id": label["id"], "reply": reply}
+                    raw_stream.write(json.dumps(raw, ensure_ascii=False, allow_nan=False) + "\n")
+                    raw_stream.flush()
+                    raw_results.append(raw)
                 except Exception as error:
                     record["error"] = ("timeout" if isinstance(error, FutureTimeout) else type(error).__name__) + ": " + str(error)[:500]
                     if process is not None:

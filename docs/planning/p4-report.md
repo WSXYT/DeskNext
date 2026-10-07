@@ -2,6 +2,12 @@
 
 P3's user-approved safe manual workflow is accepted; **P4 is not complete**. These previews are read-only: they do not authorize any file move or copy. Manual file operations have their separate P3 evidence.
 
+## Published human-reported filename reference (2026-10-07)
+
+A separate [public-reference evaluation](p4-public-filename-reference.md) uses the filename paper's author-reported two-annotator Common Crawl labels, pinned to an exact source commit/digest. It keeps 536 non-conflicting unique in-scope filenames (284 indicative / 252 ambiguous), retains both fallback candidates, and excludes OOS documents whose filename ambiguity was not annotated rather than fabricating a special label. This is English-only external reference data with unknown Laya training overlap, no high-risk or automatic-operation coverage, and no dataset redistribution license identified; source data and outputs stay in ignored artifacts. The adapter and one small selection test are source-controlled; no remote PDF/URL or Jev request is made.
+
+The first evaluation command was interrupted after 135 recorded distributions without a terminal report or full raw replies. A separate suffix process runs the remaining 401 frozen inputs; no full result is claimed yet. The existing worker driver now persists run identity and flushes each raw reply before progress so another interruption does not lose all prior tensor evidence. This is targeted P4 work, not a new model or threshold change, and P4 remains incomplete.
+
 ## Session-only Jev setup during onboarding (2026-10-07)
 
 The Jev engine card now exposes the existing masked session-key field, unchecked sending permission, clear action and explicit fixed-sample connection check/cancel. It shares the future workbench's view model and commands; finishing the wizard carries the session in memory, not workspace JSON or backup. Restarting setup revokes the earlier key/permission; closing the owner also clears them while still in onboarding. No credential-vault reads, automatic service calls or duplicate HTTP client were added. The local-model path input is hidden when Jev is selected.
