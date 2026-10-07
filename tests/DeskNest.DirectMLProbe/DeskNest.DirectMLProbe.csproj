@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <UseSharedCompilation>false</UseSharedCompilation>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Developer-only executable: never mix DirectML native assets into the shipped CPU directory. -->
+    <Compile Include="../../src/DeskNest.Inference/Probe.cs" Link="Shared/Probe.cs" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.24.4" />
+    <PackageReference Include="Tokenizers.HuggingFace" Version="3.23.1" />
+  </ItemGroup>
+</Project>

@@ -1,6 +1,34 @@
-# DirectML feasibility — not enabled (2026-10-06)
+# DirectML feasibility — developer-only execution, not an App backend
 
-## Scope
+## Explicit discrete-GPU continuation and row lookup (2026-10-07)
+
+After the user reported severe host pressure, they explicitly requested continuing on the discrete GPU rather than another CPU batch. Fresh DXGI enumeration identifies NVIDIA RTX 2050 as **adapter 1** (the same device is NVIDIA-tool index 0). No drivers/display settings or other user processes were changed. Early admission checks refused before loading; after the user explicitly requested continuing under low memory, a below-normal single probe retained an emergency memory cutoff and a 90-second deadline.
+
+The initial DirectML load was terminated when available system RAM reached **18 MiB**. Running encoder/head sequentially and skipping tokenizer loading allowed one frozen input to finish (1,644 MiB process peak), but another attempt still reached the emergency cutoff. This was not a general memory solution, and the successful retry does not erase those failures.
+
+The dominant encoder initializer is a **256,000 × 768 FP32 token table (786,432,000 bytes)**. The experimental graph now removes its single `Gather(axis=0, input_ids)` and accepts the exact selected rows as an `embedding` input. Host code reads only those rows; the remaining 441,326,592 bytes of encoder weights and unchanged head run on DirectML. No floating-point conversion, training, probability threshold or category text is changed. The earlier narrowly checked Reshape fix remains. The original CPU model/release is not overwritten.
+
+Three supplied-tensor cases passed using this decomposition, sequential graph residency, no CPU arena/prepacking and one host thread per session:
+
+| Case | Torch logit delta | Rounded official probability delta | Complete call | Process peak |
+| --- | ---: | ---: | ---: | ---: |
+| mixed language | 6.1781e-6 | 4.4840e-5 | 5,774 ms | 572 MiB |
+| literal mask / reversed candidates | 1.2017e-5 | 4.6827e-5 | 5,479 ms | 571 MiB |
+| long multilingual | 2.2149e-6 | 2.3450e-5 | 5,159 ms | 573 MiB |
+
+Tensors, choice and pending/proposed routing match their prior references. Both profiles contain one DirectML kernel and no CPU kernel. Host file hashing, row reads, tensor copies and postprocessing still use CPU; this is not an all-GPU program. Whole-adapter memory samples are not process-specific peak VRAM. Host available-memory minima in these runs were 1,669 / 1,615 / 1,550 MiB; this is a changing local host, not a controlled performance benchmark. Evidence: `artifacts/p4-gpu/discrete-check-20261007-153738`, `153842`, `153848`; failed probes remain beside them.
+
+### Reproducible developer entry
+
+[`tests/DeskNest.DirectMLProbe`](../../tests/DeskNest.DirectMLProbe/README.md) now builds a **separate** DirectML 1.24.4 executable, linking the current production `Probe.cs` for tokenization and calibrated decision math. It verifies the NVIDIA DXGI identity, pins all eight derived assets, executes one request and refuses success if a profile lacks DirectML or contains CPU graph kernels. No CPU retry is implemented. It is not referenced by the App/solution or copied to normal releases.
+
+`tests/Inference.Tests/derive_directml_row_model.py` reproduces the graph/streamed-weight transformation from the pinned CPU bundle and verifies the resulting ONNX graphs. Its outputs matched all eight experiment asset digests. Unlike the first scratch manifest, it also updates `graphIO.encoder.inputs` with `embedding`; the scratch manifest's stale IO description is not the reproducible contract. ONNX 1.18.0 is the measured export tool, in the existing isolated developer environment. No Python dependency is added to end-user runtime.
+
+The separate runner passed an **actual raw request through the shared production tokenizer**, matching the saved CPU tensors/choice/routing, with max logit delta 6.4e-6 and probability delta 7.85e-8. It used 679 MiB process peak and took 10,632 ms; the host started with 953 MiB available. The runner rejected both an Intel adapter and the original CPU bundle before model execution. Evidence: `artifacts/p4-gpu/standalone-0/`, `refusal-intel.log`, `refusal-stock-cpu.log`. The next raw case started with only 377 MiB available and was terminated at 187 MiB (`standalone-1/`); the chained third raw case did not start. Do not present three supplied-tensor passes as three complete production-tokenizer passes.
+
+No new 536-case batch or CPU reference was run. Production selection, model distribution, general shape/adapter coverage, worker protocol integration, graceful in-App cancellation and quality remain open. This delivers explicit developer GPU computation requested by the user, **not** automatic GPU enablement or P4 acceptance.
+
+## Original 2026-10-06 scope
 
 All changes were isolated under ignored `artifacts/p4-gpu/`. Production remains on the existing CPU runtime and original model package. No driver, display setting or released asset was changed. The earlier P1 report establishes CPU parity, not an accepted DirectML backend.
 

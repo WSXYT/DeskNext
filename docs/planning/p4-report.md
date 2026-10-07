@@ -2,11 +2,21 @@
 
 P3's user-approved safe manual workflow is accepted; **P4 is not complete**. These previews are read-only: they do not authorize any file move or copy. Manual file operations have their separate P3 evidence.
 
+## User-requested discrete-GPU continuation (2026-10-07)
+
+The user requested NVIDIA GPU computation after severe host memory pressure. A separate [DirectML developer runner](p4-directml-report.md) now reuses production tokenizer/decision code without changing the App's CPU runtime or published model. Exact token-table row reads avoid loading a 750 MiB embedding initializer into each graph session; three fixed-tensor cases and one full raw-request case passed on RTX 2050 with DirectML graph-kernel evidence and matching numerical/routing references. Measured process peaks were 571–573 MiB without tokenization, 679 MiB with it. Low-memory aborted attempts remain failures; no CPU fallback or new long evaluation batch was started. App GPU selection, GPU packaging, full input/resource coverage and P4 quality are still unaccepted.
+
 ## Published human-reported filename reference (2026-10-07)
 
 A separate [public-reference evaluation](p4-public-filename-reference.md) uses the filename paper's author-reported two-annotator Common Crawl labels, pinned to an exact source commit/digest. It keeps 536 non-conflicting unique in-scope filenames (284 indicative / 252 ambiguous), retains both fallback candidates, and excludes OOS documents whose filename ambiguity was not annotated rather than fabricating a special label. This is English-only external reference data with unknown Laya training overlap, no high-risk or automatic-operation coverage, and no dataset redistribution license identified; source data and outputs stay in ignored artifacts. The adapter and one small selection test are source-controlled; no remote PDF/URL or Jev request is made.
 
-The first evaluation command was interrupted after 135 recorded distributions without a terminal report or full raw replies. A separate suffix process runs the remaining 401 frozen inputs; no full result is claimed yet. The existing worker driver now persists run identity and flushes each raw reply before progress so another interruption does not lose all prior tensor evidence. This is targeted P4 work, not a new model or threshold change, and P4 remains incomplete.
+The first evaluation command was interrupted after 135 recorded distributions without a terminal report or full raw replies. The remaining 401 frozen inputs completed in one cleanly exiting worker, with zero protocol failures. The combined distribution-only summary yields 296/536 agreement (55.2%), concrete-category agreement 130/284 (45.8%), and ambiguous recall 166/252 (65.9%); categories-insufficient and high-risk coverage are absent. It explicitly retains incomplete process evidence and does not claim one uninterrupted clean run. The existing worker driver now persists run identity and flushes each raw reply before progress. This is targeted P4 evidence, not a new model or threshold change, and the poor quality does not authorize unattended moves or P4 acceptance.
+
+## Revoked Jev checks cannot restore stale notices (2026-10-07)
+
+A connection check previously protected only the success message with current key/provider/consent checks; its error/cancellation handlers could repopulate a cleared notice. The shared command now binds all outcomes to the request generation. Clearing or changing the key, revoking consent and restarting setup invalidate older outcomes even if the same key is entered and permitted again. Current-session cancellation remains visible. The production entry still uses the fixed Jev client; an internal deferred-callback seam exercises late success/failure/cancellation without constructing an HTTP request.
+
+App Release build had zero warnings/errors. The existing checked headless workflow (`artifacts/p4-installer-tests/jev-session-late-notices.log`) passed terminal success, onboarding session checks and dictionary parity. No live Jev call, new credential storage, model change, full matrix or package was involved.
 
 ## Session-only Jev setup during onboarding (2026-10-07)
 
