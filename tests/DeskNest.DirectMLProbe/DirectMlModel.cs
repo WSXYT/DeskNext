@@ -3,9 +3,51 @@ using System.Diagnostics;
 using System.Text.Json;
 using DeskNest.Inference;
 using Microsoft.ML.OnnxRuntime;
+using Tokenizers.HuggingFace.Tokenizer;
 
 internal static class DirectMlModel
 {
+    internal static Probe.Result RunVerified(Probe.Request request, Probe.Tensors? tensors, string directory,
+        int adapter, string evidence, string? expectedModelHash = null)
+    {
+        Probe.Validate(request);
+        if (!Path.IsPathFullyQualified(directory)) throw new ArgumentException("Model directory must be absolute.");
+        string hash = Probe.ModelManifestHash(directory);
+        if (expectedModelHash is not null && !hash.Equals(expectedModelHash, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Selected model does not match the worker request.");
+        // Pin derived assets independently of manifest formatting/provenance additions.
+        using (var manifest = JsonDocument.Parse(File.ReadAllText(Path.Combine(directory, "manifest.json"))))
+        {
+            var expected = new Dictionary<string, string>
+            {
+                ["encoder.onnx"] = "3e2480db75d05e904239ba026ecd0cadb0f77a088003ff040448b3b2531e5a44",
+                ["encoder.onnx.data"] = "43968e05afccf9a3a17b1878a079559a58e49726f2da0190a11228c8f410e4a8",
+                ["head.onnx"] = "f84dd6386d78b803ef823dbbcd0f1cbc67d7081c5d48883ba6d1f85b69caa5e3",
+                ["head.onnx.data"] = "2493d0bbe40c3f972f158b531964df01eee26accafffe11cc861c43fcc011b2a",
+                ["rl_agent_config.json"] = "25061739243b617ad88d1219ba6f8a9c86c5881ca28df024fa2d9b3b2fcc30c6",
+                ["tokenizer.json"] = "609d8f4c067cd3950f88594c5a802616cea245823836ef5848ee4fc40aab5b6f",
+                ["token-embedding-source.bin"] = "f1e49a027352064d72831863456be6160748854296bff8332df14130dbf79834",
+                ["embedding-layout.json"] = "ecf33e0dd953e843f289990d0ea4d3fb79d1406d4db22db66a9ff001a24662d4"
+            };
+            var files = manifest.RootElement.GetProperty("files").EnumerateObject().ToArray();
+            if (files.Length != expected.Count || files.Select(f => f.Name).Distinct(StringComparer.Ordinal).Count() != expected.Count ||
+                files.Any(f => !expected.TryGetValue(f.Name, out var digest) || f.Value.GetString() != digest))
+                throw new InvalidDataException("Not the pinned row-lookup experiment assets.");
+        }
+        Probe.VerifyModel(directory);
+        using var config = JsonDocument.Parse(File.ReadAllText(Path.Combine(directory, "rl_agent_config.json")));
+        if (tensors is null)
+        {
+            // Host tokenization is not GPU inference. Release it before loading either graph.
+            using var tokenizer = Tokenizer.FromFile(Path.Combine(directory, "tokenizer.json"));
+            tensors = Probe.Encode(request, tokenizer, config.RootElement, directory);
+        }
+        var result = Run(request, tensors, directory, config.RootElement, adapter, evidence);
+        if (!Probe.ModelManifestHash(directory).Equals(hash, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Model manifest changed during the request.");
+        return result;
+    }
+
     internal static Probe.Result Run(Probe.Request request, Probe.Tensors tensors, string directory,
         JsonElement config, int adapter, string evidence)
     {

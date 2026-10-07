@@ -1,5 +1,15 @@
 # DirectML feasibility — developer-only execution, not an App backend
 
+## Existing-client / versioned GPU worker integration (2026-10-07)
+
+The separate developer executable now accepts `--adapter=N --profiles=<new-root> --inference-worker <model> --protocol=1`. It uses the existing 1 MiB `Probe.WorkerRequest`/`WorkerReply` contract, checks version/request/model digest before model execution, rehashes the pinned assets per request and checks the manifest afterward. Stdout is frames only. The same `RunVerified` method serves both standalone JSON and worker modes; no second math or tokenizer implementation was added. Each request retains sequential encoder/head loading and releases both graph sessions; process reuse is **not** warm session caching.
+
+The unmodified production `LocalPreviewSession` supplies model-hash framing, accepts the responses, reuses one worker process and owns cancellation/disposal. Three fixed **raw requests** (not supplied tensors) completed on the same RTX 2050 process, with exact token tensors and matching choices/routing. CPU references were reused, not recomputed. Per-case request times were 9,895 / 9,542 / 9,613 ms; maximum logit differences from saved CPU results were 6.4373e-6 / 3.8147e-6 / 5.1260e-6, probability differences at most 1.0208e-6. Six retained profiles show one DirectML kernel each and no CPU-provider kernels. Host tokenization/embedding reads/postprocessing are still CPU work.
+
+Cancelling the following real request retired the process and cleared the client PID without restarting it; it does not prove device removal or interruption at every GPU instruction. Oversized frame, bad protocol and wrong manifest requests were rejected before graph profiles were created. `artifacts/p4-gpu/versioned-worker-followup/directml-worker-followup.trx` records **2 executed/passed, 0 failed/skipped**. The preceding check in `versioned-worker/directml-worker.trx` failed via memory-pressure cancellation, remains retained, and is not reclassified as a pass. The host's available memory subsequently increased; no user process or machine setting was changed. Source diagnostics still show stale missing NuGet types while the separate build and actual tests compile/execute; no clean-LSP claim.
+
+This closes a bounded existing-client-to-GPU-protocol path only. App backend selection, released/installed GPU runtime and model artifacts, graceful UI cancellation, broad shape/adapter coverage and classifier quality remain open. The App and public model bundle stay CPU-only; no automatic GPU selector is exposed.
+
 ## Explicit discrete-GPU continuation and row lookup (2026-10-07)
 
 After the user reported severe host pressure, they explicitly requested continuing on the discrete GPU rather than another CPU batch. Fresh DXGI enumeration identifies NVIDIA RTX 2050 as **adapter 1** (the same device is NVIDIA-tool index 0). No drivers/display settings or other user processes were changed. Early admission checks refused before loading; after the user explicitly requested continuing under low memory, a below-normal single probe retained an emergency memory cutoff and a 90-second deadline.

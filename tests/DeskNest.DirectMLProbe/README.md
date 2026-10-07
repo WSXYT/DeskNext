@@ -49,8 +49,24 @@ Omit `tensors` to use the production tokenizer. Supplying previously frozen tens
 
 The driver uses one below-normal-priority process, a 90-second deadline, and emergency system-memory checks. It terminates only its own probe on failure. It does **not** guarantee the host will remain responsive: DirectML still allocates system memory, external applications compete for RAM/VRAM, and sampled checks can miss short peaks. It records the process working-set peak, not peak VRAM. Start no concurrent build/inference batch while this process is active.
 
+## Versioned developer worker
+
+The same executable also accepts the existing version-1 framed-worker protocol:
+
+```text
+DeskNest.DirectMLProbe.exe --adapter=1 --profiles=<new-evidence-root> --inference-worker <absolute-model> --protocol=1
+```
+
+Each stdin frame is a four-byte little-endian byte count followed by `Probe.WorkerRequest` JSON (1 MiB maximum). It requires the declared protocol version and selected manifest digest before model execution, and responds with the existing `Probe.WorkerReply`. Stdout contains only frames. EOF closes the process; errors stop it without a CPU retry. Profiling output uses a separate numbered directory per accepted request, and invalid protocol/manifest frames create no graph profiles.
+
+`LocalPreviewSession`/`LocalPreviewClient` can use this worker **without modification**: construct a `ProcessStartInfo` pointing at this executable, add `--adapter=1` and `--profiles=<new-root>` to `ArgumentList`, then let the client append the worker verb, model path and protocol argument. This is explicit developer wiring, not an application setting. The OS process is reusable but graph sessions and tokenizer are loaded/released per request to bound residency; this does not claim warm GPU session caching or faster latency. The shared client owns cancellation, timeout, idle retirement and process cleanup. The worker's profiling/native runtime directory must remain separate from the production CPU assets.
+
+Hardware checks are opt-in in `tests/DeskNest.Inference.Tests/DirectMlWorkerTests.cs`. Set `DESKNEXT_DIRECTML_PROBE`, `DESKNEXT_DIRECTML_MODEL`, `DESKNEXT_DIRECTML_CASES`, `DESKNEXT_DIRECTML_EVIDENCE` and `DESKNEXT_DIRECTML_ADAPTER` explicitly. `CASES` holds the three fixed `<0|1|2>-input.json` request files and prior `<0|1|2>-reference.json` `Probe.Result` files. No test creates new CPU reference responses or downloads weights. An unset fixture skips and does **not** count as GPU evidence. A monitored emergency memory cancellation is a failed test, not a numerical pass.
+
 ## Current evidence and limits
 
-See [the DirectML report](../../docs/planning/p4-directml-report.md). Three fixed-tensor cases passed in the isolated row-lookup prototype at 571–573 MiB process peak; the source-controlled runner additionally passed one full raw-request/tokenizer case at 679 MiB. A later run was terminated at the emergency memory limit as unrelated host pressure increased. That run is not a pass; the chained third raw-request check did not start.
+See [the DirectML report](../../docs/planning/p4-directml-report.md). Three fixed-tensor cases passed in the isolated row-lookup prototype at 571–573 MiB process peak; the source-controlled runner additionally passed one full raw-request/tokenizer case at 679 MiB. A later standalone attempt was terminated at the emergency memory limit; that attempt is not a pass.
 
-These are bounded numerical/execution checks, not classifier quality, a production worker protocol, cancellation semantics inside the App, a packaged GPU runtime, per-adapter performance certification, or P4 acceptance. The application and public model release remain CPU-only. The user-facing manual-operation safeguards are unchanged.
+The subsequent v1 integration check passed **three raw requests through the unmodified `LocalPreviewSession` and one reusable NVIDIA process**, with exact tokenizer tensors, matching choice/routing and logit/probability deltas below 1e-4. Cancelling another request retired the worker and no replacement/CPU fallback started. Oversized frames, protocol mismatch and wrong model digest were refused without graph execution. Two hardware tests executed and passed in `artifacts/p4-gpu/versioned-worker-followup/directml-worker-followup.trx`; the earlier `versioned-worker/directml-worker.trx` retains its memory-cancelled failure. No claim that the later pass solved system-wide memory pressure.
+
+These are bounded numerical/execution checks, not classifier quality, production App backend selection, physical UI cancellation, a packaged GPU runtime, per-adapter performance certification, or P4 acceptance. The application and public model release remain CPU-only. The user-facing manual-operation safeguards are unchanged.
