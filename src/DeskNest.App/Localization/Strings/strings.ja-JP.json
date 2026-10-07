@@ -1,5 +1,6 @@
 {
   "App.Title": "DeskNext",
+  "Classification.ExperimentalNvidia": "Laya · NVIDIA DirectML（実験）",
   "Flow.RunHistory": "セッションの実行履歴",
   "Flow.SessionOnly": "このワークベンチのセッションで最近の20回のみ保持します。停止後に完了した手順を表示します。移動の永続的な記録と取り消しは操作履歴にあります。",
   "Flow.LogRunning": "実行中",

@@ -533,10 +533,15 @@ public sealed partial class StudioViewModel : ViewModelBase
         catch (Exception error) { item.ResolutionNotice = Localizer.GetString("Files.ActionFailedNotice", error.Message); }
     }
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(LocalPreviewProviderText))]
+    private bool _isExperimentalNvidia;
+    public string LocalPreviewProviderText => Localizer[IsExperimentalNvidia ? "Classification.ExperimentalNvidia" : "Classification.LocalCpu"];
+
     public void ShowClassificationPreview(string fileName, string content, bool cloud = false)
     {
         PreviewFileName = fileName;
-        PreviewKind = Localizer[cloud ? "Classification.JevCloud" : "Classification.LocalCpu"];
+        PreviewKind = cloud ? Localizer["Classification.JevCloud"] : LocalPreviewProviderText;
         PreviewContent = content;
         PreviewDetails = Localizer[cloud ? "Classification.JevResultNotice" : "Classification.ReadOnly"];
         IsPreviewTruncated = false;
@@ -918,6 +923,7 @@ public sealed partial class StudioViewModel : ViewModelBase
     private void OnLocalizerChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName != nameof(LocalizationManager.CurrentLanguage)) return;
+        OnPropertyChanged(nameof(LocalPreviewProviderText));
         RefreshFlowLanguage();
         OnPropertyChanged(nameof(SpaceDialogTitle));
         OnPropertyChanged(nameof(SpaceDialogConfirmText));

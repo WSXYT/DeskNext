@@ -1,5 +1,6 @@
 {
   "App.Title": "DeskNext",
+  "Classification.ExperimentalNvidia": "Laya · NVIDIA DirectML (تجريبي)",
   "Flow.RunHistory": "سجل تشغيل الجلسة",
   "Flow.SessionOnly": "يحتفظ بآخر 20 تشغيلاً في جلسة مساحة العمل هذه فقط. تظهر الخطوات المكتملة بعد التوقف. تبقى عمليات النقل الدائمة والتراجع في سجل العمليات.",
   "Flow.LogRunning": "قيد التشغيل",

@@ -751,7 +751,7 @@
                         <TextBlock Text="{Binding Localizer[Settings.Engine]}" FontWeight="SemiBold" FontSize="16"/>
                         <WrapPanel>
                             <RadioButton Name="LayaPreviewProvider" GroupName="PreviewProvider" Margin="0,0,16,0"
-                                         Content="{Binding Localizer[Classification.LocalCpu]}" IsChecked="{Binding IsLayaPreview, Mode=TwoWay}"/>
+                                         Content="{Binding LocalPreviewProviderText}" IsChecked="{Binding IsLayaPreview, Mode=TwoWay}"/>
                             <RadioButton Name="JevPreviewProvider" GroupName="PreviewProvider"
                                          Content="{Binding Localizer[Classification.JevCloud]}" IsChecked="{Binding IsJevPreview, Mode=TwoWay}"/>
                         </WrapPanel>

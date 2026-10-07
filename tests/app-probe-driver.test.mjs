@@ -34,6 +34,11 @@ test('requested real model deployment requires its own literal proof', () => {
         assert.equal(runWithEnv(env, report({ Success: true, ModelPackageActivationVerified: value }), '--headless-smoke').status, 1);
     assert.equal(runWithEnv(env, report({ Success: true, ModelPackageActivationVerified: true }), '--headless-smoke').status, 0);
 });
+test('explicit NVIDIA workbench preview needs its own proof', () => {
+    for (const DirectMlPreviewVerified of [undefined, false, 'true'])
+        assert.equal(run(report({ Success: true, DirectMlPreviewVerified }), '--directml-preview-smoke').status, 1);
+    assert.equal(run(report({ Success: true, DirectMlPreviewVerified: true }), '--directml-preview-smoke').status, 0);
+});
 test('local model preview requires real reuse evidence', () => {
     assert.equal(run(report({ Success: true, LocalClassificationPreviewVerified: true }), '--local-model=fixture').status, 1);
     assert.equal(run(report({ Success: true, LocalClassificationPreviewVerified: true, LocalWorkerReuseVerified: true }), '--local-model=fixture').status, 0);

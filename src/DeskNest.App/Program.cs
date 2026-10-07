@@ -35,6 +35,10 @@ public static class Program
             }
         }
 
+        // Explicit isolated GPU/workbench fixture only; normal startup and saved settings stay CPU-backed.
+        if (args.Contains("--directml-preview-smoke", StringComparer.Ordinal))
+            return DirectMlPreviewSmoke.Run(args);
+
         // Support opt-in native OS desktop window smoke test
         if (args.Any(a => a.Equals("--native-window-smoke", StringComparison.OrdinalIgnoreCase)))
         {

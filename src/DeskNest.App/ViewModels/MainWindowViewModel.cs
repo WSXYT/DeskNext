@@ -31,7 +31,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     private bool _ownsStore;
     private bool _disposed;
     private readonly System.Threading.SemaphoreSlim _startupGate = new(1, 1);
-    private readonly DeskNest.Inference.LocalPreviewSession _localPreview = new(CreateLocalWorkerStart);
+    private readonly DeskNest.Inference.LocalPreviewSession _localPreview;
+    private readonly bool _experimentalNvidia;
     internal int? LocalWorkerProcessId => _localPreview.WorkerProcessId;
     internal string? LocalWorkerShutdownError => _localPreview.LastShutdownError;
     private readonly Func<Func<WorkspaceState, WorkspaceState>, Task<WorkspaceState>>? _stateUpdater;
@@ -136,6 +137,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     /// </summary>
     public MainWindowViewModel(Func<Avalonia.Input.Platform.IClipboard?>? clipboardProvider = null)
     {
+        _localPreview = new(CreateLocalWorkerStart);
         ClipboardProvider = clipboardProvider;
         _ownsStore = true;
         _selectedLanguage = Localizer.CurrentLanguageInfo;
@@ -150,7 +152,14 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     /// Test or direct injection constructor with an explicit WorkspaceStore.
     /// </summary>
     public MainWindowViewModel(WorkspaceStore store, bool ownsStore = false, Func<Avalonia.Input.Platform.IClipboard?>? clipboardProvider = null)
+        : this(store, ownsStore, clipboardProvider, null) { }
+
+    // Explicit developer fixture only; no worker path is loaded from workspace metadata.
+    internal MainWindowViewModel(WorkspaceStore store, bool ownsStore,
+        Func<Avalonia.Input.Platform.IClipboard?>? clipboardProvider, Func<System.Diagnostics.ProcessStartInfo>? localWorkerStart)
     {
+        _localPreview = new(localWorkerStart ?? CreateLocalWorkerStart);
+        _experimentalNvidia = localWorkerStart is not null;
         ClipboardProvider = clipboardProvider;
         _store = store;
         _dataDirectory = store.DataDirectory;
@@ -174,6 +183,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     /// </summary>
     public MainWindowViewModel(WorkspaceState state, Func<Func<WorkspaceState, WorkspaceState>, Task<WorkspaceState>>? updateState = null, Func<Avalonia.Input.Platform.IClipboard?>? clipboardProvider = null)
     {
+        _localPreview = new(CreateLocalWorkerStart);
         ClipboardProvider = clipboardProvider;
         _ownsStore = false;
         _stateUpdater = updateState ?? (u => Task.FromResult(u(state)));
@@ -192,6 +202,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     /// </summary>
     public MainWindowViewModel(StartupState errorState, string errorMessage)
     {
+        _localPreview = new(CreateLocalWorkerStart);
         _startupState = errorState;
         _startupErrorMessage = errorMessage;
         _isLoading = false;
@@ -367,6 +378,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
 
     private void AttachStudioExecutors(StudioViewModel studio)
     {
+        studio.IsExperimentalNvidia = _experimentalNvidia;
         studio.OnLoadFlowDefinitions = async () =>
         {
             if (_disposed || _store is null) throw new ObjectDisposedException(nameof(MainWindowViewModel));

@@ -1,5 +1,6 @@
 {
   "App.Title": "DeskNext",
+  "Classification.ExperimentalNvidia": "Laya · NVIDIA DirectML (प्रायोगिक)",
   "Flow.RunHistory": "सत्र का संचालन इतिहास",
   "Flow.SessionOnly": "इस कार्यक्षेत्र सत्र के केवल पिछले 20 संचालन रखता है। रुकने पर पूरे हुए चरण दिखते हैं। स्थायी स्थानांतरण और वापस करना ऑपरेशन इतिहास में रहते हैं।",
   "Flow.LogRunning": "चल रहा है",

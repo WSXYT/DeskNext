@@ -112,7 +112,7 @@ public sealed class SmokeTestResult
 
 public static class HeadlessSmokeRunner
 {
-    private static void AwaitOnUIThread(Task task, string operationName, int timeoutSeconds = 5)
+    internal static void AwaitOnUIThread(Task task, string operationName, int timeoutSeconds = 5)
     {
         var sw = Stopwatch.StartNew();
         while (!task.IsCompleted)
@@ -858,9 +858,11 @@ public static class HeadlessSmokeRunner
         Console.WriteLine($"TEMPLATE_CANDIDATE_BUDGET_VERIFIED: {checkedCases} native-tokenizer cases; no categories or text removed.");
     }
 
-    private static async Task VerifyLocalClassificationPreviewAsync(string root, string modelDirectory)
+    internal static async Task VerifyLocalClassificationPreviewAsync(string root, string modelDirectory,
+        Func<ProcessStartInfo>? localWorkerStart = null, System.Threading.CancellationToken safetyToken = default)
     {
-        VerifyTemplateCandidateBudgets(root, modelDirectory);
+        // Shared tokenizer template coverage is unchanged; the GPU run exercises only this functional workflow.
+        if (localWorkerStart is null) VerifyTemplateCandidateBudgets(root, modelDirectory);
         string folder = Directory.CreateDirectory(Path.Combine(root, "files")).FullName;
         string path = Path.Combine(folder, "季度财务报告.txt");
         File.WriteAllText(path, "Fixture content must remain untouched.");
@@ -873,8 +875,14 @@ public static class HeadlessSmokeRunner
         await using var store = await WorkspaceStore.OpenAsync(Path.Combine(root, "state"));
         await store.UpdateAsync(s => s with { OnboardingComplete = true, OnboardingStep = 5,
             Spaces = [space], Files = [file], Pending = [pending], Settings = s.Settings with { ModelCacheDirectory = Path.GetFullPath(modelDirectory) } });
-        await using var main = new MainWindowViewModel(store);
+        await using var main = new MainWindowViewModel(store, ownsStore: false, clipboardProvider: null, localWorkerStart);
         var studio = main.Studio!;
+        using var cancelOnPressure = safetyToken.Register(() => Dispatcher.UIThread.Post(() =>
+        {
+            studio.PreviewClassificationCommand.Cancel();
+            studio.VerifyLocalModelCommand.Cancel();
+        }));
+        safetyToken.ThrowIfCancellationRequested();
         long revision = store.Snapshot.Revision;
         await studio.VerifyLocalModelCommand.ExecuteAsync(null);
         if (studio.ModelVerificationNotice != main.Localizer["Classification.BundleVerified"] ||
@@ -889,8 +897,9 @@ public static class HeadlessSmokeRunner
         if (!string.IsNullOrEmpty(studio.ModelVerificationNotice))
             throw new InvalidOperationException("Changing the model draft must invalidate the previous verification notice.");
         studio.SettingsModelCache = Path.GetFullPath(modelDirectory);
+        safetyToken.ThrowIfCancellationRequested();
         await studio.PreviewClassificationCommand.ExecuteAsync(studio.SelectedFile);
-        if (!studio.IsPreviewDialogOpen || studio.PreviewKind != main.Localizer["Classification.LocalCpu"] ||
+        if (!studio.IsPreviewDialogOpen || studio.PreviewKind != studio.LocalPreviewProviderText ||
             !studio.PreviewContent.Contains(space.Name) || store.Snapshot.Revision != revision ||
             store.Snapshot.Operations.Count != 0 || File.ReadAllText(path) != "Fixture content must remain untouched.")
             throw new InvalidOperationException("Local preview failed or changed files/metadata: " + studio.FileActionNotice);
@@ -919,6 +928,7 @@ public static class HeadlessSmokeRunner
             var button = view.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PendingClassificationButton");
             if (!button.IsEffectivelyVisible || button.Command != studio.PreviewClassificationCommand || button.CommandParameter != pendingView)
                 throw new InvalidOperationException("Pending preview must target the actual review row.");
+            safetyToken.ThrowIfCancellationRequested();
             await studio.PreviewClassificationCommand.ExecuteAsync(pendingView);
             if (main.LocalWorkerProcessId != worker) throw new InvalidOperationException("Consecutive previews did not reuse the same worker.");
             if (!studio.IsPreviewDialogOpen || pendingView.ClassificationTarget?.Id != space.Id || pendingView.TargetSpace is not null ||
@@ -930,6 +940,7 @@ public static class HeadlessSmokeRunner
             if (pendingView.TargetSpace?.Id != space.Id || pendingView.HasClassificationTarget || store.Snapshot.Revision != revision)
                 throw new InvalidOperationException("Using a model suggestion must only set the target draft.");
             var oldHint = pendingView.ClassificationHint;
+            safetyToken.ThrowIfCancellationRequested();
             var stale = studio.PreviewClassificationCommand.ExecuteAsync(pendingView);
             pendingView.ClassificationHint = "Changed while the request was running.";
             await stale;
@@ -954,6 +965,7 @@ public static class HeadlessSmokeRunner
             store.Snapshot.Operations.Count != 0 || File.ReadAllText(pendingPath) != "Pending fixture must stay outside the space.")
             throw new InvalidOperationException("Creating a review category must select the clicked pending item without importing it.");
         var importItem = studio.PendingItems.Single();
+        safetyToken.ThrowIfCancellationRequested();
         await studio.PreviewClassificationCommand.ExecuteAsync(importItem);
         if (importItem.ClassificationTarget is null) throw new InvalidOperationException("No actual model suggestion for the import workflow.");
         studio.ClosePreviewDialog();
@@ -973,6 +985,7 @@ public static class HeadlessSmokeRunner
         await main.DisposeAsync();
         if (main.LocalWorkerProcessId is not null || main.LocalWorkerShutdownError is not null)
             throw new InvalidOperationException("Workbench disposal did not close its CPU worker cleanly: " + main.LocalWorkerShutdownError);
+        safetyToken.ThrowIfCancellationRequested();
         Console.WriteLine("LOCAL_WORKER_REUSE_VERIFIED: shared file/pending worker, correct cancellation recovery, disposed with owner.");
         Console.WriteLine("MODEL_SUGGESTION_MANUAL_IMPORT_UNDO_VERIFIED: true");
     }

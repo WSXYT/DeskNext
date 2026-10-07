@@ -74,6 +74,21 @@ Each stdin frame is a four-byte little-endian byte count followed by `Probe.Work
 
 Hardware checks are opt-in in `tests/DeskNest.Inference.Tests/DirectMlWorkerTests.cs`. Set `DESKNEXT_DIRECTML_PROBE`, `DESKNEXT_DIRECTML_MODEL`, `DESKNEXT_DIRECTML_CASES`, `DESKNEXT_DIRECTML_EVIDENCE` and `DESKNEXT_DIRECTML_ADAPTER` explicitly. `CASES` holds the three fixed `<0|1|2>-input.json` request files and prior `<0|1|2>-reference.json` `Probe.Result` files. No test creates new CPU reference responses or downloads weights. An unset fixture skips and does **not** count as GPU evidence. A monitored emergency memory cancellation is a failed test, not a numerical pass.
 
+## Isolated workbench classification workflow
+
+The application also provides an **explicit diagnostic-only** workflow that exercises its real view-model commands with this worker:
+
+```sh
+node tests/run-app-probe.mjs src/DeskNest.App/bin/Release/net10.0/DeskNest.App.exe \
+  --directml-preview-smoke \
+  --gpu-worker=<absolute-self-contained-DeskNest.DirectMLProbe.exe> \
+  --local-model=<absolute-derived-model> --gpu-adapter=1
+```
+
+This creates only an isolated temporary workspace, uses headless rendering and labels the local provider **NVIDIA (experimental)**. It checks file/pending previews, editable hint invalidation, worker reuse/cancellation, category creation and explicit confirmation/import/undo through the existing coordinator. It does not start the broad UI/Core/Flow/packaging suite or a CPU model reference. The supplied worker is trusted developer code; paths are accepted only from explicit launch arguments, never workspace metadata or a Flow document. This mode is not an everyday user-facing backend selector and does not persist GPU configuration.
+
+The process runs below normal priority, with a 75-second workflow cancellation deadline and a low-memory monitor that cancels the active command. No threshold grants automatic file operations. The terminal `DirectMlPreviewVerified` flag requires the actual workflow plus at least eight completed DirectML-only graph profiles, not just an exit code. The fixture and profiles remain under its printed `EvidenceDirectory` for inspection; no user workspace or clipboard is used.
+
 ## Current evidence and limits
 
 See [the DirectML report](../../docs/planning/p4-directml-report.md). Three fixed-tensor cases passed in the isolated row-lookup prototype at 571–573 MiB process peak; the source-controlled runner additionally passed one full raw-request/tokenizer case at 679 MiB. A later standalone attempt was terminated at the emergency memory limit; that attempt is not a pass.

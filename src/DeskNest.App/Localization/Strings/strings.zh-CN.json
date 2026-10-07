@@ -1,5 +1,6 @@
 {
   "App.Title": "DeskNext",
+  "Classification.ExperimentalNvidia": "Laya · NVIDIA 独显（实验）",
   "Flow.RunHistory": "本次会话运行记录",
   "Flow.SessionOnly": "仅保留此工作台会话最近 20 次运行，停止后显示已完成步骤。持久移动记录与撤销仍在操作历史中。",
   "Flow.LogRunning": "运行中",

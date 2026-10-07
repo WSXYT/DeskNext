@@ -1,5 +1,6 @@
 {
   "App.Title": "DeskNext",
+  "Classification.ExperimentalNvidia": "Laya · NVIDIA DirectML (experimental)",
   "Flow.RunHistory": "Historial de esta sesión",
   "Flow.SessionOnly": "Conserva solo las últimas 20 ejecuciones de esta sesión. Los pasos completados aparecen al terminar. Los movimientos persistentes y deshacer siguen en el historial de operaciones.",
   "Flow.LogRunning": "En ejecución",

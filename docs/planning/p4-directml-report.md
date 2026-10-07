@@ -1,5 +1,15 @@
 # DirectML feasibility — developer-only execution, not an App backend
 
+## Isolated workbench-to-GPU workflow (2026-10-07)
+
+`DeskNest.App --directml-preview-smoke --gpu-worker=<absolute-exe> --local-model=<derived-model> --gpu-adapter=1` now connects the actual Main/Studio classification callbacks to the separate self-contained NVIDIA worker. An internal constructor injection supplies only the worker start factory; normal constructors retain the original CPU factory. No backend path comes from saved metadata, and nothing changes the public CPU bundle/default. A twelve-language experimental NVIDIA label distinguishes the local result and provider label from CPU. The explicit external worker is trusted developer code, not an arbitrary downloaded executable authenticated by this mode.
+
+The focused workflow reuses the existing file/pending-model fixture rather than running the whole regression matrix. It verifies model-file checks, file preview, session reuse for pending preview, transient hint editing and stale-result discard, cancellation, newly created category selection, and model suggestion followed by **separate manual confirmation**, journaled import and undo. No model directly moves a file. Four completed previews produced eight retained graph profiles, all DirectML and no CPU graph kernels. The workflow ended with no retained local worker; two worker starts reflect explicit cancellation then a fresh later request, not a hidden CPU retry.
+
+`artifacts/p4-gpu/workbench-preview.log` reports `Success=true`, `DirectMlPreviewVerified=true`, `LocalClassificationPreviewVerified=true`, `LocalWorkerReuseVerified=true`, 8 graph profiles, 47,312 ms for the full workflow. The temporary fixture root is recorded in that result. App Release build: zero warnings/errors; strict probe-driver checks: 11/11; twelve dictionaries: identical keys and localized experimental label. No live Jev call, large CPU evaluation, full P3 test/CI/package cycle, native desktop compositing or quality claim. LSP confirmed two changed files clean and two inconclusive, not four clean.
+
+This is a diagnostic workbench integration, **not** normal user GPU selection or distribution acceptance. That distinction remains visible in flags, labels and documentation.
+
 ## Existing-client / versioned GPU worker integration (2026-10-07)
 
 The separate developer executable now accepts `--adapter=N --profiles=<new-root> --inference-worker <model> --protocol=1`. It uses the existing 1 MiB `Probe.WorkerRequest`/`WorkerReply` contract, checks version/request/model digest before model execution, rehashes the pinned assets per request and checks the manifest afterward. Stdout is frames only. The same `RunVerified` method serves both standalone JSON and worker modes; no second math or tokenizer implementation was added. Each request retains sequential encoder/head loading and releases both graph sessions; process reuse is **not** warm session caching.

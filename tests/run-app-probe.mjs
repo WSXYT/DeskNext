@@ -15,6 +15,8 @@ const sections = (child.stdout ?? '').split(marker);
 if (sections.length !== 2) throw new Error(`Expected exactly one terminal ${marker}`);
 const result = JSON.parse(sections[1].trim());
 if (result.Success !== true) throw new Error('Probe did not report Success=true.');
+if (args.includes('--directml-preview-smoke') && result.DirectMlPreviewVerified !== true)
+    throw new Error('Requested NVIDIA workbench preview was not verified.');
 if (args.some(a => a.startsWith('--local-model=')) &&
     (result.LocalClassificationPreviewVerified !== true || result.LocalWorkerReuseVerified !== true))
     throw new Error('Requested local model preview and worker reuse were not verified.');
