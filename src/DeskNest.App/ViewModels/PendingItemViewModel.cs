@@ -41,6 +41,15 @@ public sealed partial class PendingItemViewModel : ViewModelBase
     [ObservableProperty] private string _classificationHint = string.Empty;
     partial void OnClassificationHintChanged(string value) => ClassificationTarget = null;
 
+    // Per-row, session-only permission. Refresh/reopening revokes it; contents are never stored here.
+    [ObservableProperty] private bool _includeLocalTextSnippet;
+    internal long LocalTextPermissionRevision { get; private set; }
+    partial void OnIncludeLocalTextSnippetChanged(bool value)
+    {
+        LocalTextPermissionRevision++;
+        ClassificationTarget = null;
+    }
+
     public bool HasClassificationTarget => ClassificationTarget is not null;
 
     public string ReasonKey => Reason switch

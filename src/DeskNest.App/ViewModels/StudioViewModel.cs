@@ -540,12 +540,12 @@ public sealed partial class StudioViewModel : ViewModelBase
     public bool CanManageLocalModel => IsLayaPreview && !IsExperimentalNvidia;
     public string LocalPreviewProviderText => Localizer[IsExperimentalNvidia ? "Classification.ExperimentalNvidia" : "Classification.LocalCpu"];
 
-    public void ShowClassificationPreview(string fileName, string content, bool cloud = false)
+    public void ShowClassificationPreview(string fileName, string content, bool cloud = false, bool usedLocalText = false)
     {
         PreviewFileName = fileName;
         PreviewKind = cloud ? Localizer["Classification.JevCloud"] : LocalPreviewProviderText;
         PreviewContent = content;
-        PreviewDetails = Localizer[cloud ? "Classification.JevResultNotice" : "Classification.ReadOnly"];
+        PreviewDetails = Localizer[cloud ? "Classification.JevResultNotice" : usedLocalText ? "Classification.LocalTextUsed" : "Classification.ReadOnly"];
         if (!cloud && IsExperimentalNvidia) PreviewDetails += Environment.NewLine + Localizer["Classification.NvidiaSessionNotice"];
         IsPreviewTruncated = false;
         IsPreviewDialogOpen = true;
@@ -779,6 +779,7 @@ public sealed partial class StudioViewModel : ViewModelBase
     public bool IsLayaPreview { get => IsExperimentalNvidia || SettingsProvider == InferenceProvider.Laya; set { if (value && !IsExperimentalNvidia) SettingsProvider = InferenceProvider.Laya; } }
     partial void OnSettingsProviderChanged(InferenceProvider value)
     {
+        foreach (var item in PendingItems) item.IncludeLocalTextSnippet = false;
         ClearJevSession();
         VerifyLocalModelCommand.Cancel();
         InstallLocalModelPackageCommand.Cancel();

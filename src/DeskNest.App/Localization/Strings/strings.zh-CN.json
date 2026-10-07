@@ -1,5 +1,9 @@
 {
   "App.Title": "DeskNext",
+  "Classification.LocalTextConsent": "允许本地预览读取此项目开头最多 1 KiB 的受支持文本，向 Laya 提供最多 512 个字符；绝不发送给 Jev。列表刷新后权限重置。",
+  "Classification.LocalTextOnly": "文本辅助分类仅限本地；未读取文件或发送给 Jev。",
+  "Classification.LocalTextUnsupported": "请使用非空的受支持纯文本文件。此次预览不读取文件夹、PDF、Office 文件或二进制内容。",
+  "Classification.LocalTextUsed": "使用了明确授权的本地文本片段（最多读取 1 KiB／提供 512 字符），可能不完整；未上传或保存正文，也未移动文件。",
   "Classification.NvidiaSessionNotice": "仅本次会话使用实验性 NVIDIA 独显与启动时指定的模型，不更改已保存的引擎或模型设置。此模式不提供 CPU 模型下载、修复与卸载，请正常重启后使用。不会自动移动文件。",
   "Classification.NvidiaNeedsSetup": "请先以普通模式完成首次启动设置，再启动实验性 NVIDIA 会话。",
   "Classification.ExperimentalNvidia": "Laya · NVIDIA 独显（实验）",

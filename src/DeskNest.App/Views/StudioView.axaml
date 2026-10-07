@@ -496,6 +496,11 @@
                                                      AutomationProperties.Name="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).Localizer[Classification.Hint]}"/>
                                             <TextBlock Text="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).Localizer[Classification.HintNotice]}"
                                                        FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                            <CheckBox Name="PendingLocalTextConsent" IsChecked="{Binding IncludeLocalTextSnippet, Mode=TwoWay}"
+                                                      IsVisible="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).IsLayaPreview}">
+                                                <TextBlock Text="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).Localizer[Classification.LocalTextConsent]}"
+                                                           TextWrapping="Wrap" FontSize="12"/>
+                                            </CheckBox>
                                             <TextBlock Text="{Binding ResolutionNotice}" Foreground="{DynamicResource AccentTextBrush}" FontSize="11"/>
                                         </StackPanel>
 

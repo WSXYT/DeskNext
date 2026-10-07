@@ -1,5 +1,9 @@
 {
   "App.Title": "DeskNext",
+  "Classification.LocalTextConsent": "ローカルプレビューで、この項目の対応テキストの先頭 1 KiB を読み取り、最大 512 文字を Laya に渡すことを許可します。Jev には送信しません。一覧更新で許可は解除されます。",
+  "Classification.LocalTextOnly": "テキスト補助分類はローカル専用です。ファイルの読み取りや Jev への送信は行いませんでした。",
+  "Classification.LocalTextUnsupported": "空でない対応プレーンテキストを使用してください。このプレビューではフォルダー、PDF、Office、バイナリは読み取りません。",
+  "Classification.LocalTextUsed": "許可されたローカルの抜粋（読み取り最大 1 KiB、入力最大 512 文字）を使用しました。不完全な場合があります。本文の送信・保存やファイル移動は行いません。",
   "Classification.NvidiaSessionNotice": "このセッションのみ実験的 NVIDIA と起動時指定モデルを使用します。保存済みエンジン・モデル設定は変更しません。CPU モデルのダウンロード、修復、削除には通常モードで再起動してください。ファイルは自動移動しません。",
   "Classification.NvidiaNeedsSetup": "実験的 NVIDIA セッションを起動する前に、通常モードで初期設定を完了してください。",
   "Classification.ExperimentalNvidia": "Laya · NVIDIA DirectML（実験）",

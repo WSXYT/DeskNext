@@ -1,5 +1,9 @@
 {
   "App.Title": "DeskNext",
+  "Classification.LocalTextConsent": "Autoriser les aperçus locaux à lire le premier Kio de texte pris en charge de cet élément (512 caractères maximum pour Laya), jamais envoyé à Jev. L’actualisation de la liste révoque cette permission.",
+  "Classification.LocalTextOnly": "L’aide par extrait est locale uniquement. Aucun fichier n’a été lu ni envoyé à Jev.",
+  "Classification.LocalTextUnsupported": "Utilisez un fichier texte pris en charge non vide. Les dossiers, PDF, fichiers Office et binaires ne sont pas lus pour cet aperçu.",
+  "Classification.LocalTextUsed": "Extrait local explicitement autorisé utilisé (lecture de 1 Kio / 512 caractères maximum). Il peut être incomplet ; aucun texte envoyé ou enregistré, aucun fichier déplacé.",
   "Classification.NvidiaSessionNotice": "Cette session utilise NVIDIA expérimental et le modèle choisi au lancement sans modifier les réglages enregistrés. Redémarrez normalement pour télécharger, réparer ou supprimer un modèle CPU. Aucun déplacement automatique de fichiers.",
   "Classification.NvidiaNeedsSetup": "Terminez la configuration initiale en mode normal avant de lancer une session NVIDIA expérimentale.",
   "Classification.ExperimentalNvidia": "Laya · NVIDIA DirectML (expérimental)",

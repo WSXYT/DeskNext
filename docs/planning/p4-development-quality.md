@@ -66,6 +66,15 @@ A bounded follow-up changed only the two special-option descriptions to distingu
 
 A second twelve-case comparison kept the original special descriptions but replaced the inner JSON state with the raw filename. Agreement rose from 6/12 to 8/12, recovering Chinese/Japanese invoices, but those languages' uncovered recipes changed from ambiguity to **wrong concrete categories** (Software/Finance). It was also **not adopted**: aggregate agreement alone is not evidence of a safer fallback policy. Outputs remain under `artifacts/p4-quality/plain-state-experiment/`; production JSON state stays unchanged.
 
+### Rejected GPU option-name experiments (2026-10-07)
+
+Six previously inspected development cases (invoice, generic filename and uncovered recipe in English/Simplified Chinese) were fixed before two bounded NVIDIA experiments. Neither changes production inputs or qualifies as held-out data:
+
+- Ordinary IDs `c0/c1/c2` → `finance/design/software`, with descriptions/instructions unchanged: agreement stayed **3/6**, all choices unchanged. No benefit demonstrated; not adopted.
+- Reserved IDs and matching instruction references → `unclear/other`, with ordinary aliases/descriptions unchanged: agreement stayed **3/6**, but the Chinese recipe changed from ambiguous to the wrong ordinary Software class. Not adopted. This used an isolated copied engine with only the two reserved constants changed so protocol validation would accept the experiment; production constants remain untouched.
+
+Both ran six explicit low-priority GPU requests with retained per-request profiles/results and no new CPU baseline or Jev calls. Observed process peaks were 674/676 MiB. Evidence stays in `artifacts/p4-quality/semantic-id-experiment/` and `short-special-experiment/`; neither experiment changes the original labels/reports or shows reliable classifier improvement. This bounded wording round is closed, rather than expanding the experiment until a favorable subset appears.
+
 ## Frozen-corpus rerun after token-map reuse
 
 `artifacts/p4-quality/development-v1-token-cache-run2/` reran the same 120 frozen requests after removing repeated vocabulary parsing. It returned **120 valid responses, zero protocol failures, one worker start and a clean exit**. All **119 previously valid complete versioned replies are identical** (including tensors, logits, probabilities and choices); the formerly failed Spanish folder request returned ambiguous. Agreement is **61/120 (50.8%)**, ordinary agreement remains **39/84**, and insufficient-category recall remains **0/12**. No inputs, labels, thresholds or model assets changed. The original failed run is retained; this successful rerun is not proof that resource exhaustion cannot recur, and it does not satisfy the independent quality gate.

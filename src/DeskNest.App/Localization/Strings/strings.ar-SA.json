@@ -1,5 +1,9 @@
 {
   "App.Title": "DeskNext",
+  "Classification.LocalTextConsent": "السماح للمعاينة المحلية بقراءة أول 1 KiB من النص المدعوم لهذا العنصر (حتى 512 حرفًا إلى Laya)، دون إرساله إلى Jev مطلقًا. يُلغى الإذن عند تحديث القائمة.",
+  "Classification.LocalTextOnly": "التصنيف بمقتطف نصي محلي فقط. لم يُقرأ ملف ولم يُرسل شيء إلى Jev.",
+  "Classification.LocalTextUnsupported": "استخدم ملف نص مدعوم غير فارغ. لا تُقرأ المجلدات أو ملفات PDF أو Office أو البيانات الثنائية لهذه المعاينة.",
+  "Classification.LocalTextUsed": "استُخدم مقتطف محلي بإذن صريح (قراءة حتى 1 KiB وإدخال حتى 512 حرفًا). قد يكون ناقصًا؛ لم يُرفع النص أو يُحفظ ولم تُنقل ملفات.",
   "Classification.NvidiaSessionNotice": "تستخدم هذه الجلسة فقط NVIDIA التجريبي والنموذج المحدد عند التشغيل، دون تغيير إعدادات المحرك أو النموذج المحفوظة. أعد التشغيل العادي لتنزيل نماذج CPU أو إصلاحها أو إزالتها. لا تُنقل الملفات تلقائيًا.",
   "Classification.NvidiaNeedsSetup": "أكمل الإعداد الأولي في الوضع العادي قبل بدء جلسة NVIDIA تجريبية.",
   "Classification.ExperimentalNvidia": "Laya · NVIDIA DirectML (تجريبي)",

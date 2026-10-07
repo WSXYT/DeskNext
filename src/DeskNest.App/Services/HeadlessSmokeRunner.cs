@@ -858,11 +858,51 @@ public static class HeadlessSmokeRunner
         Console.WriteLine($"TEMPLATE_CANDIDATE_BUDGET_VERIFIED: {checkedCases} native-tokenizer cases; no categories or text removed.");
     }
 
+    private static async Task VerifyLocalTextBoundaryAsync(string root)
+    {
+        string input = Path.Combine(root, "excerpt-boundary.txt");
+        string text = new string('x', 2000);
+        await File.WriteAllTextAsync(input, text);
+        var snippet = await MainWindowViewModel.ReadLocalClassificationTextAsync(input, false, default);
+        if (snippet.Content != new string('x', 512) || !snippet.Truncated || File.ReadAllText(input) != text)
+            throw new InvalidOperationException("Local excerpt must be bounded and read-only.");
+        try
+        {
+            await MainWindowViewModel.ReadLocalClassificationTextAsync(Path.Combine(root, "absent.txt"), true, default);
+            throw new InvalidOperationException("Cloud excerpt was not refused before reading.");
+        }
+        catch (NotSupportedException) { }
+        string html = Path.Combine(root, "active.html");
+        await File.WriteAllTextAsync(html, "<script>should-not-run()</script>");
+        foreach (var path in new[] { root, html })
+        {
+            try { await MainWindowViewModel.ReadLocalClassificationTextAsync(path, false, default); throw new InvalidOperationException("Unsupported content was accepted."); }
+            catch (NotSupportedException) { }
+        }
+        var snapshot = new WorkspaceState { Spaces = [new WorkspaceSpace(Guid.NewGuid(), "Documents", "Reports", SpaceStorageMode.Managed, root)] };
+        var request = MainWindowViewModel.CreateClassificationRequest(snapshot, "unclear.txt", false, "", snippet.Content, snippet.Truncated);
+        using var state = JsonDocument.Parse(request.State);
+        if (state.RootElement.GetProperty("localTextSnippet").GetString() != snippet.Content || !state.RootElement.GetProperty("snippetTruncated").GetBoolean() || request.State.Contains(root))
+            throw new InvalidOperationException("The local excerpt must be serialized as bounded data, not an absolute path.");
+        using var plain = JsonDocument.Parse(MainWindowViewModel.CreateClassificationRequest(snapshot, "unclear.txt", false, "").State);
+        if (plain.RootElement.TryGetProperty("localTextSnippet", out _)) throw new InvalidOperationException("Default preview silently gained content access.");
+        await using var cloudStore = await WorkspaceStore.OpenAsync(Path.Combine(root, "cloud-refusal"));
+        var pending = new PendingFile(Guid.NewGuid(), "absent.txt", Path.Combine(root, "absent.txt"), TriageReason.FilenameAmbiguous, null, DateTimeOffset.UtcNow);
+        await cloudStore.UpdateAsync(s => s with { OnboardingComplete = true, OnboardingStep = 5, Spaces = snapshot.Spaces, Pending = [pending], Settings = s.Settings with { Provider = InferenceProvider.Jev } });
+        await using var cloudOwner = new MainWindowViewModel(cloudStore);
+        var item = cloudOwner.Studio!.PendingItems.Single();
+        item.IncludeLocalTextSnippet = true;
+        await cloudOwner.Studio.PreviewClassificationCommand.ExecuteAsync(item); // No key: even a broken guard cannot make a network request.
+        if (cloudOwner.Studio.FileActionNotice != cloudOwner.Localizer["Classification.LocalTextOnly"])
+            throw new InvalidOperationException("Cloud classification must refuse excerpt mode before path access or HTTP.");
+    }
+
     internal static async Task VerifyLocalClassificationPreviewAsync(string root, string modelDirectory,
         Func<ProcessStartInfo>? localWorkerStart = null, System.Threading.CancellationToken safetyToken = default)
     {
         // Shared tokenizer template coverage is unchanged; the GPU run exercises only this functional workflow.
         if (localWorkerStart is null) VerifyTemplateCandidateBudgets(root, modelDirectory);
+        await VerifyLocalTextBoundaryAsync(root);
         string folder = Directory.CreateDirectory(Path.Combine(root, "files")).FullName;
         string path = Path.Combine(folder, "季度财务报告.txt");
         File.WriteAllText(path, "Fixture content must remain untouched.");
@@ -935,8 +975,15 @@ public static class HeadlessSmokeRunner
             var button = view.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PendingClassificationButton");
             if (!button.IsEffectivelyVisible || button.Command != studio.PreviewClassificationCommand || button.CommandParameter != pendingView)
                 throw new InvalidOperationException("Pending preview must target the actual review row.");
+            var textConsent = view.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == "PendingLocalTextConsent");
+            if (!textConsent.IsEffectivelyVisible || pendingView.IncludeLocalTextSnippet)
+                throw new InvalidOperationException("Local text access must require an unchecked visible permission.");
+            textConsent.IsChecked = true;
             safetyToken.ThrowIfCancellationRequested();
             await studio.PreviewClassificationCommand.ExecuteAsync(pendingView);
+            if (!studio.PreviewDetails.Contains(main.Localizer["Classification.LocalTextUsed"]) ||
+                JsonSerializer.Serialize(store.Snapshot).Contains("Pending fixture must stay outside the space."))
+                throw new InvalidOperationException("Text-assisted results must be labeled without persisting the excerpt.");
             if (main.LocalWorkerProcessId != worker) throw new InvalidOperationException("Consecutive previews did not reuse the same worker.");
             if (!studio.IsPreviewDialogOpen || pendingView.ClassificationTarget?.Id != space.Id || pendingView.TargetSpace is not null ||
                 store.Snapshot.Revision != revision || store.Snapshot.Operations.Count != 0 ||
@@ -954,6 +1001,18 @@ public static class HeadlessSmokeRunner
             if (studio.IsPreviewDialogOpen || pendingView.HasClassificationTarget || studio.FileActionNotice != main.Localizer["Classification.Stale"] ||
                 JsonSerializer.Serialize(store.Snapshot).Contains(oldHint) || store.Snapshot.Revision != revision)
                 throw new InvalidOperationException("A changed hint accepted a stale result or persisted private draft text.");
+            pendingView.ClassificationTarget = null;
+            var revoked = studio.PreviewClassificationCommand.ExecuteAsync(pendingView);
+            // Revoke while the asynchronous excerpt read is pending; do not add another full GPU wait.
+            pendingView.IncludeLocalTextSnippet = false;
+            pendingView.IncludeLocalTextSnippet = true; // Re-approval cannot revive an older request.
+            await revoked;
+            if (studio.IsPreviewDialogOpen || pendingView.HasClassificationTarget || studio.FileActionNotice != main.Localizer["Classification.Stale"])
+                throw new InvalidOperationException("A revoked local text request accepted a late result.");
+            studio.RefreshFromState(store.Snapshot);
+            if (studio.PendingItems.Single().IncludeLocalTextSnippet)
+                throw new InvalidOperationException("Local excerpt permission survived a list refresh.");
+            Console.WriteLine("LOCAL_TEXT_CLASSIFICATION_VERIFIED: bounded local excerpt, permission reset/stale refusal, no cloud or persistence.");
             Console.WriteLine("PENDING_CLASSIFICATION_PREVIEW: verified; hint draft retained, stale result refused, no move or hint persistence.");
         }
         finally { window.Close(); }
@@ -974,6 +1033,7 @@ public static class HeadlessSmokeRunner
         var importItem = studio.PendingItems.Single();
         safetyToken.ThrowIfCancellationRequested();
         await studio.PreviewClassificationCommand.ExecuteAsync(importItem);
+        safetyToken.ThrowIfCancellationRequested();
         if (importItem.ClassificationTarget is null) throw new InvalidOperationException("No actual model suggestion for the import workflow.");
         studio.ClosePreviewDialog();
         studio.UseClassificationTargetCommand.Execute(importItem);
