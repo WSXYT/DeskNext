@@ -62,6 +62,10 @@ Identifiers: model manifest SHA-256 `3a65f3fb45166e0e7e2c044802740712ae48770cc26
 
 A bounded follow-up changed only the two special-option descriptions to distinguish an unclear subject from a clear but uncovered subject. Twelve cases (invoice/generic name/recipe in English, Simplified Chinese, Japanese and German) were selected after inspecting the first run, so this is explicitly tuning data. The actual CPU worker returned all twelve and exited cleanly, but agreement fell from **6/12 to 5/12**; no recipe improved, and the German invoice regressed from Finance to ambiguous. The experiment was **not adopted**. Production descriptions, model weights, labels and thresholds remain unchanged. Raw comparison: `artifacts/p4-quality/wording-experiment1/`; local experiment script: `artifacts/p4-quality/compare-wording.py`.
 
+### Rejected raw-filename state experiment
+
+A second twelve-case comparison kept the original special descriptions but replaced the inner JSON state with the raw filename. Agreement rose from 6/12 to 8/12, recovering Chinese/Japanese invoices, but those languages' uncovered recipes changed from ambiguity to **wrong concrete categories** (Software/Finance). It was also **not adopted**: aggregate agreement alone is not evidence of a safer fallback policy. Outputs remain under `artifacts/p4-quality/plain-state-experiment/`; production JSON state stays unchanged.
+
 ## What this changes
 
 This gives P4 an actual, reproducible development signal instead of another arithmetic-only scorer. It shows why model suggestions must remain reviewable, especially multilingual inputs and the two fallback options. Future prompt/model changes can compare against these fixed cases, but doing so makes them development data, not independent validation. A blind human-labeled held-out corpus, real service evidence and the other P4 requirements still remain open; the user declined Jev calls, so none were made.

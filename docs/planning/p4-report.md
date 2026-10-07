@@ -2,6 +2,12 @@
 
 P3's user-approved safe manual workflow is accepted; **P4 is not complete**. These previews are read-only: they do not authorize any file move or copy. Manual file operations have their separate P3 evidence.
 
+## Retain special-token IDs with the verified CPU session (2026-10-07)
+
+The development run exposed an avoidable allocation path: each request reread and reparsed the approximately 33 MiB `tokenizer.json` via a complete UTF-16 string just to extract `added_tokens`, even while the native tokenizer was reused. `CpuModel` now retains that small ID dictionary alongside its tokenizer/config/sessions. The one-shot `Encode` entry still reads its supplied bundle, now directly as UTF-8 from a stream. Full asset hashes and before/after manifest checks remain per request; changing model identity still requires a new worker. No prompt, category mapping, numeric threshold or token construction changed.
+
+Eight existing worker/protocol checks passed (`artifacts/p4-quality/token-map-cache.trx`) and the App build had zero warnings/errors. Twelve fixed development requests ran in one real worker and every complete versioned reply matched the prior response exactly, including token tensors/logits/probabilities/choices, with clean process exit (`token-map-regression/exact-comparison.json`). This demonstrates unchanged output for those cases and removes repeated vocabulary parsing, **not** a general memory benchmark or proof the earlier resource failure cannot recur. The original 120-case failure report and both rejected prompt/state experiments remain intact. No full UI/P3/installer matrix was repeated.
+
 ## Return to P4 and first actual development-quality run (2026-10-07)
 
 The user re-issued strict phase order (P4 before P5–P7). The unfinished Flow regex-rename work was preserved, with hashes and its base commit, under ignored `artifacts/p5-paused/regex-rename-2026-10-07T02-36-57-975Z/`, then removed from active source. Already committed Flow increments are not relabeled as P4 work or full P5 acceptance.

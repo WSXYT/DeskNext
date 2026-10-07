@@ -38,11 +38,23 @@ public static class Probe
     public static Tensors Encode(Request request, Tokenizer tokenizer, JsonElement config, string directory)
     {
         Validate(request);
+        return Encode(request, tokenizer, config, ReadSpecialTokens(directory));
+    }
+
+    private static Dictionary<string, long> ReadSpecialTokens(string directory)
+    {
+        // Read UTF-8 directly; do not allocate a second, full UTF-16 copy of the vocabulary.
+        using var input = File.OpenRead(AssetPath(directory, "tokenizer.json"));
+        using var tokJson = JsonDocument.Parse(input);
+        return tokJson.RootElement.GetProperty("added_tokens").EnumerateArray()
+            .ToDictionary(x => x.GetProperty("content").GetString()!, x => x.GetProperty("id").GetInt64());
+    }
+
+    private static Tensors Encode(Request request, Tokenizer tokenizer, JsonElement config, IReadOnlyDictionary<string, long> added)
+    {
+        Validate(request);
         int maxLen = config.GetProperty("max_len").GetInt32();
         int headMaxLen = config.GetProperty("head_max_len").GetInt32();
-        using var tokJson = JsonDocument.Parse(File.ReadAllText(AssetPath(directory, "tokenizer.json")));
-        var added = tokJson.RootElement.GetProperty("added_tokens").EnumerateArray()
-            .ToDictionary(x => x.GetProperty("content").GetString()!, x => x.GetProperty("id").GetInt64());
         // The multilingual checkpoint uses <bos>/<eos>/<pad>/<mask>. Never assume English IDs.
         long Special(params string[] names) => names.Where(added.ContainsKey).Select(n => added[n]).First();
         string mask = new[] { "[MASK]", "<mask>" }.First(added.ContainsKey);
@@ -154,6 +166,7 @@ public static class Probe
         private string? _manifestHash;
         private JsonDocument? _config;
         private Tokenizer? _tokenizer;
+        private Dictionary<string, long>? _specialTokens;
         private InferenceSession? _encoder, _head;
 
         public Result Run(Request request, Tensors? fixture = null)
@@ -172,7 +185,9 @@ public static class Probe
             if (fixture is null)
             {
                 var tokenizer = _tokenizer ??= Tokenizer.FromFile(AssetPath(directory, "tokenizer.json"));
-                tensors = Encode(request, tokenizer, configDoc.RootElement, directory);
+                // VerifyModel above rehashes the tokenizer for every request. Retain only this model's small ID map.
+                var specialTokens = _specialTokens ??= ReadSpecialTokens(directory);
+                tensors = Encode(request, tokenizer, configDoc.RootElement, specialTokens);
             }
             else tensors = fixture;
             Validate(request);
@@ -207,6 +222,7 @@ public static class Probe
             _encoder?.Dispose();
             _tokenizer?.Dispose();
             _config?.Dispose();
+            _specialTokens = null;
         }
     }
 
