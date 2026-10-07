@@ -67,6 +67,32 @@ public sealed class PlatformFileActionsTests : IDisposable
             () => PlatformFileActions.RevealAsync(Path.GetPathRoot(_root)!));
     }
 
+    [Fact]
+    public async Task TruncatedUnicodeKeepsCompleteCharactersButInvalidEncodingStillRefuses()
+    {
+        var file = Path.Combine(_root, "unicode.txt");
+        foreach (var encoding in new System.Text.Encoding[]
+        {
+            new System.Text.UTF8Encoding(false, true), new System.Text.UTF8Encoding(true, true),
+            new System.Text.UnicodeEncoding(false, true, true), new System.Text.UnicodeEncoding(true, true, true),
+            new System.Text.UTF32Encoding(false, true, true), new System.Text.UTF32Encoding(true, true, true)
+        })
+        {
+            var bytes = encoding.GetPreamble().Concat(encoding.GetBytes("票📄x")).ToArray();
+            await File.WriteAllBytesAsync(file, bytes);
+            int boundary = encoding.GetPreamble().Length + encoding.GetByteCount("票") + 1;
+            var preview = await PlatformFileActions.ReadPreviewAsync(file, maximumBytes: boundary);
+            Assert.Equal("text", preview.Kind);
+            Assert.Equal("票", preview.Content);
+            Assert.True(preview.Truncated);
+            Assert.Equal(bytes, await File.ReadAllBytesAsync(file));
+        }
+        await File.WriteAllBytesAsync(file, [0x61, 0xff, 0x62, 0x63]);
+        Assert.Equal("metadata", (await PlatformFileActions.ReadPreviewAsync(file, maximumBytes: 3)).Kind);
+        await File.WriteAllBytesAsync(file, [0xe7, 0xa5]); // Incomplete UTF-8 at actual EOF is corruption, not intentional truncation.
+        Assert.Equal("metadata", (await PlatformFileActions.ReadPreviewAsync(file, maximumBytes: 3)).Kind);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_root))

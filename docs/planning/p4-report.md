@@ -2,6 +2,12 @@
 
 P3's user-approved safe manual workflow is accepted; **P4 is not complete**. These previews are read-only: they do not authorize any file move or copy. Manual file operations have their separate P3 evidence.
 
+## Unicode truncation at the excerpt boundary (2026-10-07)
+
+The shared bounded preview reader previously treated a byte-limited prefix as real EOF, so a valid UTF-8 filename-note document could become metadata-only when the limit split a Han character or emoji. It now uses a strict BOM-aware decoder with `flush=false` only for intentionally truncated prefixes, returning complete characters without reading past the byte budget. UTF-8, UTF-16 and UTF-32 BOM handling is preserved; malformed sequences and incomplete characters at actual EOF still refuse as metadata. No byte/entry limit or path policy was relaxed.
+
+Seven focused `PlatformFileActionsTests` passed (zero failures/skips, `artifacts/p4-gpu/preview-unicode-boundary.trx`), covering unchanged input bytes, split Han/emoji boundaries across supported encodings, invalid bytes and incomplete actual EOF. Both active LSP checks were clean. No repeated GPU evaluation, UI matrix, packaging or quality claim for this small shared-reader correction.
+
 ## Explicit local text excerpt for unclear pending items (2026-10-07)
 
 Pending rows now offer an unchecked **local text** permission. When enabled, the existing non-executing preview reader reads at most 1 KiB from an allowlisted text file, then passes at most 512 UTF-16 characters (without splitting a surrogate pair) to local Laya as a separate JSON data field. Truncation is explicit. Blank/non-text content, directories, PDFs/Office and links are refused through the existing bounded preview policy. There is no new parser, recursive scan, remote request or file mutation. The default filename/hint-only request is unchanged.

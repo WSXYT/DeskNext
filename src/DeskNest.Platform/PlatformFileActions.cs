@@ -79,9 +79,8 @@ public static class PlatformFileActions
         var truncated = stream.Position < stream.Length;
         try
         {
-            using var reader = new StreamReader(new MemoryStream(bytes, 0, used),
-                new UTF8Encoding(false, true), detectEncodingFromByteOrderMarks: true);
-            var text = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            var text = DecodePreview(bytes.AsSpan(0, used), truncated);
             if (text.Contains('\0'))
                 return new(name, path, "metadata", string.Empty, truncated, length);
             return new(name, path, "text", text, truncated, length);
@@ -90,6 +89,23 @@ public static class PlatformFileActions
         {
             return new(name, path, "metadata", string.Empty, truncated, length);
         }
+    }
+
+    private static string DecodePreview(ReadOnlySpan<byte> bytes, bool truncated)
+    {
+        // Match the existing BOM-aware reader, with strict decoding. A bounded prefix is not EOF:
+        // keep only complete characters and discard the decoder\'s incomplete trailing code point.
+        Encoding encoding = new UTF8Encoding(false, true);
+        int preamble = 0;
+        if (bytes.StartsWith(new byte[] { 0xff, 0xfe, 0, 0 })) { encoding = new UTF32Encoding(false, false, true); preamble = 4; }
+        else if (bytes.StartsWith(new byte[] { 0, 0, 0xfe, 0xff })) { encoding = new UTF32Encoding(true, false, true); preamble = 4; }
+        else if (bytes.StartsWith(new byte[] { 0xff, 0xfe })) { encoding = new UnicodeEncoding(false, false, true); preamble = 2; }
+        else if (bytes.StartsWith(new byte[] { 0xfe, 0xff })) { encoding = new UnicodeEncoding(true, false, true); preamble = 2; }
+        else if (bytes.StartsWith(new byte[] { 0xef, 0xbb, 0xbf })) preamble = 3;
+        var payload = bytes[preamble..];
+        var characters = new char[encoding.GetMaxCharCount(payload.Length)];
+        int count = encoding.GetDecoder().GetChars(payload, characters, flush: !truncated);
+        return new string(characters, 0, count);
     }
 
     /// <summary>Read-only path validation, not a lease or permission for later filesystem mutation.</summary>
