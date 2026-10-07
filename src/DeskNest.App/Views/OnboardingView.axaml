@@ -212,7 +212,7 @@
                                             BorderBrush="{DynamicResource BorderSubtleBrush}"
                                             BorderThickness="1"
                                             Padding="6,2" HorizontalAlignment="Left">
-                                        <TextBlock Text="100% On-Device / Zero Telemetry" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource SuccessBadgeFgBrush}"/>
+                                        <TextBlock Text="{Binding Localizer[Classification.LocalCpu]}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource SuccessBadgeFgBrush}"/>
                                     </Border>
                                 </StackPanel>
                             </Button>
@@ -242,7 +242,7 @@
                                             BorderBrush="{DynamicResource BorderSubtleBrush}"
                                             BorderThickness="1"
                                             Padding="6,2" HorizontalAlignment="Left">
-                                        <TextBlock Text="Cloud Decision / Metadata Only" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource InfoBadgeFgBrush}"/>
+                                        <TextBlock Text="{Binding Localizer[Classification.JevCloud]}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource InfoBadgeFgBrush}"/>
                                     </Border>
                                 </StackPanel>
                             </Button>
@@ -255,6 +255,36 @@
                                      CornerRadius="{DynamicResource RadiusPrimary}"
                                      FontFamily="Consolas,Menlo,Monospace"
                                      FlowDirection="LeftToRight"/>
+                        </StackPanel>
+
+                        <StackPanel IsVisible="{Binding HasModelDeployment}">
+                            <StackPanel IsVisible="{Binding IsLayaSelected}">
+                                <StackPanel DataContext="{Binding ModelDeployment}" x:DataType="vm:StudioViewModel" Spacing="8">
+                                    <TextBlock Text="{Binding Localizer[Classification.InstallLocation]}" FontSize="13"/>
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBox Name="OnboardingModelInstallRoot" Text="{Binding ModelInstallRoot}" IsReadOnly="True"
+                                                 FlowDirection="LeftToRight"/>
+                                        <Button Name="OnboardingModelFolderButton" Grid.Column="1" Margin="8,0,0,0"
+                                                Content="{Binding Localizer[Action.Browse]}" Tag="folder" Click="OnModelPackageClick"/>
+                                    </Grid>
+                                    <WrapPanel>
+                                        <Button Name="OnboardingDownloadModelButton" Classes="PrimaryAction" Margin="0,0,8,0"
+                                                Content="{Binding Localizer[Classification.DownloadPackage]}"
+                                                ToolTip.Tip="{Binding Localizer[Classification.DownloadPackageNotice]}"
+                                                Command="{Binding InstallLocalModelPackageCommand}"/>
+                                        <Button Name="OnboardingImportModelButton" Classes="ActionButton" Margin="0,0,8,0"
+                                                Content="{Binding Localizer[Classification.ImportPackage]}" Tag="archive" Click="OnModelPackageClick"/>
+                                        <Button Name="OnboardingCancelModelButton" Classes="ActionButton"
+                                                Content="{Binding Localizer[Action.Cancel]}"
+                                                IsVisible="{Binding InstallLocalModelPackageCommand.IsRunning}"
+                                                Command="{Binding InstallLocalModelPackageCancelCommand}"/>
+                                    </WrapPanel>
+                                    <ProgressBar Minimum="0" Maximum="100" Value="{Binding ModelInstallProgress}"
+                                                 IsVisible="{Binding InstallLocalModelPackageCommand.IsRunning}"/>
+                                    <TextBlock Name="OnboardingModelNotice" Text="{Binding ModelInstallNotice}" TextWrapping="Wrap"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </StackPanel>
+                            </StackPanel>
                         </StackPanel>
 
                         <!-- Engine Notice -->

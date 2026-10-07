@@ -38,6 +38,8 @@ public sealed class SmokeTestResult
     public bool RtlSupportVerified { get; set; }
     public bool SubsystemGatesTruthful { get; set; }
     public bool ResumableOobeVerified { get; set; }
+    public bool OnboardingModelDeploymentVerified { get; set; }
+    public bool OnboardingModelPackageInstalledVerified { get; set; }
     public bool WorkspacePersistenceVerified { get; set; }
     public bool FailClosedErrorsVerified { get; set; }
     public bool Virtualization10kVerified { get; set; }
@@ -1069,6 +1071,14 @@ public static class HeadlessSmokeRunner
             result.StartupRecoveryRetryVerified = true;
             VerifyCompanionLifetime();
             result.CompanionLifetimeVerified = true;
+            using (var onboardingFixture = new TempTestDir())
+            {
+                var onboarding = OnboardingModelSmoke.VerifyAsync(onboardingFixture.Path);
+                AwaitOnUIThread(onboarding, "onboarding model deployment",
+                    string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DESKNEXT_TEST_OOBE_ARCHIVE")) ? 20 : 150);
+                result.OnboardingModelPackageInstalledVerified = onboarding.GetAwaiter().GetResult();
+                result.OnboardingModelDeploymentVerified = true;
+            }
             VerifySpaceMetadataBoundary();
             result.SpaceMetadataBoundaryVerified = true;
             foreach (bool directory in new[] { false, true })

@@ -66,6 +66,10 @@ A bounded follow-up changed only the two special-option descriptions to distingu
 
 A second twelve-case comparison kept the original special descriptions but replaced the inner JSON state with the raw filename. Agreement rose from 6/12 to 8/12, recovering Chinese/Japanese invoices, but those languages' uncovered recipes changed from ambiguity to **wrong concrete categories** (Software/Finance). It was also **not adopted**: aggregate agreement alone is not evidence of a safer fallback policy. Outputs remain under `artifacts/p4-quality/plain-state-experiment/`; production JSON state stays unchanged.
 
+## Frozen-corpus rerun after token-map reuse
+
+`artifacts/p4-quality/development-v1-token-cache-run2/` reran the same 120 frozen requests after removing repeated vocabulary parsing. It returned **120 valid responses, zero protocol failures, one worker start and a clean exit**. All **119 previously valid complete versioned replies are identical** (including tensors, logits, probabilities and choices); the formerly failed Spanish folder request returned ambiguous. Agreement is **61/120 (50.8%)**, ordinary agreement remains **39/84**, and insufficient-category recall remains **0/12**. No inputs, labels, thresholds or model assets changed. The original failed run is retained; this successful rerun is not proof that resource exhaustion cannot recur, and it does not satisfy the independent quality gate.
+
 ## What this changes
 
 This gives P4 an actual, reproducible development signal instead of another arithmetic-only scorer. It shows why model suggestions must remain reviewable, especially multilingual inputs and the two fallback options. Future prompt/model changes can compare against these fixed cases, but doing so makes them development data, not independent validation. A blind human-labeled held-out corpus, real service evidence and the other P4 requirements still remain open; the user declined Jev calls, so none were made.

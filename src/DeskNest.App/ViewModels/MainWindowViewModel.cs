@@ -36,6 +36,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
     internal string? LocalWorkerShutdownError => _localPreview.LastShutdownError;
     private readonly Func<Func<WorkspaceState, WorkspaceState>, Task<WorkspaceState>>? _stateUpdater;
     private string? _dataDirectory;
+    private StudioViewModel? _onboardingStudio;
 
     public LocalizationManager Localizer => LocalizationManager.Instance;
     public ThemeManager ThemeMgr => ThemeManager.Instance;
@@ -321,11 +322,13 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         {
             IsOnboardingActive = true;
             IsStudioActive = false;
-            Studio = null;
             if (Onboarding == null)
             {
-                Onboarding = new OnboardingViewModel(state, UpdateStoreAsync);
+                _onboardingStudio = Studio ?? new StudioViewModel(state, UpdateStoreAsync);
+                AttachModelInstaller(_onboardingStudio);
+                Onboarding = new OnboardingViewModel(state, UpdateStoreAsync, _onboardingStudio);
             }
+            Studio = null;
         }
         else
         {
@@ -334,7 +337,24 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             Onboarding = null;
             if (Studio == null)
             {
-                Studio = new StudioViewModel(state, UpdateStoreAsync);
+                Studio = _onboardingStudio ?? new StudioViewModel(state, UpdateStoreAsync);
+                if (_onboardingStudio is not null)
+                {
+                    // Refresh wizard choices without replacing the installer or its unsaved result.
+                    Studio.SettingsLanguage = Localizer.CurrentLanguageInfo;
+                    Studio.SettingsTheme = ThemeMgr.CurrentThemeMode;
+                    Studio.SettingsProvider = state.Settings.Provider;
+                    Studio.SettingsManagedRoot = state.Settings.ManagedRoot;
+                    Studio.SettingsWantsMonitoring = state.Settings.WantsMonitoring;
+                    Studio.SettingsMonitoredFolders.Clear();
+                    foreach (var path in state.Settings.MonitoredFolders) Studio.SettingsMonitoredFolders.Add(path);
+                    Studio.SettingsExcludedFolders.Clear();
+                    foreach (var path in state.Settings.ExcludedFolders) Studio.SettingsExcludedFolders.Add(path);
+                    Studio.RefreshFromState(state);
+                    if (Studio.InstallLocalModelPackageCommand.IsRunning || !string.IsNullOrEmpty(Studio.ModelInstallNotice))
+                        Studio.SelectedTabIndex = 3; // Keep deployment progress/result and cancellation visible.
+                    _onboardingStudio = null;
+                }
                 AttachStudioExecutors(Studio);
             }
             else
@@ -359,6 +379,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
         };
         studio.OnPrepareModelRemoval = OperatingSystem.IsWindows() ? PrepareModelRemovalAsync : null;
         studio.OnRemoveModelData = OperatingSystem.IsWindows() ? RemoveModelDataAsync : null;
+        AttachModelInstaller(studio);
+        AttachWorkspaceExecutors(studio);
+    }
+
+    private void AttachModelInstaller(StudioViewModel studio)
+    {
         if (string.IsNullOrEmpty(studio.ModelInstallRoot) && _store is not null)
         {
             studio.ModelInstallRoot = _store.Snapshot.Settings.GetModelInstallationRoot() ?? Path.Combine(_store.DataDirectory, "models");
@@ -385,6 +411,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
                 return installed;
             }, token);
         };
+    }
+
+    private void AttachWorkspaceExecutors(StudioViewModel studio)
+    {
         if (_manualCoordinator != null)
         {
             var flowMoves = new DeskNest.Core.Flow.ConfirmedFlowMoves(_store!, _manualCoordinator);
@@ -1202,7 +1232,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
                 Studio?.ClearJevSession();
                 Studio?.VerifyLocalModelCommand.Cancel();
                 Studio?.InstallLocalModelPackageCommand.Cancel();
+                _onboardingStudio?.InstallLocalModelPackageCommand.Cancel();
                 if (Studio is not null) Studio.OnInstallLocalModelPackage = null;
+                if (_onboardingStudio is not null) _onboardingStudio.OnInstallLocalModelPackage = null;
             });
             await StopFlowPromptRunAsync();
             await _localPreview.DisposeAsync();

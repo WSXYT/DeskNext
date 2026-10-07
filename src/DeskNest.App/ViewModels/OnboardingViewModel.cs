@@ -55,6 +55,15 @@ public sealed partial class OnboardingViewModel : ViewModelBase
     private readonly Func<Func<WorkspaceState, WorkspaceState>, Task<WorkspaceState>> _updateStore;
     public Action? OnCompleted { get; set; }
 
+    // Borrow the future workbench's existing installer; entering it does not restart a download.
+    public StudioViewModel? ModelDeployment { get; }
+    public bool HasModelDeployment => ModelDeployment is not null;
+
+    partial void OnModelCacheDirectoryChanged(string value)
+    {
+        if (ModelDeployment is not null) ModelDeployment.SettingsModelCache = value;
+    }
+
     public LocalizationManager Localizer => LocalizationManager.Instance;
     public ThemeManager ThemeMgr => ThemeManager.Instance;
 
@@ -172,9 +181,11 @@ public sealed partial class OnboardingViewModel : ViewModelBase
     [ObservableProperty]
     private string? _validationError;
 
-    public OnboardingViewModel(WorkspaceState state, Func<Func<WorkspaceState, WorkspaceState>, Task<WorkspaceState>> updateStore)
+    public OnboardingViewModel(WorkspaceState state, Func<Func<WorkspaceState, WorkspaceState>, Task<WorkspaceState>> updateStore,
+        StudioViewModel? modelDeployment = null)
     {
         _updateStore = updateStore;
+        ModelDeployment = modelDeployment;
 
         // Restore language and theme
         _selectedLanguage = LocalizationManager.SupportedLanguages.FirstOrDefault(
@@ -186,8 +197,12 @@ public sealed partial class OnboardingViewModel : ViewModelBase
 
         // Restore provider and cache
         _selectedProvider = state.Settings.Provider;
-        _modelCacheDirectory = state.Settings.ModelCacheDirectory
-            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DeskNest", "models");
+        _modelCacheDirectory = state.Settings.ModelCacheDirectory ?? string.Empty;
+        if (ModelDeployment is not null)
+        {
+            ModelDeployment.SettingsProvider = _selectedProvider;
+            ModelDeployment.SettingsModelCache = _modelCacheDirectory;
+        }
 
         // Restore managed root
         _managedRoot = string.IsNullOrWhiteSpace(state.Settings.ManagedRoot)
@@ -239,6 +254,7 @@ public sealed partial class OnboardingViewModel : ViewModelBase
 
     partial void OnSelectedProviderChanged(InferenceProvider value)
     {
+        if (ModelDeployment is not null) ModelDeployment.SettingsProvider = value;
         OnPropertyChanged(nameof(IsLayaSelected));
         OnPropertyChanged(nameof(IsJevSelected));
         OnPropertyChanged(nameof(SummaryProvider));
