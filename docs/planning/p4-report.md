@@ -2,6 +2,12 @@
 
 P3's user-approved safe manual workflow is accepted; **P4 is not complete**. These previews are read-only: they do not authorize any file move or copy. Manual file operations have their separate P3 evidence.
 
+## Category-set adaptation improved a small check but is not adopted (2026-10-07)
+
+The fixed synthetic 44-training/20-development category-set pilot (correct category present/absent, ordering variations and ambiguous/hinted names) completed on RTX 2050 with the encoder frozen. Agreement improved **28/44→36/44** in training and **9/20→14/20** in its semantic-group-separated development checks. Five of eight absent-category checks were corrected. A separate evaluation of thirty previously captured three-category requests improved **18/30→20/30**, but introduced two Chinese regressions; the final head is not adopted or exported. A fixed training-only base-distribution retention comparison did not eliminate those regressions, so it is also not adopted. No retention-weight sweep or intermediate-checkpoint selection was performed.
+
+The input-token continuation initially failed because a temporary script omitted a colon-space; exact production-tensor comparison rejected it, then all 23 retained tensors matched after correction and 41 remaining GPU features were completed. All failed memory/admission attempts are retained. The successful training retained original hyperparameters and used one low-priority CUDA process. [Detailed counts, source identities, regressions and scope](p4-model-adaptation.md). This is development progress on applicability, not an independent quality pass; the next work concerns multilingual/category-balanced data rather than retuning these inspected checks.
+
 ## Frozen-encoder model adaptation pilot (2026-10-07)
 
 The user chose model adaptation while retaining the original P4 gate, not phase rescoping. A new isolated CUDA 11.7/PyTorch 2.0.1 environment supports the existing RTX 2050 without changing its driver or the CPU export environment. The developer GPU runner can explicitly export frozen encoder features; the versioned/workbench path never does so. A one-example head-only capability run completed eight finite-gradient updates at 356.72 MiB peak CUDA allocation, proving trainability rather than improved classification.

@@ -25,6 +25,7 @@ def main():
     mode = p.add_mutually_exclusive_group()
     mode.add_argument("--scorer-only", action="store_true", help="Fixed comparison: freeze transformers/type embedding, 40 accumulated scorer updates at 1e-4")
     mode.add_argument("--accumulated-head", action="store_true", help="Fixed comparison: train decision-head transformers/type embedding/scorer, 40 accumulated updates at 1e-4")
+    p.add_argument("--retain-base", action="store_true", help="Contrastive-only fixed KL weight 1: retain baseline distributions on correctly answered training items; never on checks")
     p.add_argument("--resume", type=Path, help="Verified local epoch checkpoint; output must still be a new directory")
     p.add_argument("--stop-file", type=Path, help="Local monitor request to checkpoint at the next completed epoch and exit")
     args = p.parse_args()
@@ -66,6 +67,8 @@ def main():
         contrastive = data.get("datasetId") == "desknext-contrastive-head-pilot-v1"
         if contrastive and not args.accumulated_head:
             raise ValueError("Contrastive pilot requires its fixed accumulated-head protocol")
+        if args.retain_base and not contrastive:
+            raise ValueError("Base retention is defined only for the fixed contrastive comparison")
         expected_training = ({"epochs": 40, "learningRate": 0.0001, "seed": 104729, "batchSize": 1,
                               "encoderFrozen": True, "actionHeadFrozen": True, "fitTemperature": False,
                               "mode": "accumulated-head", "gradientAccumulation": 44,
@@ -145,6 +148,8 @@ def main():
                                     "probabilities": probabilities, "logits": logits[0].cpu().tolist(), "correct": choice == row["targetId"]})
             return answers
 
+        if args.retain_base:
+            report["protocol"] = {**report["protocol"], "baseRetentionKlWeight": 1.0, "retentionScope": "base-correct-training-items-only"}
         stage("compare-original-head")
         before = evaluate(rows)
         delta = max(abs(a - b) for row, answer in zip(rows, before, strict=True)
@@ -152,6 +157,12 @@ def main():
         if delta > 1e-4:
             raise ValueError("Initial CUDA head/DirectML frozen-feature logits differ")
         report["initialHeadVsDirectMlMaxLogitDelta"] = delta
+        anchors = {}
+        if args.retain_base:
+            for row, base_result in zip(rows, before, strict=True):
+                if row["split"] == "train" and base_result["correct"]:
+                    anchors[row["id"]] = torch.tensor(base_result["probabilities"], device="cuda").unsqueeze(0)
+        report["baseRetentionTrainingItems"] = len(anchors)
         parameters = [p for p in model.parameters() if p.requires_grad]
         report["trainableParameters"] = sum(p.numel() for p in parameters)
         optimizer = torch.optim.AdamW(parameters, lr=0.0001 if accumulated else 0.0003, weight_decay=0)
@@ -183,6 +194,8 @@ def main():
                     optimizer.zero_grad(set_to_none=True)
                 logits, _ = model(*row["inputs"])
                 loss = torch.nn.functional.cross_entropy(logits, torch.tensor([row["target"]], device="cuda"))
+                if row["id"] in anchors:
+                    loss = loss + torch.nn.functional.kl_div(logits.log_softmax(-1), anchors[row["id"]], reduction="batchmean")
                 if not bool(torch.isfinite(loss)):
                     raise ValueError("Non-finite loss")
                 (loss / len(train) if accumulated else loss).backward()
