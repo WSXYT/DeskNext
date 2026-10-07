@@ -8,7 +8,7 @@ using Tokenizers.HuggingFace.Tokenizer;
 internal static class DirectMlModel
 {
     internal static Probe.Result RunVerified(Probe.Request request, Probe.Tensors? tensors, string directory,
-        int adapter, string evidence, string? expectedModelHash = null)
+        int adapter, string evidence, string? expectedModelHash = null, bool exportFeatures = false)
     {
         Probe.Validate(request);
         if (!Path.IsPathFullyQualified(directory)) throw new ArgumentException("Model directory must be absolute.");
@@ -42,14 +42,14 @@ internal static class DirectMlModel
             using var tokenizer = Tokenizer.FromFile(Path.Combine(directory, "tokenizer.json"));
             tensors = Probe.Encode(request, tokenizer, config.RootElement, directory);
         }
-        var result = Run(request, tensors, directory, config.RootElement, adapter, evidence);
+        var result = Run(request, tensors, directory, config.RootElement, adapter, evidence, exportFeatures);
         if (!Probe.ModelManifestHash(directory).Equals(hash, StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("Model manifest changed during the request.");
         return result;
     }
 
     internal static Probe.Result Run(Probe.Request request, Probe.Tensors tensors, string directory,
-        JsonElement config, int adapter, string evidence)
+        JsonElement config, int adapter, string evidence, bool exportFeatures = false)
     {
         int length = tensors.InputIds.Single().Length, markers = request.Candidates.Length;
         if (length is < 1 or > 1024 || tensors.AttentionMask.Length != 1 || tensors.AttentionMask[0].Length != length ||
@@ -73,6 +73,17 @@ internal static class DirectMlModel
             }, ["last_hidden_state"]);
             hidden = encoded.First().GetTensorDataAsSpan<float>().ToArray();
             VerifyGpuProfile(encoder.EndProfiling());
+        }
+        if (exportFeatures)
+        {
+            // Explicit training-data preparation only. Never enabled for a workbench/versioned request.
+            if (!BitConverter.IsLittleEndian) throw new PlatformNotSupportedException("Feature export requires little-endian FP32.");
+            using var features = new FileStream(Path.Combine(evidence, "encoder-features.f32"), FileMode.CreateNew, FileAccess.Write, FileShare.None);
+            features.Write(System.Runtime.InteropServices.MemoryMarshal.AsBytes(hidden.AsSpan()));
+            using var metadata = new FileStream(Path.Combine(evidence, "feature-input.json"), FileMode.CreateNew, FileAccess.Write, FileShare.None);
+            JsonSerializer.Serialize(metadata, new { request, tensors, shape = new[] { 1, length, 768 }, dtype = "float32-le",
+                scope = "Frozen encoder outputs for explicit developer training; not labels, accepted quality or production state." },
+                new JsonSerializerOptions(JsonSerializerDefaults.Web));
         }
         Console.Error.WriteLine("GPU_PHASE: encoder disposed; head");
         using var head = Session(directory, "head", length, markers, adapter, evidence);

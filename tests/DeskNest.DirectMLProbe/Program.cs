@@ -7,12 +7,13 @@ using Microsoft.ML.OnnxRuntime;
 // Isolated developer runner. Never load its DirectML native assets into the CPU App directory.
 bool worker = args.Length == 5 && args[0].StartsWith("--adapter=", StringComparison.Ordinal) &&
     args[1].StartsWith("--profiles=", StringComparison.Ordinal) && args[2] == "--inference-worker" && args[4] == "--protocol=1";
-bool diagnostic = args.Length == 3 && !args[0].StartsWith("--", StringComparison.Ordinal);
+bool exportFeatures = args.Length == 4 && args[3] == "--export-features";
+bool diagnostic = (args.Length == 3 || exportFeatures) && !args[0].StartsWith("--", StringComparison.Ordinal);
 int adapter = -1;
 if (!OperatingSystem.IsWindows() || (!worker && !diagnostic) ||
     !int.TryParse(worker ? args[0]["--adapter=".Length..] : args[1], out adapter) || adapter < 0)
 {
-    Console.Error.WriteLine("Usage: <absolute-model> <DXGI-index> <new-evidence-directory> OR --adapter=N --profiles=<new-directory> --inference-worker <absolute-model> --protocol=1");
+    Console.Error.WriteLine("Usage: <absolute-model> <DXGI-index> <new-evidence-directory> [--export-features] OR --adapter=N --profiles=<new-directory> --inference-worker <absolute-model> --protocol=1");
     return 2;
 }
 OrtEnv? environment = null;
@@ -80,11 +81,11 @@ try
         environment = OrtEnv.Instance();
         string hash = Probe.ModelManifestHash(model);
         Directory.CreateDirectory(evidence);
-        var result = DirectMlModel.RunVerified(selected.Request, selected.Tensors, model, adapter, evidence, hash);
+        var result = DirectMlModel.RunVerified(selected.Request, selected.Tensors, model, adapter, evidence, hash, exportFeatures);
         using var process = Process.GetCurrentProcess();
         Console.WriteLine(JsonSerializer.Serialize(new
         {
-            success = true, provider = "DirectML", adapter = adapterInfo, modelManifestSha256 = hash,
+            success = true, provider = "DirectML", adapter = adapterInfo, modelManifestSha256 = hash, featuresExported = exportFeatures,
             inputMode = selected.Tensors is null ? "shared-production-tokenizer" : "supplied-frozen-tensors",
             scope = "Experimental NVIDIA inference; host tokenization, embedding reads and postprocessing; no automatic selection or release acceptance.",
             totalMs = clock.ElapsedMilliseconds, hostPeakWorkingSetBytes = process.PeakWorkingSet64, result

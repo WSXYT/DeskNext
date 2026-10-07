@@ -2,6 +2,12 @@
 
 P3's user-approved safe manual workflow is accepted; **P4 is not complete**. These previews are read-only: they do not authorize any file move or copy. Manual file operations have their separate P3 evidence.
 
+## Frozen-encoder model adaptation pilot (2026-10-07)
+
+The user chose model adaptation while retaining the original P4 gate, not phase rescoping. A new isolated CUDA 11.7/PyTorch 2.0.1 environment supports the existing RTX 2050 without changing its driver or the CPU export environment. The developer GPU runner can explicitly export frozen encoder features; the versioned/workbench path never does so. A one-example head-only capability run completed eight finite-gradient updates at 356.72 MiB peak CUDA allocation, proving trainability rather than improved classification.
+
+A fixed 20-training/10-development-check pilot then completed 120 CUDA updates from the original head: train agreement 12/20→14/20 and check agreement 6/10→7/10, but a Chinese recipe regressed into Software. The checkpoint is not adopted or exported; two earlier low-memory terminations remain failed. No labels, input data or hyperparameters were altered during that run, and neither split is independent acceptance data. [Reproduction, environment, metrics and limitations](p4-model-adaptation.md). No live Jev, CPU inference fallback, P3 matrix or new P5 feature was involved.
+
 ## Unicode truncation at the excerpt boundary (2026-10-07)
 
 The shared bounded preview reader previously treated a byte-limited prefix as real EOF, so a valid UTF-8 filename-note document could become metadata-only when the limit split a Han character or emoji. It now uses a strict BOM-aware decoder with `flush=false` only for intentionally truncated prefixes, returning complete characters without reading past the byte budget. UTF-8, UTF-16 and UTF-32 BOM handling is preserved; malformed sequences and incomplete characters at actual EOF still refuse as metadata. No byte/entry limit or path policy was relaxed.

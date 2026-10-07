@@ -33,6 +33,7 @@ def main():
     parser.add_argument("output", type=Path)
     parser.add_argument("--adapter", type=int, required=True, help="DXGI index, NOT nvidia-smi index")
     parser.add_argument("--reference", type=Path)
+    parser.add_argument("--export-features", action="store_true", help="Explicit developer-only frozen encoder feature export; never use private filenames as public training data")
     parser.add_argument("--probe", type=Path, default=Path("tests/DeskNest.DirectMLProbe/bin/Release/net10.0/DeskNest.DirectMLProbe.exe"))
     args = parser.parse_args()
     if sys.platform != "win32":
@@ -53,8 +54,10 @@ def main():
         if summary["initialHost"]["freeCommitMiB"] < 2048:
             raise RuntimeError("Insufficient committed-memory headroom for one GPU load")
         with (args.output / "stdout.json").open("xb") as stdout, (args.output / "stderr.log").open("xb") as stderr:
-            process = subprocess.Popen([str(probe), str(args.model.resolve(strict=True)), str(args.adapter),
-                                        str((args.output / "profiles").resolve())], stdin=subprocess.PIPE,
+            command = [str(probe), str(args.model.resolve(strict=True)), str(args.adapter), str((args.output / "profiles").resolve())]
+            if args.export_features:
+                command.append("--export-features")
+            process = subprocess.Popen(command, stdin=subprocess.PIPE,
                 stdout=stdout, stderr=stderr, creationflags=subprocess.BELOW_NORMAL_PRIORITY_CLASS)
             process.stdin.write(data)
             process.stdin.close()
@@ -73,6 +76,8 @@ def main():
         measured = json.loads((args.output / "stdout.json").read_text(encoding="utf-8"))
         if measured["success"] is not True or measured["provider"] != "DirectML" or measured["adapter"]["vendorId"] != 0x10DE:
             raise ValueError("Missing NVIDIA DirectML execution evidence")
+        if args.export_features and measured.get("featuresExported") is not True:
+            raise ValueError("Requested feature export was not reported")
         result = measured["result"]
         if result["requestId"] != request["requestId"] or result["revision"] != request["revision"]:
             raise ValueError("Request/reply mismatch")

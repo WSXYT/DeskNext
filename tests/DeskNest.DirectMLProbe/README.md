@@ -49,6 +49,10 @@ Omit `tensors` to use the production tokenizer. Supplying previously frozen tens
 
 The driver uses one below-normal-priority process, a 90-second deadline, and emergency system-memory checks. It terminates only its own probe on failure. It does **not** guarantee the host will remain responsive: DirectML still allocates system memory, external applications compete for RAM/VRAM, and sampled checks can miss short peaks. It records the process working-set peak, not peak VRAM. Start no concurrent build/inference batch while this process is active.
 
+## Explicit frozen features for a training experiment
+
+The diagnostic CLI may take `--export-features` as a final argument (or use `run_directml_check.py --export-features`). It writes the `[1,sequence,768]` little-endian FP32 encoder output and `feature-input.json` into the new evidence directory, then still checks the original head. The versioned worker and normal workbench never set this option. Features encode supplied filename/hint/text and must stay in private ignored artifacts; do not extract private user data for public training. They are not labels or classifier-quality evidence. The [frozen-head adaptation report](../../docs/planning/p4-model-adaptation.md) describes the separate CUDA training environment and the one-example capability check.
+
 ## Self-contained runtime directory
 
 For an isolated Windows x64 directory that does not require an installed .NET SDK/runtime:
