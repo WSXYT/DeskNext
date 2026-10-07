@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "datasetId": "desknext-ai-development-v1",
+  "provenance": {
+    "labeling": "ai-assisted-synthetic",
+    "heldOut": false,
+    "source": "Authored synthetic filenames and provisional labels by the coding assistant at the user's request; no private file collection, independent human annotation or acceptance evidence. Translations share scenario groups."
+  },
+  "categories": [
+    {"id":"finance", "name":"Finance", "description":"Invoices, budgets and accounting records."},
+    {"id":"design", "name":"Design", "description":"Logos, wireframes and visual design assets."},
+    {"id":"code", "name":"Software", "description":"Source code, scripts and database migrations."}
+  ],
+  "scenarios": [
+    {"id":"invoice", "expected":"finance", "rationale":"Explicit invoice subject; financial record."},
+    {"id":"budget", "expected":"finance", "rationale":"Explicit budget subject; financial record."},
+    {"id":"logo", "expected":"design", "rationale":"Explicit logo subject; visual design asset."},
+    {"id":"wireframe", "expected":"design", "rationale":"Explicit wireframe subject; UI design asset."},
+    {"id":"migration", "expected":"code", "rationale":"Explicit SQL migration; software source."},
+    {"id":"authentication", "expected":"code", "rationale":"Authentication implementation in a source file."},
+    {"id":"generic-name", "expected":"filename-ambiguous", "rationale":"Generic text name without subject or hint."},
+    {"id":"generic-folder", "directory":true, "expected":"filename-ambiguous", "rationale":"Generic folder name does not identify contents."},
+    {"id":"recipe", "expected":"categories-insufficient", "rationale":"Recipe is a clear topic but none of the three offered categories covers it."},
+    {"id":"hinted-name", "expected":"finance", "rationale":"Explicit user hint supplies the missing invoice subject; generic filename alone is insufficient."}
+  ],
+  "locales": {
+    "en-US": {"names":["Supplier invoice May.pdf","Annual budget.xlsx","Brand logo.svg","Checkout wireframe.fig","Database migration.sql","Authentication service.py","Untitled.txt","New folder","Vegetable soup recipe.md","Notes.txt"],"hint":"A supplier invoice for purchased office equipment."},
+    "zh-CN": {"names":["五月供应商发票.pdf","年度预算.xlsx","品牌标志.svg","结账页面线框图.fig","数据库迁移.sql","身份认证服务.py","无标题.txt","新建文件夹","蔬菜汤食谱.md","笔记.txt"],"hint":"购买办公设备的供应商发票。"},
+    "zh-TW": {"names":["五月供應商發票.pdf","年度預算.xlsx","品牌標誌.svg","結帳頁面線框圖.fig","資料庫遷移.sql","身分驗證服務.py","未命名.txt","新增資料夾","蔬菜湯食譜.md","筆記.txt"],"hint":"購買辦公設備的供應商發票。"},
+    "ja-JP": {"names":["五月の仕入先請求書.pdf","年間予算.xlsx","ブランドロゴ.svg","決済画面ワイヤーフレーム.fig","データベース移行.sql","認証サービス.py","無題.txt","新しいフォルダー","野菜スープのレシピ.md","メモ.txt"],"hint":"購入したオフィス機器に関する仕入先の請求書。"},
+    "de-DE": {"names":["Lieferantenrechnung Mai.pdf","Jahresbudget.xlsx","Markenlogo.svg","Kassenansicht Wireframe.fig","Datenbankmigration.sql","Authentifizierungsdienst.py","Unbenannt.txt","Neuer Ordner","Gemüsesuppenrezept.md","Notizen.txt"],"hint":"Eine Lieferantenrechnung für gekaufte Büroausstattung."},
+    "fr-FR": {"names":["Facture fournisseur mai.pdf","Budget annuel.xlsx","Logo de marque.svg","Maquette filaire du paiement.fig","Migration de base de données.sql","Service authentification.py","Sans titre.txt","Nouveau dossier","Recette de soupe aux légumes.md","Notes.txt"],"hint":"Une facture fournisseur pour du matériel de bureau acheté."},
+    "es-ES": {"names":["Factura proveedor mayo.pdf","Presupuesto anual.xlsx","Logotipo de marca.svg","Esquema de la página de pago.fig","Migración de base de datos.sql","Servicio de autenticación.py","Sin título.txt","Nueva carpeta","Receta de sopa de verduras.md","Notas.txt"],"hint":"Una factura de proveedor por equipos de oficina comprados."},
+    "pt-BR": {"names":["Fatura fornecedor maio.pdf","Orçamento anual.xlsx","Logotipo da marca.svg","Esboço da página de pagamento.fig","Migração de banco de dados.sql","Serviço de autenticação.py","Sem título.txt","Nova pasta","Receita de sopa de legumes.md","Notas.txt"],"hint":"Uma fatura de fornecedor por equipamentos de escritório comprados."},
+    "ru-RU": {"names":["Счёт поставщика за май.pdf","Годовой бюджет.xlsx","Логотип бренда.svg","Каркас страницы оплаты.fig","Миграция базы данных.sql","Служба аутентификации.py","Без названия.txt","Новая папка","Рецепт овощного супа.md","Заметки.txt"],"hint":"Счёт поставщика за приобретённое офисное оборудование."},
+    "ar-SA": {"names":["فاتورة المورد لشهر مايو.pdf","الميزانية السنوية.xlsx","شعار العلامة.svg","مخطط صفحة الدفع.fig","ترحيل قاعدة البيانات.sql","خدمة المصادقة.py","بلا عنوان.txt","مجلد جديد","وصفة حساء الخضار.md","ملاحظات.txt"],"hint":"فاتورة مورد لمعدات مكتبية تم شراؤها."},
+    "hi-IN": {"names":["मई आपूर्तिकर्ता चालान.pdf","वार्षिक बजट.xlsx","ब्रांड लोगो.svg","भुगतान पृष्ठ वायरफ्रेम.fig","डेटाबेस माइग्रेशन.sql","प्रमाणीकरण सेवा.py","शीर्षकहीन.txt","नया फ़ोल्डर","सब्ज़ी सूप की विधि.md","नोट्स.txt"],"hint":"खरीदे गए कार्यालय उपकरण के लिए आपूर्तिकर्ता का चालान।"},
+    "bn-BD": {"names":["মে মাসের সরবরাহকারীর চালান.pdf","বার্ষিক বাজেট.xlsx","ব্র্যান্ড লোগো.svg","পেমেন্ট পাতার ওয়্যারফ্রেম.fig","ডেটাবেস মাইগ্রেশন.sql","প্রমাণীকরণ সেবা.py","শিরোনামহীন.txt","নতুন ফোল্ডার","সবজির স্যুপের রেসিপি.md","নোট.txt"],"hint":"কেনা অফিস সরঞ্জামের জন্য সরবরাহকারীর চালান।"}
+  }
+}

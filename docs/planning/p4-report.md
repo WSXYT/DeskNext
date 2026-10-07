@@ -2,6 +2,12 @@
 
 P3's user-approved safe manual workflow is accepted; **P4 is not complete**. These previews are read-only: they do not authorize any file move or copy. Manual file operations have their separate P3 evidence.
 
+## Return to P4 and first actual development-quality run (2026-10-07)
+
+The user re-issued strict phase order (P4 before P5–P7). The unfinished Flow regex-rename work was preserved, with hashes and its base commit, under ignored `artifacts/p5-paused/regex-rename-2026-10-07T02-36-57-975Z/`, then removed from active source. Already committed Flow increments are not relabeled as P4 work or full P5 acceptance.
+
+The user asked the assistant to prepare/prelabel samples and chose **no live Jev call**. An explicitly AI-assisted, non-held-out development corpus now has 120 synthetic filenames across twelve languages and ten shared scenario groups. A real local CPU run returned 119 responses and one resource-related worker failure, with 60/120 provisional-label agreement and zero correct categories-insufficient selections for twelve uncovered-recipe cases. The original batch exits nonzero and remains unchanged; a separate single-case recheck succeeded without establishing a resource-failure fix. See [development-quality results and reproduction](p4-development-quality.md). This is not the independent-human corpus, installed-GUI validation, automatic-move evidence or P4 acceptance. No labels or thresholds were changed to force a pass.
+
 ## Explicit Jev connection self-check (2026-10-06)
 
 Settings now provides **Test Jev connection** and cancellation. It requires the selected Jev draft, a session key and the existing explicit sending permission. The check sends only a built-in filename and three built-in options; it accepts no workspace names, paths, notes or file contents. The same client enforces the pinned model/schema, 45-second deadline, bounded 429 policy and response validation. A reply reports its model version, not classification quality. Changing/clearing the key, revoking permission, switching provider or disposing the workbench cancels the check and invalidates its notice; nothing is saved to workspace metadata.
@@ -226,7 +232,7 @@ The historical preview sections above do not override the newer deployment evide
 | Independent quality | At least 500 independently human-labeled, deduplicated held-out file-classification cases still required. No qualifying dataset has been supplied. The inspected upstream Feishu contribution explicitly contains only 64 AI-assisted synthetic workplace cases and is not a substitute. No human labels, API calls or passing quality metrics are fabricated. |
 | Runtime and release | Production local frames now negotiate version 1 and the selected manifest digest; raw P1 diagnostics remain separate. Remaining deployment failures, signatures, broader RID/clean-machine evidence and GPU variants remain open. CPU readiness does not authorize unverified acceleration or unattended moves. |
 
-The data/API questions received no selection. No private data or credentials were collected and no cloud requests were made. P4 remains incomplete; automatic moving and unverified GPU variants remain disabled.
+Earlier data/API questions received no selection. On 2026-10-07 the user asked the assistant to prepare/prelabel development samples and declined live Jev calls; the first real 120-case development diagnostic and rejected wording experiment are recorded above. No private data or credentials were collected and no cloud requests were made. This does not supply independent human-held-out evidence. P4 remains incomplete; automatic moving and unverified GPU variants remain disabled.
 
 ## Native Unix CPU deployment checkpoint (2026-10-06)
 
