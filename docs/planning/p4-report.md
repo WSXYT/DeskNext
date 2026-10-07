@@ -2,6 +2,12 @@
 
 P3's user-approved safe manual workflow is accepted; **P4 is not complete**. These previews are read-only: they do not authorize any file move or copy. Manual file operations have their separate P3 evidence.
 
+## Session-only Jev setup during onboarding (2026-10-07)
+
+The Jev engine card now exposes the existing masked session-key field, unchecked sending permission, clear action and explicit fixed-sample connection check/cancel. It shares the future workbench's view model and commands; finishing the wizard carries the session in memory, not workspace JSON or backup. Restarting setup revokes the earlier key/permission; closing the owner also clears them while still in onboarding. No credential-vault reads, automatic service calls or duplicate HTTP client were added. The local-model path input is hidden when Jev is selected.
+
+The App build passed with zero warnings/errors, and the checked existing headless workflow reports `Success=true`, `OnboardingJevSessionVerified=true` and twelve-locale parity (`artifacts/p4-installer-tests/onboarding-jev-session.log`). Checks cover the actual masked/consent/command bindings, missing-key and unapproved-send refusal, memory-only handoff, saved-key absence, reset and disposal. **No live request was made**: the fixture invokes the check only before a usable key+permission pair exists, and explicitly refuses to proceed if key entry failed to revoke permission. This is UI/privacy evidence, not Jev connectivity, billing or quality acceptance. No full-suite/CI/package repetition.
+
 ## Non-blocking first-run model deployment (2026-10-07)
 
 The engine step now exposes a destination picker, explicit download, offline package import, progress and cancellation. It borrows the **same existing workbench installation command**, not a second downloader or installer. Next/Complete do not wait for it; entering the workbench retains that command/task and shows Settings when a deployment is active or has a result. Changing provider cancels it, closing its owner cancels it, and invalid-package failure leaves the current selection untouched. Installed results remain in the Settings draft, even if installation finishes during onboarding; neither wizard navigation nor task completion activates that new result. Explicit Save Settings still controls activation. No default cache root is misrepresented as an already-selected model. A manually entered existing model path remains an ordinary saved wizard preference.

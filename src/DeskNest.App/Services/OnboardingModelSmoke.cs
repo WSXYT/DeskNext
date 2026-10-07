@@ -14,6 +14,63 @@ namespace DeskNest.App.Services;
 // Opt-in headless lifecycle check. Deferred callbacks below test task ownership, not model quality.
 internal static class OnboardingModelSmoke
 {
+    internal static async Task VerifyJevSessionAsync(string root)
+    {
+        await using var store = await WorkspaceStore.OpenAsync(root);
+        await store.UpdateAsync(s => s with
+        {
+            OnboardingStep = 2,
+            Settings = s.Settings with { Provider = InferenceProvider.Jev, ManagedRoot = Path.Combine(root, "Spaces") }
+        });
+        await using var owner = new MainWindowViewModel(store, ownsStore: false);
+        var window = new MainWindow(owner);
+        window.Show();
+        try
+        {
+            var wizard = owner.Onboarding!;
+            var setup = wizard.ModelDeployment!;
+            var view = window.GetVisualDescendants().OfType<OnboardingView>().Single();
+            var input = view.FindControl<TextBox>("OnboardingJevKeyInput")!;
+            var consent = view.FindControl<CheckBox>("OnboardingJevConsent")!;
+            var check = view.FindControl<Button>("OnboardingCheckJevButton")!;
+            Dispatcher.UIThread.RunJobs();
+            if (!input.IsEffectivelyVisible || input.PasswordChar == default || input.FlowDirection != Avalonia.Media.FlowDirection.LeftToRight ||
+                check.Command != setup.CheckJevConnectionCommand || setup.JevSendConsent || setup.JevSessionKey.Length != 0 ||
+                view.FindControl<Button>("OnboardingClearJevButton")!.Command != setup.ClearJevSessionCommand)
+                throw new InvalidOperationException("Onboarding Jev must use masked session state with no inherited permission.");
+            consent.IsChecked = true; // Missing key must refuse before HTTP.
+            await setup.CheckJevConnectionCommand.ExecuteAsync(null);
+            if (setup.JevConnectionNotice != setup.Localizer["Classification.JevSetup"])
+                throw new InvalidOperationException("Missing onboarding key was not refused.");
+            const string key = "onboarding-fixture-not-a-real-key";
+            input.Text = key;
+            if (setup.JevSendConsent) throw new InvalidOperationException("Key entry did not revoke permission; refuse to send the fixture.");
+            await setup.CheckJevConnectionCommand.ExecuteAsync(null); // Unapproved: must return before HTTP.
+            if (setup.JevConnectionNotice != setup.Localizer["Classification.JevSetup"])
+                throw new InvalidOperationException("Entering an onboarding key must revoke send permission.");
+            consent.IsChecked = true; // Do not invoke the connection command after this.
+            await wizard.GoNextAsync();
+            await wizard.GoNextAsync();
+            await wizard.GoNextAsync();
+            await wizard.CompleteOnboardingAsync();
+            if (!ReferenceEquals(owner.Studio, setup) || setup.JevSessionKey != key || !setup.JevSendConsent ||
+                store.Snapshot.Settings.Provider != InferenceProvider.Jev ||
+                File.ReadAllText(Path.Combine(root, "workspace.json")).Contains(key, StringComparison.Ordinal) ||
+                File.ReadAllText(Path.Combine(root, "workspace.json.bak")).Contains(key, StringComparison.Ordinal))
+                throw new InvalidOperationException("Completing onboarding must carry session state in memory only.");
+            await setup.ResetOnboardingAsync();
+            if (owner.Onboarding!.ModelDeployment!.JevSendConsent || setup.JevSessionKey.Length != 0)
+                throw new InvalidOperationException("Restarting onboarding must clear the prior cloud permission.");
+            setup.JevSessionKey = key;
+            setup.JevSendConsent = true;
+            await owner.DisposeAsync();
+            if (setup.JevSendConsent || setup.JevSessionKey.Length != 0)
+                throw new InvalidOperationException("Disposal must clear keys and permission while onboarding too.");
+            Console.WriteLine("OOBE_JEV_SESSION_VERIFIED: permission/refusal/transfer/disposal only; no live API request.");
+        }
+        finally { window.Close(); }
+    }
+
     internal static async Task<bool> VerifyAsync(string root)
     {
         await using var store = await WorkspaceStore.OpenAsync(root);

@@ -249,7 +249,7 @@
                         </Grid>
 
                         <!-- Cache Directory Input -->
-                        <StackPanel Spacing="6" Margin="0,8,0,0">
+                        <StackPanel Spacing="6" Margin="0,8,0,0" IsVisible="{Binding IsLayaSelected}">
                             <TextBlock Text="{Binding Localizer[OOBE.Step2.ModelCache]}" FontWeight="SemiBold" FontSize="13"/>
                             <TextBox Text="{Binding ModelCacheDirectory}"
                                      CornerRadius="{DynamicResource RadiusPrimary}"
@@ -283,6 +283,33 @@
                                                  IsVisible="{Binding InstallLocalModelPackageCommand.IsRunning}"/>
                                     <TextBlock Name="OnboardingModelNotice" Text="{Binding ModelInstallNotice}" TextWrapping="Wrap"
                                                Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <StackPanel IsVisible="{Binding HasModelDeployment}">
+                            <StackPanel IsVisible="{Binding IsJevSelected}">
+                                <StackPanel DataContext="{Binding ModelDeployment}" x:DataType="vm:StudioViewModel" Spacing="8">
+                                    <TextBlock Text="{Binding Localizer[Classification.JevSetup]}" TextWrapping="Wrap"/>
+                                    <TextBlock Text="{Binding Localizer[Classification.SessionKey]}"/>
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBox Name="OnboardingJevKeyInput" Text="{Binding JevSessionKey, Mode=TwoWay}"
+                                                 PasswordChar="●" MaxLength="4096" FlowDirection="LeftToRight"
+                                                 AutomationProperties.Name="{Binding Localizer[Classification.SessionKey]}"/>
+                                        <Button Name="OnboardingClearJevButton" Grid.Column="1" Margin="8,0,0,0"
+                                                Content="{Binding Localizer[Classification.ClearSession]}" Command="{Binding ClearJevSessionCommand}"/>
+                                    </Grid>
+                                    <CheckBox Name="OnboardingJevConsent" IsChecked="{Binding JevSendConsent, Mode=TwoWay}">
+                                        <TextBlock Text="{Binding Localizer[Classification.JevConsent]}" TextWrapping="Wrap"/>
+                                    </CheckBox>
+                                    <WrapPanel>
+                                        <Button Name="OnboardingCheckJevButton" Content="{Binding Localizer[Classification.TestJev]}"
+                                                Command="{Binding CheckJevConnectionCommand}" Margin="0,0,8,0"/>
+                                        <Button Content="{Binding Localizer[Action.Cancel]}" Command="{Binding CheckJevConnectionCancelCommand}"
+                                                IsVisible="{Binding CheckJevConnectionCommand.IsRunning}"/>
+                                    </WrapPanel>
+                                    <TextBlock Text="{Binding Localizer[Classification.TestJevNotice]}" TextWrapping="Wrap" FontSize="12"/>
+                                    <TextBlock Text="{Binding JevConnectionNotice}" TextWrapping="Wrap"/>
                                 </StackPanel>
                             </StackPanel>
                         </StackPanel>

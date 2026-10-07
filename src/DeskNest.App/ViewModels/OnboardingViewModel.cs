@@ -200,6 +200,7 @@ public sealed partial class OnboardingViewModel : ViewModelBase
         _modelCacheDirectory = state.Settings.ModelCacheDirectory ?? string.Empty;
         if (ModelDeployment is not null)
         {
+            ModelDeployment.ClearJevSession(); // Restarting setup never inherits an earlier send permission.
             ModelDeployment.SettingsProvider = _selectedProvider;
             ModelDeployment.SettingsModelCache = _modelCacheDirectory;
         }

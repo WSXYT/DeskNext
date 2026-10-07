@@ -1230,6 +1230,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IAsyncDisposabl
             await SetUIStateAsync(() =>
             {
                 Studio?.ClearJevSession();
+                _onboardingStudio?.ClearJevSession();
                 Studio?.VerifyLocalModelCommand.Cancel();
                 Studio?.InstallLocalModelPackageCommand.Cancel();
                 _onboardingStudio?.InstallLocalModelPackageCommand.Cancel();

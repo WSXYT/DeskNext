@@ -40,6 +40,7 @@ public sealed class SmokeTestResult
     public bool ResumableOobeVerified { get; set; }
     public bool OnboardingModelDeploymentVerified { get; set; }
     public bool OnboardingModelPackageInstalledVerified { get; set; }
+    public bool OnboardingJevSessionVerified { get; set; }
     public bool WorkspacePersistenceVerified { get; set; }
     public bool FailClosedErrorsVerified { get; set; }
     public bool Virtualization10kVerified { get; set; }
@@ -1079,6 +1080,9 @@ public static class HeadlessSmokeRunner
                 result.OnboardingModelPackageInstalledVerified = onboarding.GetAwaiter().GetResult();
                 result.OnboardingModelDeploymentVerified = true;
             }
+            using (var jevOnboardingFixture = new TempTestDir())
+                AwaitOnUIThread(OnboardingModelSmoke.VerifyJevSessionAsync(jevOnboardingFixture.Path), "onboarding Jev session", 20);
+            result.OnboardingJevSessionVerified = true;
             VerifySpaceMetadataBoundary();
             result.SpaceMetadataBoundaryVerified = true;
             foreach (bool directory in new[] { false, true })
