@@ -49,6 +49,17 @@ Omit `tensors` to use the production tokenizer. Supplying previously frozen tens
 
 The driver uses one below-normal-priority process, a 90-second deadline, and emergency system-memory checks. It terminates only its own probe on failure. It does **not** guarantee the host will remain responsive: DirectML still allocates system memory, external applications compete for RAM/VRAM, and sampled checks can miss short peaks. It records the process working-set peak, not peak VRAM. Start no concurrent build/inference batch while this process is active.
 
+## Self-contained runtime directory
+
+For an isolated Windows x64 directory that does not require an installed .NET SDK/runtime:
+
+```sh
+dotnet publish tests/DeskNest.DirectMLProbe -c Release -r win-x64 --self-contained true \
+  -m:1 --disable-build-servers -p:UseSharedCompilation=false -o artifacts/directml-runtime
+```
+
+Use a fresh directory and keep it **separate** from the App's CPU worker. Invoke `DeskNest.DirectMLProbe.exe` directly with the same arguments; the model remains separate. Python is only needed for derivation/the optional monitoring driver, not for the executable. The directory includes its own .NET runtime, DirectML/ORT and `tokenizers_proto.dll`. This is a developer publish, not an installed/signed release or a clean-machine test. A local published-directory raw-request check is recorded in the DirectML report.
+
 ## Versioned developer worker
 
 The same executable also accepts the existing version-1 framed-worker protocol:
@@ -69,4 +80,4 @@ See [the DirectML report](../../docs/planning/p4-directml-report.md). Three fixe
 
 The subsequent v1 integration check passed **three raw requests through the unmodified `LocalPreviewSession` and one reusable NVIDIA process**, with exact tokenizer tensors, matching choice/routing and logit/probability deltas below 1e-4. Cancelling another request retired the worker and no replacement/CPU fallback started. Oversized frames, protocol mismatch and wrong model digest were refused without graph execution. Two hardware tests executed and passed in `artifacts/p4-gpu/versioned-worker-followup/directml-worker-followup.trx`; the earlier `versioned-worker/directml-worker.trx` retains its memory-cancelled failure. No claim that the later pass solved system-wide memory pressure.
 
-These are bounded numerical/execution checks, not classifier quality, production App backend selection, physical UI cancellation, a packaged GPU runtime, per-adapter performance certification, or P4 acceptance. The application and public model release remain CPU-only. The user-facing manual-operation safeguards are unchanged.
+These are bounded numerical/execution checks, not classifier quality, production App backend selection, physical UI cancellation, an installed/signed GPU distribution, per-adapter performance certification, or P4 acceptance. The application and public model release remain CPU-only. The user-facing manual-operation safeguards are unchanged.

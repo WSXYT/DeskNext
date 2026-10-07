@@ -10,6 +10,10 @@ Cancelling the following real request retired the process and cleared the client
 
 This closes a bounded existing-client-to-GPU-protocol path only. App backend selection, released/installed GPU runtime and model artifacts, graceful UI cancellation, broad shape/adapter coverage and classifier quality remain open. The App and public model bundle stay CPU-only; no automatic GPU selector is exposed.
 
+### Self-contained developer directory
+
+Source `f137b70` was self-contained-published for Windows x64 into `artifacts/p4-gpu/runtime-f137b70/`, separate from all App/CPU outputs. It includes DirectML/ORT, .NET runtime and the actual tokenizer native filename `tokenizers_proto.dll` (not `tokenizers.dll`). No model weights or third-party dataset are included. A direct executable invocation from that published directory processed the long multilingual raw request with production tokenization and DirectML graph profiles: exit 0, matching tensor/choice/pending result, CPU-reference logit delta 5.12e-6 and probability delta 1.0208e-6, 9,323 ms, 676 MiB process peak (`published-worker-check/summary.json`). It performed no CPU inference fallback. The host still performs tokenization, row reads and postprocessing. This is **not** an installed App test, signed artifact, clean machine or peak-VRAM measurement. No public release was created or replaced.
+
 ## Explicit discrete-GPU continuation and row lookup (2026-10-07)
 
 After the user reported severe host pressure, they explicitly requested continuing on the discrete GPU rather than another CPU batch. Fresh DXGI enumeration identifies NVIDIA RTX 2050 as **adapter 1** (the same device is NVIDIA-tool index 0). No drivers/display settings or other user processes were changed. Early admission checks refused before loading; after the user explicitly requested continuing under low memory, a below-normal single probe retained an emergency memory cutoff and a 90-second deadline.
