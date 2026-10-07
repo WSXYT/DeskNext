@@ -3,7 +3,8 @@ param(
     [string]$OutputRoot,
     [switch]$SkipBuild,
     [switch]$IncludeRecoveryProbe,
-    [string]$PoggetNativeLibrary
+    [string]$PoggetNativeLibrary,
+    [switch]$IncludeExperimentalNvidia
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -19,6 +20,8 @@ $archive = Join-Path $OutputRoot ('DeskNest-' + $Version + '-win-x64-unsigned.zi
 if ((Test-Path -LiteralPath $manifestPath) -or (Test-Path -LiteralPath $archive)) {
     throw 'Manifest or archive already exists; refusing to change an existing package.'
 }
+$gpuRelative = 'worker\ort-1.24.4\win-x64\directml'
+if ($IncludeExperimentalNvidia -and $SkipBuild) { throw 'Experimental GPU selection requires a fresh build, not SkipBuild.' }
 $nativeArgs = @()
 if ($PoggetNativeLibrary) {
     $PoggetNativeLibrary = [IO.Path]::GetFullPath($PoggetNativeLibrary)
@@ -37,6 +40,11 @@ if (!$SkipBuild) {
     if ($LASTEXITCODE -ne 0) { throw 'UI publish failed.' }
     & dotnet publish (Join-Path $repository 'src\DeskNest.Inference\DeskNest.Inference.csproj') -c Release -r win-x64 --self-contained true -m:1 --disable-build-servers -p:UseSharedCompilation=false -o (Join-Path $payload 'worker\cpu')
     if ($LASTEXITCODE -ne 0) { throw 'Inference worker publish failed.' }
+    if ($IncludeExperimentalNvidia) {
+        # Different ORT/provider binaries must never be flattened into the CPU app/worker directories.
+        & dotnet publish (Join-Path $repository 'tests\DeskNest.DirectMLProbe\DeskNest.DirectMLProbe.csproj') -c Release -r win-x64 --self-contained true -m:1 --disable-build-servers -p:UseSharedCompilation=false -o (Join-Path $payload $gpuRelative)
+        if ($LASTEXITCODE -ne 0) { throw 'Experimental NVIDIA worker publish failed.' }
+    }
     if ($IncludeRecoveryProbe) {
         & dotnet publish (Join-Path $repository 'tests\DeskNest.RecoveryProbe\DeskNest.RecoveryProbe.csproj') -c Release -r win-x64 --self-contained true -m:1 --disable-build-servers -p:UseSharedCompilation=false -o (Join-Path $payload 'test\recovery')
         if ($LASTEXITCODE -ne 0) { throw 'Test-only recovery probe publish failed.' }
@@ -44,6 +52,13 @@ if (!$SkipBuild) {
 }
 if ($IncludeRecoveryProbe -and !(Test-Path -LiteralPath (Join-Path $payload 'test\recovery\DeskNest.RecoveryProbe.exe'))) {
     throw 'The requested test-only recovery probe is absent.'
+}
+if ($IncludeExperimentalNvidia) {
+    foreach ($required in @('DeskNest.DirectMLProbe.exe', 'onnxruntime.dll', 'DirectML.dll', 'tokenizers_proto.dll', 'coreclr.dll')) {
+        if (!(Test-Path -LiteralPath (Join-Path (Join-Path $payload $gpuRelative) $required) -PathType Leaf)) {
+            throw ('Experimental NVIDIA worker dependency missing: ' + $required)
+        }
+    }
 }
 if (!(Test-Path -LiteralPath (Join-Path $payload 'DeskNest.App.exe'))) { throw 'Published application not found.' }
 Copy-Item -LiteralPath (Join-Path $repository 'LICENSE'),(Join-Path $repository 'THIRD_PARTY_NOTICES.md') -Destination $payload

@@ -1,6 +1,6 @@
 # DeskNext Windows development package
 
-This is an **unsigned development package**, not a signed release installer. It runs without Python or an installed .NET SDK. The model is downloaded/imported separately and is not included. CPU inference binaries are isolated under `worker/cpu`; GPU variants are not enabled by this package.
+This is an **unsigned development package**, not a signed release installer. It runs without Python or an installed .NET SDK. The model is downloaded/imported separately and is not included. CPU inference binaries are isolated under `worker/cpu`. Default packages contain no GPU worker. A developer may explicitly build the experimental NVIDIA option below; it does not enable automatic GPU selection.
 
 Extract the complete archive to a local folder, open PowerShell in that folder, and run:
 
@@ -35,5 +35,21 @@ For a local **real desktop screenshot**, build the App in Release, then run `pow
 For **real Explorer drag/drop**, run `powershell.exe -NoProfile -File build/windows/Test-ExplorerDrag.ps1` from an **unelevated** terminal after a Release build. Keep the mouse idle during this opt-in test. It opens isolated file/directory fixtures in new Explorer windows, injects OS drag gestures in both directions, and uses production commands to confirm import and undo. It never uses the clipboard, refuses to drive preexisting Explorer windows and restores the pointer afterwards. At least 1100×600 logical pixels are needed. Logs under `artifacts/p3-publication-tests/explorer-*` must contain terminal `Success=true` and `ExplorerDragVerified=true`; failed fixture roots are retained. Normal Explorer cannot drop into an elevated app. To exercise an already installed build, pass `-App 'C:\path\to\installed\DeskNest.App.exe'` from a fresh unelevated terminal. The fixture creates a new managed space through the existing dialog command before its first drag. The driver checks the target HWND is visible at the drop point and starts on the Explorer item's icon/name area. Same-process post-install driver failures have been observed; a fresh-driver pass is not a diagnosis of them. This local developer script is not included in application payloads and is not complete cross-platform, GUI-crash or release acceptance.
 
 For the disabled Flow-definition editor, developers may compile `native/pogget-bridge` with CMake in Release (use `-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded` on Windows), then supply the resulting absolute DLL path to `Publish-Windows.ps1 -PoggetNativeLibrary <path-to-desknest_pogget.dll>`. Source builds accept `dotnet build src/DeskNest.App -p:PoggetNativeLibrary=<absolute-path>`. The DLL is copied beside the app; JSON definitions cannot select a library. Without it, native validation and saving definitions remain unavailable. This supplies definition validation and explicit reviewed runs: literal prompts and individually confirmed moves of cataloged ordinary files or directories into existing space folders. The existing Core coordinator owns moves and undo. Other file/control execution and automatic triggers remain unavailable; existing published packages are unchanged.
+
+## Optional experimental NVIDIA worker
+
+Developers can supply `-IncludeExperimentalNvidia` to `build/Publish-Windows.ps1` for a fresh, unsigned package. It adds a self-contained worker under `worker/ort-1.24.4/win-x64/directml`, including DirectML/ORT licenses and notices, without replacing CPU native libraries. The derived GPU model is still a separate local development artifact; no weights or test recovery executable are included by this option. `-SkipBuild` is refused for this variant.
+
+After installation and normal onboarding, launch the installed App explicitly:
+
+```powershell
+& '<installed-version>/DeskNest.App.exe' --experimental-nvidia `
+  '--gpu-worker=<installed-version>/worker/ort-1.24.4/win-x64/directml/DeskNest.DirectMLProbe.exe' `
+  '--gpu-model=<absolute-derived-model-directory>' --gpu-adapter=1
+```
+
+The adapter is a **DXGI** index: 1 is the measured RTX 2050 host, not a universal setting. Worker and model must be trusted local development inputs. This session does not overwrite saved engine/model settings or call Jev, and does not automatically fall back to CPU. Normal restart uses saved settings again. See `tests/DeskNest.DirectMLProbe/README.md` in the source repository for model derivation and hardware limits. This optional package is not a generally accepted GPU release or classifier-quality pass.
+
+`build/windows/Test-InstalledDirectML.ps1 -Bundle <bundle> -ModelDirectory <derived-model> -EvidenceDirectory <new-dir> -Adapter 1` performs only the installed GPU workflow on isolated temporary files, then uninstalls preserving the external model and unknown-file sentinel. It requires Node.js on the developer machine, not in the application. Terminal JSON must prove the installed worker was used; no P3 matrix or live Jev call is made.
 
 Checksums detect corruption; this unsigned manifest does **not** establish publisher authenticity. Do not treat it as the final P7 signed installer or an authenticated update feed. Physical Windows 10/ARM64 and macOS/Linux install/upgrade/uninstall evidence is separate from this win-x64 development package.

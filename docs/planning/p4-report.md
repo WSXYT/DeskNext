@@ -2,6 +2,10 @@
 
 P3's user-approved safe manual workflow is accepted; **P4 is not complete**. These previews are read-only: they do not authorize any file move or copy. Manual file operations have their separate P3 evidence.
 
+## Optional installed NVIDIA worker (2026-10-07)
+
+A fresh `-IncludeExperimentalNvidia` development package now carries the isolated DirectML 1.24.4 worker and native notices without changing default CPU packages or bundling model weights. Local unsigned `0.4.0-nvidia-session-20261007` passed the existing GPU workbench workflow from its **installed App and installed worker**, with eight DirectML graph profiles and confirmed-import/undo behavior. The outer command expired during uninstall; its durable removal plan was explicitly resumed without rerunning inference, and final evidence records both the interruption and successful removal/preservation. The archive's 659 manifest entries were verified. No public release, full P3 matrix, live Jev request, quality or P4 completion claim. [Detailed evidence and SHA-256](p4-directml-report.md).
+
 ## Explicit session-only NVIDIA workbench startup (2026-10-07)
 
 `--experimental-nvidia` plus explicit worker/model/DXGI arguments now starts the regular source-built workbench after normal onboarding, without changing saved engine settings. It overrides even a saved Jev choice locally, exposes the experimental label/path, and disables normal CPU deployment/reset actions for the session. Save Settings preserves the saved provider and model path; normal restart uses them again. No automatic GPU selection or public GPU release was added. The supplied worker is trusted developer code, not publisher-authenticated by this entry. The focused headless GPU workflow passed the overridden-preview and saved-setting-preservation checks with eight DirectML graph profiles; the earlier memory-cancelled attempt remains failed. [Usage and scope](../../tests/DeskNest.DirectMLProbe/README.md).

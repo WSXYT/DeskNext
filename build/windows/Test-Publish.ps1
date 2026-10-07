@@ -22,6 +22,9 @@ try {
     foreach ($relative in @('LICENSE', 'THIRD_PARTY_NOTICES.md', 'build/windows/Install.ps1', 'build/windows/README.md')) {
         [IO.File]::WriteAllText((Join-Path $root $relative), ('fixture ' + $relative))
     }
+    $gpuOutput = Join-Path $root 'gpu-refusal'
+    Expect-Failure { & $script -Version 'gpu' -OutputRoot $gpuOutput -SkipBuild -IncludeExperimentalNvidia }
+    Assert (!(Test-Path -LiteralPath $gpuOutput)) 'GPU SkipBuild refusal created output.'
     $output = Join-Path $root 'output'
     $payload = Join-Path $output 'DeskNest-win-x64/payload'
     [IO.Directory]::CreateDirectory($payload) | Out-Null

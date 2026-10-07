@@ -6,7 +6,15 @@
   <ItemGroup>
     <!-- Developer-only executable: never mix DirectML native assets into the shipped CPU directory. -->
     <Compile Include="../../src/DeskNest.Inference/Probe.cs" Link="Shared/Probe.cs" />
-    <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.24.4" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.24.4" GeneratePathProperty="true" />
+    <PackageReference Include="Microsoft.AI.DirectML" Version="1.15.4" GeneratePathProperty="true" />
     <PackageReference Include="Tokenizers.HuggingFace" Version="3.23.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="$(PkgMicrosoft_ML_OnnxRuntime_DirectML)/LICENSE" Link="licenses/onnxruntime/LICENSE" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="$(PkgMicrosoft_ML_OnnxRuntime_DirectML)/ThirdPartyNotices.txt" Link="licenses/onnxruntime/ThirdPartyNotices.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="$(PkgMicrosoft_AI_DirectML)/LICENSE.txt" Link="licenses/directml/LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="$(PkgMicrosoft_AI_DirectML)/LICENSE-CODE.txt" Link="licenses/directml/LICENSE-CODE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="$(PkgMicrosoft_AI_DirectML)/ThirdPartyNotices.txt" Link="licenses/directml/ThirdPartyNotices.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

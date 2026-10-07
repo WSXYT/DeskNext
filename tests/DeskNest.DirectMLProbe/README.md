@@ -58,6 +58,8 @@ dotnet publish tests/DeskNest.DirectMLProbe -c Release -r win-x64 --self-contain
   -m:1 --disable-build-servers -p:UseSharedCompilation=false -o artifacts/directml-runtime
 ```
 
+A developer installation bundle can instead be built with `build/Publish-Windows.ps1 -IncludeExperimentalNvidia -Version <new-version>`. This opt-in adds the self-contained worker at `worker/ort-1.24.4/win-x64/directml` and its native license/notices files; default packages stay unchanged. `build/windows/Test-InstalledDirectML.ps1` verifies only the installed GPU workbench flow and scoped uninstall, using a separately supplied model. It does not create a public release or run the P3 recovery matrix.
+
 Use a fresh directory and keep it **separate** from the App's CPU worker. Invoke `DeskNest.DirectMLProbe.exe` directly with the same arguments; the model remains separate. Python is only needed for derivation/the optional monitoring driver, not for the executable. The directory includes its own .NET runtime, DirectML/ORT and `tokenizers_proto.dll`. This is a developer publish, not an installed/signed release or a clean-machine test. A local published-directory raw-request check is recorded in the DirectML report.
 
 ## Versioned developer worker
