@@ -63,12 +63,19 @@ def main():
         torch.backends.cuda.enable_math_sdp(True)
         stage("validate-inputs")
         data = json.loads((args.prepared / "pilot.json").read_text(encoding="utf-8"))
-        expected_training = {"epochs": 6, "learningRate": 0.0003, "seed": 104729, "batchSize": 1,
-                             "encoderFrozen": True, "actionHeadFrozen": True, "fitTemperature": False}
+        contrastive = data.get("datasetId") == "desknext-contrastive-head-pilot-v1"
+        if contrastive and not args.accumulated_head:
+            raise ValueError("Contrastive pilot requires its fixed accumulated-head protocol")
+        expected_training = ({"epochs": 40, "learningRate": 0.0001, "seed": 104729, "batchSize": 1,
+                              "encoderFrozen": True, "actionHeadFrozen": True, "fitTemperature": False,
+                              "mode": "accumulated-head", "gradientAccumulation": 44,
+                              "headTransformerFrozen": False, "typeEmbeddingFrozen": False} if contrastive else
+                             {"epochs": 6, "learningRate": 0.0003, "seed": 104729, "batchSize": 1,
+                              "encoderFrozen": True, "actionHeadFrozen": True, "fitTemperature": False})
         if data["training"] != expected_training or data["provenance"]["heldOut"] is not False:
             raise ValueError("Pilot protocol changed")
         extraction = json.loads((args.features / "extraction.json").read_text())
-        if extraction["complete"] is not True or len(data["cases"]) != 30:
+        if extraction["complete"] is not True or len(data["cases"]) != (64 if contrastive else 30):
             raise ValueError("Incomplete feature extraction")
         source = json.loads((args.features / "source.json").read_text())
         if source["pilotSha256"] != sha(args.prepared / "pilot.json"):
@@ -119,11 +126,11 @@ def main():
             model.type_emb.requires_grad_(False)
         if accumulated:
             report["protocol"] = {**expected_training, "mode": "scorer-only" if args.scorer_only else "accumulated-head",
-                                  "epochs": 40, "learningRate": 0.0001, "gradientAccumulation": 20,
+                                  "epochs": 40, "learningRate": 0.0001, "gradientAccumulation": 44 if contrastive else 20,
                                   "headTransformerFrozen": args.scorer_only, "typeEmbeddingFrozen": args.scorer_only}
         train = [r for r in rows if r["split"] == "train"]
         checks = [r for r in rows if r["split"] == "development-check"]
-        if len(train) != 20 or len(checks) != 10:
+        if (len(train), len(checks)) != ((44, 20) if contrastive else (20, 10)):
             raise ValueError("Wrong fixed split sizes")
 
         def evaluate(items):
@@ -198,8 +205,10 @@ def main():
         stage("evaluate-fixed-final-head")
         after = evaluate(rows)
         report.update(success=True, epochs=epochs, updates=epochs if accumulated else epochs * len(train), trainLossByEpoch=losses,
-                      trainAgreementBefore=sum(x["correct"] for x in before[:20]), trainAgreementAfter=sum(x["correct"] for x in after[:20]),
-                      checkAgreementBefore=sum(x["correct"] for x in before[20:]), checkAgreementAfter=sum(x["correct"] for x in after[20:]),
+                      trainAgreementBefore=sum(x["correct"] for r, x in zip(rows, before, strict=True) if r["split"] == "train"),
+                      trainAgreementAfter=sum(x["correct"] for r, x in zip(rows, after, strict=True) if r["split"] == "train"),
+                      checkAgreementBefore=sum(x["correct"] for r, x in zip(rows, before, strict=True) if r["split"] == "development-check"),
+                      checkAgreementAfter=sum(x["correct"] for r, x in zip(rows, after, strict=True) if r["split"] == "development-check"),
                       peakCudaAllocatedMiB=round(torch.cuda.max_memory_allocated()/1048576,2),
                       peakCudaReservedMiB=round(torch.cuda.max_memory_reserved()/1048576,2),
                       featureHashes=feature_hashes, before=before, after=after)

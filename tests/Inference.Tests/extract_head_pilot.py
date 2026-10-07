@@ -17,8 +17,9 @@ def main():
     p.add_argument("--adapter", type=int, required=True)
     args = p.parse_args()
     data = json.loads((args.prepared / "pilot.json").read_text(encoding="utf-8"))
-    if data.get("datasetId") != "desknext-frozen-head-pilot-v1" or len(data["cases"]) != 30:
-        raise ValueError("Expected the explicitly prepared 30-case pilot")
+    size = {"desknext-frozen-head-pilot-v1": 30, "desknext-contrastive-head-pilot-v1": 64}.get(data.get("datasetId"))
+    if size is None or len(data["cases"]) != size:
+        raise ValueError("Expected an explicitly prepared bounded pilot")
     args.output.mkdir(exist_ok=False)
     write_json(args.output / "source.json", {"pilotSha256": hashlib.sha256((args.prepared / "pilot.json").read_bytes()).hexdigest(),
                                            "scope": __doc__, "sourceSha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()})
@@ -39,7 +40,7 @@ def main():
             completed.append({"index": index, "id": row["id"], "split": row["split"]})
             print(json.dumps(completed[-1]), flush=True)
     finally:
-        write_json(args.output / "extraction.json", {"completed": completed, "complete": len(completed) == 30, "formalAcceptance": False})
+        write_json(args.output / "extraction.json", {"completed": completed, "complete": len(completed) == size, "formalAcceptance": False})
 
 
 if __name__ == "__main__":
